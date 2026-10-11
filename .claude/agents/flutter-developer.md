@@ -84,6 +84,8 @@ Branch name, worktree path, commits, analyze and test results, coverage, open qu
 
 Record what you learn in MEMORY.md: provider and folder patterns, Drift migration approach, test helpers and fixtures, golden setup, Windows toolchain quirks, and decisions the orchestrator passed to you.
 
+Your memory folder lives inside your worktree (`.claude/agent-memory/flutter-developer/`), so it reaches main only through your branch. Commit memory changes with your ticket work, for example `T-021: update flutter-developer memory`, or they are lost when the worktree is removed.
+
 ## Environment
 
 Windows 11 dev machine. There is no Mac, so do not try to build iOS locally; iOS builds run in CI on macOS runners.

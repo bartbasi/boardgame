@@ -35,7 +35,7 @@ Full requirements live in docs/PRD.md.
 | code-reviewer | docs/handoffs/ |
 | orchestrator (main session) | everything else: CLAUDE.md, README.md, docs/decisions.md, root config, .claude/, .github/workflows/repo.yml |
 
-Every agent may also write its own memory folder, `.claude/agent-memory/<agent-name>/`. If you need a change in a file you do not own, describe it in the handoff file and tell the orchestrator.
+Every agent may also write its own memory folder, `.claude/agent-memory/<agent-name>/`. Memory folders are committed. Developers in worktrees commit their memory changes on the ticket branch; the orchestrator commits memory changes from agents that do not commit. If you need a change in a file you do not own, describe it in the handoff file and tell the orchestrator.
 
 ## Shared state
 

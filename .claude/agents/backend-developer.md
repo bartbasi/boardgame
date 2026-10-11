@@ -111,3 +111,5 @@ Branch name, worktree path, commits, analyze and test results, coverage, contrac
 ## Memory
 
 Record what you learn in MEMORY.md: upstream quirks confirmed in testing, queue and cache patterns, migration approach, Docker and ARM64 notes, and decisions the orchestrator passed to you.
+
+Your memory folder lives inside your worktree (`.claude/agent-memory/backend-developer/`), so it reaches main only through your branch. Commit memory changes with your ticket work, for example `T-014: update backend-developer memory`, or they are lost when the worktree is removed.
