@@ -1,0 +1,23 @@
+# Secrets: only .env.example files are committed
+.env
+.env.*
+!.env.example
+
+# Claude Code: worktrees and personal settings stay local; agent-memory is committed
+.claude/worktrees/
+.claude/settings.local.json
+.claude/agent-memory-local/
+
+# Dart and Flutter
+.dart_tool/
+build/
+coverage/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# OS and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.iml
