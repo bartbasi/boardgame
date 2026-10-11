@@ -131,7 +131,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-097 Research fallback game data sources if BGG refuses
 - Milestone: Planning
 - Owner: product-manager
-- Status: in-progress
+- Status: in-review
 - Depends on: none (runs in parallel with T-087; PRD Q23 and R1)
 - UX spec: n/a
 - Linked files: docs/api-research.md (new fallback section), docs/handoffs/T-097.md
@@ -478,6 +478,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given BGG is unavailable or the queue is busy and nothing is cached, then the endpoint returns 503 `upstream_unavailable` with a Retry-After header, and the body contains no upstream error text (proved by: endpoint).
   8. Given any 200 response, then it decodes with the api_contract game detail DTO (proved by: endpoint).
   9. Given the stored and returned data, then it holds only fields that docs/api-research.md confirms and BGG's terms allow (proved by: manual, reviewer and PM compare).
+  10. Given the migration, then the games table has an internal surrogate primary key and a `bgg_id` column that is unique and nullable (so a game from another source can exist later without one), and no other table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys"). The route still takes `{bggId}` and finds the game through the `bgg_id` column, and responses keep the api_contract field `bggId`; the internal id never appears in a response (proved by: integration against real PostgreSQL, where inserting a second row with bgg_id 13 fails, plus endpoint check of the response body).
 
 ### T-023 Server: GET /v1/games/search
 - Milestone: M2
@@ -533,6 +534,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   9. Given docs/api-research.md confirms GameUPC can return a product name without a BGG id (not confirmed as of 2026-10-11, GUPC-02, GUPC-07), then the backend runs a BGG title search with that name and returns status `candidates` with those results. If it is not confirmed when this ticket starts, this criterion is dropped and the handoff says so (proved by: endpoint).
   10. Given any lookup, then the database receives only the barcode, the mapping, and timestamps, and nothing about the requester (proved by: manual, reviewer and PM read the migration and code).
   11. Given any 200 response, then it decodes with the api_contract lookup DTO (proved by: endpoint).
+  12. Given the migration, then the mapping table stores each GTIN-13 once and points to its games by their internal id (a foreign key to the games table from T-022), not by `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys"). A BGG id from GameUPC that has no games row yet gets a row with only `bgg_id` set, which the game cache fills in later. Responses still carry `bggId`, never the internal id (proved by: integration against real PostgreSQL, storing a mapping for `0036000291452` to a BGG id with no cached game, then reading it back by barcode).
 
 ### T-026 App: barcode value object and validation
 - Milestone: M2
@@ -556,13 +558,14 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - UX spec: n/a
 - Linked files: app/lib/core/ (database), the schema export folder Drift's tooling uses
 - Acceptance criteria:
-  1. Given a fresh install, then the database is created at schema version 1 with a table of confirmed barcode matches (GTIN-13 key, bggId, confirmed time) and a table of cached game details (bggId key, data, fetchedAt, lastViewedAt) (proved by: unit with an in-memory database).
+  1. Given a fresh install, then the database is created at schema version 1 with a games table (internal surrogate id as primary key, `bgg_id` unique and nullable, cached details data, fetchedAt, lastViewedAt) and a table of confirmed barcode matches (GTIN-13 key, the game's internal id as a foreign key, confirmed time). No table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys") (proved by: unit with an in-memory database).
   2. Given a confirmed match from `0036000291452` to bggId 13, when a new match from the same code to bggId 822 is saved, then reading the code returns 822 (proved by: unit).
-  3. Given 501 cached games, then the least recently viewed one is evicted so 500 remain [ASSUMPTION]; M3 will exempt games in the collection (proved by: unit).
+  3. Given 501 games with cached details, then the details of the least recently viewed game are evicted so 500 remain [ASSUMPTION]. If a confirmed match points to that game, its row (internal id and `bgg_id`) stays, so reading that barcode still returns the game's bggId. M3 will exempt games in the collection (proved by: unit).
   4. Given the schema, then it is exported for Drift's migration tooling, and a migration test exists that later schema versions extend (proved by: unit).
   5. Given database work, then it runs off the UI isolate [ASSUMPTION] (proved by: manual review).
   6. Given a database error, then the caller receives a Failure, not an exception (proved by: unit with a failing fake).
   7. Given the database code, then line coverage is at least 80% (proved by: unit, coverage report).
+  8. Given details for bggId 13 are saved twice, then one games row exists, its internal id is unchanged, and a confirmed match pointing to it still resolves to bggId 13. Repositories take and return `bggId` as in the api_contract; the internal id never leaves the data layer (proved by: unit).
 
 ### T-028 App: games remote data source
 - Milestone: M2
@@ -742,7 +745,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Goal: Drift tables and a tested migration from schema v1 for Owned, Wanted, and Evaluating items with their fields, one list per game at a time.
+- Goal: Drift tables and a tested migration from schema v1 for Owned, Wanted, and Evaluating items with their fields, one list per game at a time. Items point to games by internal id, not `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys").
 
 ### T-038 Add to collection and move between lists
 - Milestone: M3

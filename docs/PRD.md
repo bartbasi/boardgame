@@ -73,7 +73,7 @@ Done when: CI is green on main for app, server, and repo checks; the app runs on
 
 Barcode scanning (UPC-A, EAN-13, EAN-8) with torch, haptics, and duplicate debounce; manual barcode entry; title search; candidate selection when a barcode has zero or several matches; on-device cache of confirmed barcode matches and viewed games; the game detail screen with BGG attribution. Backend: PostgreSQL access, per-IP rate limits, BGG client with a shared request queue, GameUPC client, and the barcode, search, and game detail endpoints.
 
-Started, because they gate M2 backend work: you are reviewing and submitting the BGG app registration and license application this week (T-087, in progress; approval can take a week or more, BGG-04), and PM is researching fallback game data sources in case BGG refuses (T-097, in progress). Still to start: the email to GameUPC (T-088).
+Started, because they gate M2 backend work: you are reviewing and submitting the BGG app registration and license application this week (T-087, in progress; approval can take a week or more, BGG-04), and PM has researched fallback game data sources in case BGG refuses (T-097, in review). None keeps the product as specified; the best is a reduced product (docs/api-research.md section 10, B11; Q33 to Q36). Still to start: the email to GameUPC (T-088).
 
 Done when: on a real Android phone (and an iPhone through TestFlight, once accounts exist), a user scans a box and reaches the right game's detail screen through the backend, and every M2 ticket is signed off.
 
@@ -189,6 +189,7 @@ Measured on reference devices still to be chosen (Q7), on a good network, in rel
 - **eBay:** the default Browse limit is 5,000 calls a day (EBAY-70). Raising it needs the free Application Growth Check (EBAY-72, EBAY-73), which expects at most two retries on infrastructure errors. Application tokens last 2 hours and are reused (EBAY-32). Daily usage is read with getRateLimits (EBAY-74) and logged, with a warning at 80% [ASSUMPTION].
 - **Snapshots:** the daily job covers every game looked up in the last 90 days (confirmed, docs/decisions.md 2026-10-11), stays inside the eBay budget, and runs only when the history flag is on (section 6 rule 9).
 - **Backups:** daily PostgreSQL backups, kept 14 days [ASSUMPTION], copied off the VM [ASSUMPTION], with a restore procedure that has been tested.
+- **Storage keys:** the server database and the on-device Drift database give each game an internal surrogate id. The BGG id is a unique external id column next to the game's barcodes (and a future Wikidata id). The /v1 API paths and the api_contract keep `bggId`, as the brief specifies. Reason: if BGG refuses or ends the license, a fallback catalog fits without a schema change (B11; docs/decisions.md 2026-10-11, "Storage keys").
 - **API versioning:** /v1 stays backward compatible. Breaking changes go to a new version while /v1 keeps working, so there is never a forced app update.
 - If the backend is down, the app keeps working from cached data.
 
@@ -216,11 +217,11 @@ US English only, USD, US date and number formats ($1,234.56; Oct 11, 2026).
 
 ## 9. External dependencies and risks
 
-The research ids (B1 to B10) refer to the "Blocking risks" table in docs/api-research.md.
+The research ids (B1 to B11) refer to the "Blocking risks" table in docs/api-research.md.
 
 | Id | Risk | Impact | Research | Next step |
 |---|---|---|---|---|
-| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. Fallback sources are being researched (T-097). | B1 | You submit the application this week (T-087, in progress). PM researches fallbacks in parallel (T-097). |
+| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. T-097 found no fallback that keeps the product as specified. The best is a reduced product: our own catalog seeded from Wikidata (about 5% of BGG's games, sparse details), a paid barcode database, and games users add by hand (docs/api-research.md section 10). | B1, B11 | You submit the application this week (T-087, in progress). Storage uses internal ids with the BGG id as an external column (section 8.7). If BGG refuses, answer Q33 to Q36. |
 | R2 | Keeping eBay-derived price history is a gray area in the eBay API License Agreement (EBAY-20, EBAY-21, EBAY-23). | History chart, snapshots, offline prices, collection total. | B2 | Ask eBay (T-089, Q24). Build history behind a flag. |
 | R3 | No sold prices: Marketplace Insights is closed to new users (EBAY-100, EBAY-102). | v1 shows asking prices only. | B3 | Accepted. T-059 on hold (Q27). |
 | R4 | GameUPC publishes no terms, limits, or availability promise, and documents only a test endpoint (GUPC-01 to GUPC-07). | Barcode lookup. Title search is the fallback. | B6 | Email the operator (T-088). |
@@ -267,11 +268,19 @@ Ticket-level proposals are marked in docs/backlog.md.
 
 ## 12. Open questions
 
-Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5. Answered questions move to the "Answered" list at the end of this section and keep their ids.
+Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, and Q33 to Q37 come from the fallback research (F1 to F5 in docs/handoffs/T-097.md). Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5. Answered questions move to the "Answered" list at the end of this section and keep their ids.
 
 **Start now (long lead time)**
 
 - Q10b (U6). Will you email the GameUPC operator (draft in docs/api-research.md section 3.3) for commercial permission, a production key, and limits before M2 backend work? Tracked as T-088. (Part (a) of Q10, the BGG application, is answered below.)
+- Q37 (T-097 F5). Should the GameUPC email (T-088) also ask whether GameUPC can return a product title it holds itself, not taken from BGG? That would help the reduced product in Q33 if BGG refuses. Whether GameUPC stores titles independently of BGG is unknown (GUPC-07).
+
+**Only if BGG refuses** (background: docs/api-research.md section 10 and B11; full recommendation in docs/handoffs/T-097.md)
+
+- Q33 (T-097 F1). Which path do you want? (a) Pause or stop the project. (b) Ask BGG what would change its answer, for example a paid license, or also linking to the game's BGG page or GeekMarket listings. (c) Ship a reduced product: our own catalog seeded from Wikidata (CC0, about 5% of BGG's games, sparse details), a paid barcode database, and games users add by hand, with eBay prices unchanged. Proposed: (b) first, then choose between (a) and (c).
+- Q34 (T-097 F2). Path (c) needs a paid barcode database. Published prices: EAN-Search.org from 19 EUR a month for 5,000 queries (FB-05), UPCitemdb $99 a month for 20,000 lookups a day (UPCDB-01), Barcode Lookup from $99 a month for 5,000 calls (FB-03). None of their terms clearly allows showing results in a public app, so we would ask the provider in writing first. Would you pay for one, and up to what monthly amount?
+- Q35 (T-097 F3). In path (c), most games would show only a title, perhaps a publisher, and users would add many games by hand (Q11). Is that still a product you want to ship?
+- Q36 (T-097 F4). Some Wikidata statements cite BGG as their source (WD-05), and GameUPC works through BGG ids. If BGG has refused us, should a lawyer confirm that using Wikidata board game data, and BGG ids as a lookup key, is safe? [ASSUMPTION: low risk, not legal advice.]
 
 **Before M1 work starts**
 
@@ -313,6 +322,7 @@ Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. W
 - Q20 (U7). The VM: research favors Ampere A1 (arm64) within 2 OCPUs and 12 GB (OCI-02). To avoid idle reclamation (OCI-07), do we size the VM so normal use stays above 20% memory, or upgrade to Pay As You Go (a paid account, $0 within the free limits, effect on reclamation UNVERIFIED, OCI-09, OCI-10)? Which domain name will we use?
 - Q21. Are 7-day request log retention and 14-day backup retention right? Where should backups be copied off the VM?
 - Q22. Where will the privacy policy and support page be hosted? The privacy policy needs a public, non-geofenced web page, not a PDF (GPLAY-03), linked in both stores and inside the app (APPLE-02). What support email should the listings show?
+- Q26 (U8). App Attest needs our server to keep a public key and counter for each install (APPLE-13), a pseudonymous per-install record. Do you accept it (and we disclose it), or should we design protection without per-install assertions?
 
 **Answered** (kept for reference; source: docs/decisions.md)
 
@@ -320,5 +330,4 @@ Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. W
 - Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework is still decided in T-005.
 - Q4 (U9, T-003 OQ4), answered 2026-10-11. Google ML Kit is approved on Android through mobile_scanner, with its usage metrics disclosed in the privacy policy and the Google Play Data safety form (MLKIT-01 to MLKIT-08; T-078, T-079). iOS uses Apple's scanner.
 - Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) this week (T-087, in progress). Part (b), GameUPC, stays open as Q10b above.
-- Q23 (U2), answered 2026-10-11. PM researches fallback game data sources in parallel, in case BGG refuses (T-097, in progress).
-- Q26 (U8). App Attest needs our server to keep a public key and counter for each install (APPLE-13), a pseudonymous per-install record. Do you accept it (and we disclose it), or should we design protection without per-install assertions?
+- Q23 (U2), answered 2026-10-11. PM researched fallback game data sources in parallel, in case BGG refuses (T-097, in review). Result: no fallback keeps the product as specified (B11). Follow-up questions are Q33 to Q37.
