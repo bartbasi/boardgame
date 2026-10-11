@@ -1,6 +1,6 @@
 # Product Requirements: Board Game Collector App
 
-- Status: Draft for user review (ticket T-001, round 2: research from T-002 folded in)
+- Status: Draft for user review (ticket T-001, round 3: research from T-002 and your checkpoint 2 decisions folded in)
 - Date: 2026-10-11
 - Owner: product-manager
 - Inputs: docs/brief.md (original brief), docs/decisions.md, docs/api-research.md (T-002, all facts checked 2026-10-11). Fact ids in parentheses, such as (EBAY-20), point to docs/api-research.md, which is the source of record for upstream facts. Blocking risk ids such as B2 refer to the "Blocking risks" table in that file.
@@ -65,7 +65,7 @@ Ticket ids refer to docs/backlog.md. Tasks only you can do (applications, accoun
 
 ### M1 Foundations (T-004 to T-017)
 
-Repository tooling and strict lints, a decision on a Dart pub workspace, CI on GitHub Actions [ASSUMPTION] (app.yml, server.yml, repo.yml with secret scanning, a prose style check, and dependency license checks), the Linux golden image pipeline, the app skeleton (navigation, light and dark themes, feature folders, Result and Failure types, HTTP client with retries), the backend skeleton (GET /health, fail-fast config, minimal structured logs), a multi-arch Dockerfile, local Docker Compose with PostgreSQL and Caddy, a shelf or dart_frog decision [ASSUMPTION: Dart backend], and the api_contract package skeleton.
+Repository tooling and strict lints, a decision on a Dart pub workspace, CI on GitHub Actions in the private repository bartbasi/boardgame (confirmed, docs/decisions.md 2026-10-11; iOS builds on macOS runners only on main and manual runs) (app.yml, server.yml, repo.yml with secret scanning, a prose style check, and dependency license checks), the Linux golden image pipeline, the app skeleton (navigation, light and dark themes, feature folders, Result and Failure types, HTTP client with retries), the backend skeleton (GET /health, fail-fast config, minimal structured logs), a multi-arch Dockerfile, local Docker Compose with PostgreSQL and Caddy, a shelf or dart_frog decision [ASSUMPTION: Dart backend], and the api_contract package skeleton.
 
 Done when: CI is green on main for app, server, and repo checks; the app runs on an Android emulator and the iOS build compiles in CI; https://localhost/health answers through local Compose; a golden rendered with the Linux command passes in CI.
 
@@ -73,7 +73,7 @@ Done when: CI is green on main for app, server, and repo checks; the app runs on
 
 Barcode scanning (UPC-A, EAN-13, EAN-8) with torch, haptics, and duplicate debounce; manual barcode entry; title search; candidate selection when a barcode has zero or several matches; on-device cache of confirmed barcode matches and viewed games; the game detail screen with BGG attribution. Backend: PostgreSQL access, per-IP rate limits, BGG client with a shared request queue, GameUPC client, and the barcode, search, and game detail endpoints.
 
-Start now, because they gate M2 backend work: the BGG app registration and license application (T-087; approval can take a week or more, BGG-04) and the email to GameUPC (T-088).
+Started, because they gate M2 backend work: you are reviewing and submitting the BGG app registration and license application this week (T-087, in progress; approval can take a week or more, BGG-04), and PM is researching fallback game data sources in case BGG refuses (T-097, in progress). Still to start: the email to GameUPC (T-088).
 
 Done when: on a real Android phone (and an iPhone through TestFlight, once accounts exist), a user scans a box and reaches the right game's detail screen through the backend, and every M2 ticket is signed off.
 
@@ -122,7 +122,7 @@ These rules apply to every screen and endpoint that shows a price.
 
 ### 8.1 Platforms
 
-- iOS 15 or later and Android API 24 or later [ASSUMPTION]. These minimums fit App Attest (iOS 14 and later, APPLE-11), Play Integrity (Android 6.0 and later, GPLAY-07), and ML Kit barcode scanning (API 23 and later, MLKIT-08).
+- iOS 15 or later and Android API 24 or later (confirmed, docs/decisions.md 2026-10-11). These minimums fit App Attest (iOS 14 and later, APPLE-11), Play Integrity (Android 6.0 and later, GPLAY-07), and ML Kit barcode scanning (API 23 and later, MLKIT-08).
 - Phones and tablets, portrait and landscape, with compact, medium, and expanded layouts.
 - Latest stable Flutter and Dart 3 (versions recorded in docs/decisions.md).
 
@@ -167,7 +167,7 @@ Measured on reference devices still to be chosen (Q7), on a good network, in rel
 - The collection and its photos never leave the phone, except in files the user exports. Whether the operating system's own backups include them is Q13.
 - The backend stores only: cached game data, barcode-to-game mappings, cached searches (normalized query text, no identifiers), eBay data within the age limits in section 6 (plus daily statistics if Q24 allows), and which games were looked up and when. It stores no IP addresses. The eBay listing cache keeps no seller or buyer identifiers [ASSUMPTION], so eBay's account deletion notifications need no data changes (EBAY-10, T-084).
 - Request logs hold method, route template, status, and duration only, and are kept 7 days [ASSUMPTION].
-- Third-party processing we must disclose: Google ML Kit usage metrics on Android, if you approve ML Kit (MLKIT-02 to MLKIT-04, Q4); image hosts, if images load directly (Q5); eBay, when the user opens a listing. Our server sends GameUPC barcodes only, never a device or user identifier (GUPC-02).
+- Third-party processing we must disclose: Google ML Kit on Android, which you approved with disclosure (docs/decisions.md 2026-10-11). It processes camera images on the device and sends usage and performance metrics to Google (MLKIT-02 to MLKIT-04). It must appear in the privacy policy (T-078) and the Google Play Data safety answers (T-079). iOS uses Apple's scanner, not ML Kit (MLKIT-05). Also: image hosts, if images load directly (Q5); eBay, when the user opens a listing. Our server sends GameUPC barcodes only, never a device or user identifier (GUPC-02).
 - Store requirements: both stores need a privacy policy link in the store listing and inside the app (APPLE-02, APPLE-05, GPLAY-03). Google Play's Data safety form is required even if we collect nothing (GPLAY-06). Apple's privacy details cover third-party SDK practices (APPLE-04). The iOS build needs accurate privacy manifests (APPLE-15).
 
 ### 8.6 Security
@@ -187,7 +187,7 @@ Measured on reference devices still to be chosen (Q7), on a good network, in rel
 - **Idle reclamation:** Oracle may reclaim an Always Free VM that looks idle over 7 days, meaning CPU (95th percentile), network, and memory are all under 20% (OCI-07). Either the VM is sized so normal use stays above that line, or the account is upgraded to Pay As You Go (a paid account; whether that stops reclamation is UNVERIFIED, OCI-10). You choose (Q20).
 - **BGG:** requests go through one queue at one request every 5 seconds [ASSUMPTION], configurable. BGG publishes no limit, and its wiki says a 5-second wait seems to suffice (BGG-20, BGG-21). This replaces the brief's 2 seconds, as the brief allows. Thing requests batch up to 20 ids (BGG-33). The queue backs off with jitter on 202, 429, 500, and 503. Game data is cached for at least 7 days (BGG has no cache rule we could find, BGG-24).
 - **eBay:** the default Browse limit is 5,000 calls a day (EBAY-70). Raising it needs the free Application Growth Check (EBAY-72, EBAY-73), which expects at most two retries on infrastructure errors. Application tokens last 2 hours and are reused (EBAY-32). Daily usage is read with getRateLimits (EBAY-74) and logged, with a warning at 80% [ASSUMPTION].
-- **Snapshots:** the daily job covers every game looked up in the last 90 days [ASSUMPTION], stays inside the eBay budget, and runs only when the history flag is on (section 6 rule 9).
+- **Snapshots:** the daily job covers every game looked up in the last 90 days (confirmed, docs/decisions.md 2026-10-11), stays inside the eBay budget, and runs only when the history flag is on (section 6 rule 9).
 - **Backups:** daily PostgreSQL backups, kept 14 days [ASSUMPTION], copied off the VM [ASSUMPTION], with a restore procedure that has been tested.
 - **API versioning:** /v1 stays backward compatible. Breaking changes go to a new version while /v1 keeps working, so there is never a forced app update.
 - If the backend is down, the app keeps working from cached data.
@@ -220,13 +220,13 @@ The research ids (B1 to B10) refer to the "Blocking risks" table in docs/api-res
 
 | Id | Risk | Impact | Research | Next step |
 |---|---|---|---|---|
-| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. No fallback has been researched. | B1 | Apply now (T-087). Decide on a fallback (Q23). |
+| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. Fallback sources are being researched (T-097). | B1 | You submit the application this week (T-087, in progress). PM researches fallbacks in parallel (T-097). |
 | R2 | Keeping eBay-derived price history is a gray area in the eBay API License Agreement (EBAY-20, EBAY-21, EBAY-23). | History chart, snapshots, offline prices, collection total. | B2 | Ask eBay (T-089, Q24). Build history behind a flag. |
 | R3 | No sold prices: Marketplace Insights is closed to new users (EBAY-100, EBAY-102). | v1 shows asking prices only. | B3 | Accepted. T-059 on hold (Q27). |
 | R4 | GameUPC publishes no terms, limits, or availability promise, and documents only a test endpoint (GUPC-01 to GUPC-07). | Barcode lookup. Title search is the fallback. | B6 | Email the operator (T-088). |
 | R5 | Apple can ask for proof that we may show BGG and eBay content (APPLE-08). | Release. | APPLE-08 | Permission proof ready (T-094). |
 | R6 | At one BGG request every 5 seconds, cold lookups wait in our queue under load. Developers report 429 responses even at that spacing (BGG-22, unverified). | Slow first lookups. Mitigated by caching. | BGG-21, BGG-22 | Monitor in M2 and M5. |
-| R7 | mobile_scanner runs Google ML Kit on Android, under Google's terms, not an open source license, and ML Kit sends usage metrics to Google (MLKIT-01 to MLKIT-07). mobile_scanner has no other Android engine. | Android scanning, license rule, privacy disclosures. | B9 | Your approval (Q4). |
+| R7 | mobile_scanner runs Google ML Kit on Android, under Google's terms, not an open source license, and ML Kit sends usage metrics to Google (MLKIT-01 to MLKIT-07). mobile_scanner has no other Android engine. | Android scanning, license rule, privacy disclosures. | B9 | Approved with disclosure (docs/decisions.md 2026-10-11). Disclose in T-078 and T-079. |
 | R8 | One free VM is a single point of failure, and Oracle may reclaim it if it looks idle for 7 days (OCI-07). | Backend downtime. The app falls back to cached data. | B8 | Size the VM or upgrade (Q20). |
 | R9 | No commission until EPN approves the app, and EPN wants a live store link first (EBAY-90, EBAY-91). | Revenue from launch day until approval. | B4 | Apply at launch (T-092, Q15). |
 | R10 | EPN restricts disclosure wording and placement (EBAY-92, EBAY-93). Approved phrases such as "Ad" may sit badly with "no ads" and with Google Play's "Contains ads" answer (GPLAY-12). | Listing layout, copy, store declarations. | B5 | Choose wording (Q25). |
@@ -249,7 +249,9 @@ The research ids (B1 to B10) refer to the "Blocking risks" table in docs/api-res
 
 ## 11. Assumptions to confirm
 
-From the brief: CI on GitHub Actions; Android API 24 and iOS 15 minimums; a Dart backend on dart_frog or shelf (T-005); snapshots for games looked up in the last 90 days.
+Confirmed by you on 2026-10-11 (docs/decisions.md), so no longer assumptions: CI on GitHub Actions; Android API 24 and iOS 15 minimums; snapshots for games looked up in the last 90 days.
+
+Still open from the brief: a Dart backend on dart_frog or shelf (T-005).
 
 Changed by research: the brief's BGG spacing of one request every 2 seconds becomes 5 seconds [ASSUMPTION] (BGG-20, BGG-21), as the brief allows.
 
@@ -265,23 +267,19 @@ Ticket-level proposals are marked in docs/backlog.md.
 
 ## 12. Open questions
 
-Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5.
+Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5. Answered questions move to the "Answered" list at the end of this section and keep their ids.
 
-**Start now (long lead times)**
+**Start now (long lead time)**
 
-- Q10 (U1, U6). Partner access for M2. (a) BGG: approve the license application text in docs/api-research.md section 1.6, fill in the bracketed items, and decide whether to offer BGG a link to the game's BGG page or its marketplace listings. Who submits it, and when? Approval can take a week or more (BGG-04). Tracked as T-087. (b) GameUPC: will you email the operator (draft in section 3.3) for commercial permission, a production key, and limits before M2 backend work? Tracked as T-088.
-- Q23 (U2). If BGG refuses a commercial license, should we research a fallback data source, or does the project stop?
+- Q10b (U6). Will you email the GameUPC operator (draft in docs/api-research.md section 3.3) for commercial permission, a production key, and limits before M2 backend work? Tracked as T-088. (Part (a) of Q10, the BGG application, is answered below.)
 
 **Before M1 work starts**
 
-- Q1. What are the app's display name, Android application id, and iOS bundle id? Until you answer, M1 uses the placeholder name "Board Game Collector" and the id com.example.boardgamecollector [ASSUMPTION]. That id must change before any store upload. The name may include "eBay" only with EPN's written approval, and only descriptively (EBAY-82).
-- Q2. Is the GitHub repository private or public? For private repositories, GitHub Actions minutes are limited, and macOS runners (needed for iOS builds) use them faster. Current pricing is UNVERIFIED. To limit macOS use, the proposal is to build iOS only on main and on manual runs.
-- Q3. Please confirm the brief's assumptions in section 11. The backend framework is decided separately in T-005.
+- Q1. What are the app's display name, Android application id, and iOS bundle id? Until you answer, M1 uses the placeholder name "Board Game Collector" and the id com.example.boardgamecollector [ASSUMPTION]. That id must change before any store upload. The name may include "eBay" only with EPN's written approval, and only descriptively (EBAY-82). The BGG application (T-087) also needs the name.
 - Q31 (T-003 OQ11). Do you like the seed color `0xFF1F6B5C` (a deep green-teal, the color of game table felt), with wallpaper-based dynamic color turned off? T-012 uses it from M1.
 
 **Before M2**
 
-- Q4 (U9, T-003 OQ4). Do you approve Google ML Kit on Android? mobile_scanner uses it on Android with no alternative engine (MLKIT-05, MLKIT-07). It is governed by the Google APIs Terms of Service, not MIT, BSD, or Apache 2.0 (MLKIT-01), and it sends usage metrics to Google that we must disclose (MLKIT-02, MLKIT-03). The alternative is research into a different Android scanning package, which would change the brief's stack.
 - Q5 (T-003 OQ2, OQ5). Can the app load cover images (BGG) and listing photos (eBay) directly from their image hosts? A strict reading of "the app talks only to our backend" says no, which means the backend proxies them. BGG staff have asked developers not to hotlink, and image rights are unclear (BGG-42), so the research suggests asking BGG in the license application. The options are direct loading, a backend proxy or cache, or no cover images. Until this is answered, every screen must work without cover images.
 - Q6. Do you have Apple Developer Program and Google Play Console accounts (both are paid)? Is the publisher you as an individual, or a company? iPhone testing through TestFlight (T-036) needs the Apple account.
 - Q7. Which iPhone and Android phone models can you test on? We will use them as the reference devices for section 8.3 and for manual checks.
@@ -315,4 +313,12 @@ Ids are stable: Q1 to Q22 are from round 1, and Q23 to Q32 are new in round 2. W
 - Q20 (U7). The VM: research favors Ampere A1 (arm64) within 2 OCPUs and 12 GB (OCI-02). To avoid idle reclamation (OCI-07), do we size the VM so normal use stays above 20% memory, or upgrade to Pay As You Go (a paid account, $0 within the free limits, effect on reclamation UNVERIFIED, OCI-09, OCI-10)? Which domain name will we use?
 - Q21. Are 7-day request log retention and 14-day backup retention right? Where should backups be copied off the VM?
 - Q22. Where will the privacy policy and support page be hosted? The privacy policy needs a public, non-geofenced web page, not a PDF (GPLAY-03), linked in both stores and inside the app (APPLE-02). What support email should the listings show?
+
+**Answered** (kept for reference; source: docs/decisions.md)
+
+- Q2, answered 2026-10-11. The GitHub repository bartbasi/boardgame is private. iOS builds on macOS runners run only on main and on manual runs (T-014).
+- Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework is still decided in T-005.
+- Q4 (U9, T-003 OQ4), answered 2026-10-11. Google ML Kit is approved on Android through mobile_scanner, with its usage metrics disclosed in the privacy policy and the Google Play Data safety form (MLKIT-01 to MLKIT-08; T-078, T-079). iOS uses Apple's scanner.
+- Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) this week (T-087, in progress). Part (b), GameUPC, stays open as Q10b above.
+- Q23 (U2), answered 2026-10-11. PM researches fallback game data sources in parallel, in case BGG refuses (T-097, in progress).
 - Q26 (U8). App Attest needs our server to keep a public key and counter for each install (APPLE-13), a pseudonymous per-install record. Do you accept it (and we disclose it), or should we design protection without per-install assertions?

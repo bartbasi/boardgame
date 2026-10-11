@@ -37,6 +37,8 @@ UI and backend tickets refer to these so that every ticket uses the same values.
 - **Large text:** text scale factor 2.0. Goldens rendered at 2.0 add the suffix `text200` to the state, for example `scanner_denied_text200_light_compact.png`.
 - **Accessibility guidelines pass** means flutter_test's `androidTapTargetGuideline`, `iOSTapTargetGuideline`, `labeledTapTargetGuideline`, and `textContrastGuideline` all pass for the screen, in light and dark themes.
 - **Offline** in app tests: the fake data source returns the no-connection failure.
+- **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5).
+- **BGG attribution:** screens that show BGG data use the BggAttribution component from docs/ux/components.md (`common.bggCredit`, `common.bggLogoLabel`) where the screen spec places it (BGG-40, BGG-41). Until the official logo file arrives from T-087, the spec's placeholder box is used. The ticket records the swap as a follow-up, and the official logo must be in place before release (T-082).
 - **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
 - **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B10 point to its "Blocking risks" table.
 - **Barcode vectors** (check digits verified by hand):
@@ -62,7 +64,7 @@ T-014 and T-015 both edit app.yml, and T-011 and T-019 both edit server.yml, so 
 
 ### M2
 
-Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q4 (ML Kit), Q5 (images), and Q10 (BGG and GameUPC access). The BGG token comes from T-087 and GameUPC production details from T-088. T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
+Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q5 (images). PRD Q4 (ML Kit) was answered on 2026-10-11 (approved), and the BGG application is in progress (T-087). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b). T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
 
 - Backend lane: T-018 first, because the app's T-028 needs the contract. Then T-019, T-021, T-022, T-023, T-024, T-025. T-020 fits anywhere after T-008.
 - App lane: T-026 and T-027 start right away (no backend dependency) and can run in parallel worktrees because they touch separate folders. Then T-030 and T-031, then T-028 (after T-018 is merged), T-029, T-032, T-033, T-034, T-035. T-036 when its blockers clear.
@@ -75,7 +77,7 @@ Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen
 
 ### User tasks
 
-T-087 and T-088 start now (BGG approval can take a week or more, BGG-04). T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
+T-087 is in progress (the user submits the BGG application this week; approval can take a week or more, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
 
 ---
 
@@ -90,7 +92,7 @@ T-087 and T-088 start now (BGG approval can take a week or more, BGG-04). T-091 
 - Linked files: docs/PRD.md, docs/backlog.md, docs/handoffs/T-001.md
 - Acceptance criteria:
   1. Given docs/PRD.md, when the user reads it, then it covers goals, users, user stories, features by milestone M1 to M5, pricing rules, monetization constraints, non-functional requirements with numeric targets, external risks, out of scope, assumptions, and open questions (proved by: manual, user review).
-  2. Given each [ASSUMPTION] in docs/brief.md (GitHub Actions; Android API 24 and iOS 15; dart_frog or shelf; 90 days), when docs/PRD.md is searched, then each one is present and still marked (proved by: manual).
+  2. Given each [ASSUMPTION] in docs/brief.md (GitHub Actions; Android API 24 and iOS 15; dart_frog or shelf; 90 days), when docs/PRD.md is searched, then each one is present and either still marked or, once the user confirmed it, cites the docs/decisions.md entry instead (GitHub Actions, API 24 and iOS 15, and 90 days were confirmed on 2026-10-11) (proved by: manual).
   3. Given every M1 and M2 ticket in this file, then every criterion is Given, When, Then with concrete values and names a test type, and every ticket has one owner and its dependencies (proved by: manual).
   4. Given docs/PRD.md and docs/backlog.md, when searched for U+2014 and for a double hyphen used as a dash outside code spans, then nothing is found (proved by: manual now; the repo.yml check after T-016).
 
@@ -125,6 +127,21 @@ T-087 and T-088 start now (BGG approval can take a week or more, BGG-04). T-091 
   7. Given app-shell.md, then it decides the top-level destinations, the navigation pattern for each window size, and the seed color, and it confirms or changes the window sizes in "Shared test definitions" (proved by: manual).
   8. Given every spec, then no screen has an interstitial, an onboarding wall, a rating prompt, or a confirmation step before opening eBay (proved by: manual).
   9. Given docs/ux/components.md and docs/ux/accessibility-checklist.md, then every component used in a spec is listed with its states, and the checklist covers WCAG 2.2 AA contrast, 48 dp targets, text at 200%, semantic labels, focus order, announcements, chart text summaries, and reduce motion (proved by: manual).
+
+### T-097 Research fallback game data sources if BGG refuses
+- Milestone: Planning
+- Owner: product-manager
+- Status: in-progress
+- Depends on: none (runs in parallel with T-087; PRD Q23 and R1)
+- UX spec: n/a
+- Linked files: docs/api-research.md (new fallback section), docs/handoffs/T-097.md
+- Acceptance criteria:
+  1. Given each candidate game data source found, then docs/api-research.md records, as sourced facts (source URL, date checked, quote or close paraphrase, confidence) or as UNVERIFIED with what was tried: its terms for commercial use, including revenue from affiliate commission; its access method (API, data download, or license); its rate limits; its cost; and the attribution it requires (proved by: manual).
+  2. Given each candidate, then the file records what data it provides against our needs: title search, the game detail fields in docs/ux/screens/game-detail.md (name, year, players, play time, designers, publishers, description, images), and barcode (UPC or EAN) mapping. Where a candidate has no barcode mapping, the file says whether GameUPC, which returns BGG ids (GUPC-02), could still be used with it (proved by: manual).
+  3. Given a source whose terms forbid commercial use, or that could only be used by scraping against its terms, then it is listed as rejected with the reason, not recommended (proved by: manual).
+  4. Given all candidates, then a comparison table shows each one against the needs in criterion 2 plus commercial use, limits, and cost (proved by: manual).
+  5. Given the comparison, then the handoff gives a recommendation: the best fallback, or "no viable fallback". It says which features would change if we switched (barcode lookup, title search, game detail, attribution), the rough effort, and the cost, and it flags any paid option or non-MIT, BSD, or Apache 2.0 license for the user's approval (CLAUDE.md rule 6) (proved by: manual).
+  6. Given a finding that could block or reshape a feature, then it is added to "Blocking risks" in docs/api-research.md and repeated in the report to the orchestrator (proved by: manual).
 
 ---
 
@@ -264,7 +281,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` [ASSUMPTION, PRD Q31]; dynamic color off.
 - Linked files: app/
 - Acceptance criteria:
-  1. Given app/, then it is a Flutter project with Android minSdk 24 and iOS deployment target 15.0 [ASSUMPTION], using the display name and ids from PRD Q1 (placeholders until answered) (proved by: manual, read the build files).
+  1. Given app/, then it is a Flutter project with Android minSdk 24 and iOS deployment target 15.0 (confirmed, docs/decisions.md 2026-10-11), using the display name and ids from PRD Q1 (placeholders until answered) (proved by: manual, read the build files).
   2. Given lib/features/, then scanner, game_detail, pricing, collection, and settings each have data, domain, and presentation folders, and shared code lives in lib/core/ (proved by: manual).
   3. Given any Dart file under a domain folder, when the architecture test runs, then it fails if the file imports package:flutter, dart:ui, or any plugin package; it passes for the skeleton, and it proves itself against a fixture that contains a forbidden import (proved by: unit).
   4. Given a compact window (390 x 844 dp), then a bottom NavigationBar shows Scan, Search, Collection, and Settings in that order; given a medium, expanded, or landscape window (744, 1280, or 844 dp wide), then a NavigationRail shows them; and the app starts on Scan with nothing shown between launch and the Scan placeholder (proved by: widget).
@@ -312,7 +329,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   3. Given the ubuntu job, then it resolves dependencies, runs code generation if generated files are not committed, then runs `dart format --output=none --set-exit-if-changed`, `flutter analyze --fatal-infos`, and `flutter test --coverage` (proved by: manual, run log).
   4. Given line coverage below 80% for files under lib/core/ and lib/features/*/domain/ and lib/features/*/data/, then the workflow fails, and the coverage report is uploaded as an artifact in every run (proved by: manual, a scratch branch, deleted afterward).
   5. Given the ubuntu job, then `flutter build apk --debug` succeeds (proved by: manual, run log).
-  6. Given a push to main or a manual run, then a macOS job runs `flutter build ios --no-codesign` and succeeds; it does not run on other branches [ASSUMPTION, pending PRD Q2] (proved by: manual, run log).
+  6. Given a push to main or a manual run, then a macOS job runs `flutter build ios --no-codesign` and succeeds; given a push to any other branch or a pull request, then no macOS job runs. The repository bartbasi/boardgame is private, and macOS builds run only on main and manual runs (docs/decisions.md 2026-10-11) (proved by: manual, run logs for a main push and a branch push).
   7. Given the workflow file, then permissions are read-only and every third-party action is pinned to a full commit SHA (proved by: manual).
   8. Given a typical change, then the ubuntu jobs finish in 15 minutes or less [ASSUMPTION] (proved by: manual).
 
@@ -343,7 +360,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - Acceptance criteria:
   1. Given any push or pull request, then repo.yml runs secret scanning over the new commits (proved by: manual, observe a run).
   2. Given a scratch branch that commits a fake but well-formed credential (for example a string in AWS access key format), then the job fails and names the file and line; the branch is deleted afterward (proved by: manual).
-  3. Given the secret scanner, then its license is MIT, BSD, or Apache 2.0, it is free for this repository, and any license key requirement is raised with the user before use (proved by: manual).
+  3. Given the secret scanner, then its license is MIT, BSD, or Apache 2.0, it is free for this private repository (bartbasi/boardgame, docs/decisions.md 2026-10-11), and any license key requirement is raised with the user before use (proved by: manual).
   4. Given a tracked file named `.env` or `.env.<anything>` other than `.env.example`, then the job fails (proved by: manual, scratch branch).
   5. Given the prose check, then it scans README.md, CLAUDE.md, every .md file under docs/, and app/lib/l10n/*.arb (proved by: manual, read the script).
   6. Given U+2014 (em dash) anywhere in those files, then the check fails and prints file, line, and column (proved by: unit tests for the script, plus a manual run).
@@ -364,7 +381,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   2. Given a package licensed MIT, BSD-2-Clause, BSD-3-Clause, or Apache-2.0, then it passes (proved by: unit with a fixture lockfile and fixture license data).
   3. Given a package with any other license, or a license the tool cannot determine, then the check fails and names the package, version, and license found, unless the package is on the allowlist (proved by: unit).
   4. Given the allowlist, then every entry names the package, the license, and the docs/decisions.md entry where the user approved it; an entry without that reference fails the check (proved by: unit).
-  5. Given components the lockfile check cannot see (Docker base images, native SDKs pulled in by plugins such as Google ML Kit, bundled fonts), then each is listed by hand with its license and approval status in the third-party components list, and ML Kit shows "pending user approval (PRD Q4)" until the user answers (proved by: manual).
+  5. Given components the lockfile check cannot see (Docker base images, native SDKs pulled in by plugins such as Google ML Kit, bundled fonts), then each is listed by hand with its license and approval status in the third-party components list, and ML Kit is listed as approved by the user on 2026-10-11 under the Google APIs Terms of Service, with a pointer to docs/decisions.md (MLKIT-01) (proved by: manual).
   6. Given the tool used for the check, then its own license is MIT, BSD, or Apache 2.0 and it is free (proved by: manual).
 
 ---
@@ -584,7 +601,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-012, T-026; PRD Q4 (user approval of Google ML Kit on Android, MLKIT-01 to MLKIT-07)
+- Depends on: T-003, T-012, T-026. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
 - UX spec: docs/ux/screens/scanner.md
 - Linked files: app/lib/features/scanner/presentation/, app/android/ (camera permission), app/ios/Runner/Info.plist (camera usage text)
 - Acceptance criteria:
@@ -640,7 +657,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   9. Given the screen was opened for a barcode that had no match, when the user taps a result, then that barcode is stored as a confirmed match for the game and its detail opens (proved by: widget).
   10. Given both themes at text scale 2.0 in compact, medium, and expanded sizes, then nothing overflows, the accessibility guidelines pass, and each row is read by screen readers with its name and year (proved by: widget).
   11. Given the golden list in search.md, then every listed golden exists and passes. This ticket also delivers the two offline goldens from app-shell.md (app_shell_offline_light_compact.png and app_shell_offline_dark_expanded.png), because the offline banner first appears on Search (proved by: golden).
-  12. Given results from BGG, then BoardGameGeek is credited by name and the "Powered by BGG" logo shows where search.md places it (BGG-40, BGG-41) (proved by: widget and golden).
+  12. Given results from BGG, then the BggAttribution component (`common.bggCredit`, logo with `common.bggLogoLabel`) shows where search.md places it, following the BGG attribution rule in "Shared test definitions" (BGG-40, BGG-41) (proved by: widget and golden).
+  13. Given no-image mode, then result rows show without thumbnails and without gaps (proved by: widget).
 
 ### T-033 App: lookup result and candidate selection
 - Milestone: M2
@@ -660,19 +678,20 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   8. Given the correction entry point (used by "Not this game?" in T-034), then the screen uses the correction-mode copy from lookup-result.md and marks the stored game with the "Current match" tag; when the user picks a different candidate or search result, then the new choice replaces the stored match for that barcode (proved by: widget). The expanded two-pane preview in the spec is optional for this ticket.
   9. Given both themes at text scale 2.0 in compact, medium, and expanded sizes, then nothing overflows, the accessibility guidelines pass, and candidate rows have screen reader labels with name and year (proved by: widget).
   10. Given the golden list in lookup-result.md, then every listed golden exists and passes (proved by: golden).
-  11. Given candidates from BGG, then BoardGameGeek is credited by name and the "Powered by BGG" logo shows where lookup-result.md places it (BGG-40, BGG-41) (proved by: widget and golden).
+  11. Given the states that show games (matched handoff, candidates, correction mode), then the BggAttribution component shows where lookup-result.md places it, following the BGG attribution rule in "Shared test definitions" (BGG-40, BGG-41) (proved by: widget and golden).
+  12. Given no-image mode, then candidate rows show without thumbnails and without gaps (proved by: widget).
 
 ### T-034 App: game detail screen
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-033, T-087 (official "Powered by BGG" logo files, BGG-41); PRD Q5 (cover images)
+- Depends on: T-003, T-029, T-033; PRD Q5 (cover images). The official "Powered by BGG" logo comes from T-087 (BGG-41); a placeholder is used until then, per "Shared test definitions".
 - UX spec: docs/ux/screens/game-detail.md (the M2 part)
 - Linked files: app/lib/features/game_detail/presentation/
 - Acceptance criteria:
   1. Given a game with every field, then the fields game-detail.md lists (for example name, year, cover image, players, play time, designers, publishers, description) show as specified (proved by: widget with a fixture).
   2. Given a game missing optional fields (no year, no image, no designers), then those parts are hidden or show the spec's placeholder, never "null", "0", or an empty label (proved by: widget).
-  3. Given the screen, then BoardGameGeek is credited by name, and the official "Powered by BGG" logo shows at a legible size where the spec places it, linked to the game's BGG page, which opens outside the app (BGG-40, BGG-41) (proved by: widget and golden; manual check against BGG's rules).
+  3. Given the screen, then the BggAttribution component credits BoardGameGeek by name (`common.bggCredit`) and shows the "Powered by BGG" logo (`common.bggLogoLabel`) at a legible size where game-detail.md places it. It links to the game's BGG page (URL from T-018), which opens outside the app. The logo follows the BGG attribution rule in "Shared test definitions" (BGG-40, BGG-41) (proved by: widget and golden; manual check against BGG's rules).
   4. Given loading, then a skeleton shows (proved by: widget).
   5. Given not found, then the copy.md not-found message shows with a search action (proved by: widget).
   6. Given an error with no cached copy, then a plain-language error with Retry shows (proved by: widget).
@@ -684,7 +703,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   12. Given M2, then no collection or pricing sections show yet [ASSUMPTION] (proved by: widget).
   13. Given both themes, then the accessibility guidelines pass (proved by: widget).
   14. Given the M2 golden list in game-detail.md, then every listed golden exists and passes (proved by: golden).
-  15. Given no cover image is available or allowed (BGG-42, PRD Q5), then the screen is complete without it, as game-detail.md lays out (proved by: widget and golden).
+  15. Given no-image mode, or a game with no cover image (BGG-42, PRD Q5), then the header shows no cover and the screen is complete without it, as game-detail.md lays out (proved by: widget, and golden `game_detail_noimages_light_compact.png`).
 
 ### T-035 App: M2 flow integration test
 - Milestone: M2
@@ -735,19 +754,19 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Goal: Three lists with sort, filter, and search, fast at 2,000 games, with helpful empty states.
+- Goal: Three lists with sort, filter, and search, fast at 2,000 games, with helpful empty states, the BggAttribution component where collection.md places it (BGG-40, BGG-41), and a no-image mode widget test.
 
 ### T-040 Owned item details and edit
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Goal: View and edit condition, purchase price, purchase date, edition, expansions owned, and notes.
+- Goal: View and edit condition, purchase price, purchase date, edition, expansions owned, and notes, with the BggAttribution component where collection-item-edit.md places it (BGG-40, BGG-41) and a no-image mode widget test.
 
 ### T-041 Photos for Owned items
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Goal: Add, view, and delete photos of owned copies, stored only on the device, with permission handling.
+- Goal: Add, view, and delete photos of owned copies, stored only on the device, with permission handling and a photo library purpose string that clearly describes the use (APPLE-03). UX drafts it; T-003 round 2 left it open.
 
 ### T-042 Wanted and Evaluating details and edit
 - Milestone: M3
@@ -844,7 +863,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Record which games were looked up and when (no identifiers) so the snapshot job knows the last 90 days [ASSUMPTION].
+- Goal: Record which games were looked up and when (no identifiers) so the snapshot job knows the last 90 days (confirmed, docs/decisions.md 2026-10-11).
 
 ### T-057 Server: daily snapshot job and eBay call budget
 - Milestone: M4
@@ -875,25 +894,25 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Median, low, high, and count with asking label, source, sample size, and data age; a few-listings marker; a stale marker after 6 hours; nothing shown after 24 hours [ASSUMPTION, PRD section 6]; the history action only when history is available.
+- Goal: Median, low, high, and count with asking label, source, sample size, and data age; a few-listings marker; a stale marker after 6 hours; after 24 hours, the "Price too old" state (`price.tooOldTitle`, `price.tooOldBody`) instead of numbers [ASSUMPTION, PRD section 6]; the short EPN disclosure (`common.disclosureShort`) directly above "See eBay listings" inside the price card (EBAY-92); and the history action (`price.seeHistory`) only when history is available. Goldens include `game_detail_price_toold_light_compact.png`.
 
 ### T-062 App: listings with "View on eBay" and the EPN disclosure
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Listing rows, each with its age (EBAY-20). Only the "View on eBay" button opens the backend-provided URL outside the app, with no confirmation step; tapping the rest of the row does nothing (PRD Q32). The EPN disclosure sits next to the listings and is visible without scrolling (EBAY-92, EBAY-93).
+- Goal: Listing rows, each showing its own age (`listings.rowAge`, EBAY-20); there is no stale state, because listings older than 6 hours are never shown. Only the "View on eBay" button opens the backend-provided URL outside the app, with no confirmation step; tapping the rest of the row does nothing (PRD Q32). The EPN disclosure (`listings.disclosure`) is the first element of a pinned top region (the left column in landscape and expanded), visible without scrolling at every size, including landscape and text at 200% (EBAY-92, EBAY-93). Offline, or when listings are older than 6 hours, the screen shows `listings.offlineTitle` and `listings.offlineBody` and never shows rows. The BggAttribution component appears where listings.md places it, and there is a no-image mode widget test.
 
 ### T-063 App: price history chart with screen reader summary
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: An fl_chart history chart with a text summary and an empty state that says when history starts, shown only when the backend history flag is on (PRD Q24); otherwise the entry point is hidden.
+- Goal: An fl_chart history chart with a text summary and an empty state that says when history starts. When the backend history flag is off (PRD Q24), the screen shows the "History unavailable" state (`history.unavailableTitle`, `history.unavailableBody`, golden `price_history_unavailable_light_compact.png`), and game detail hides its entry point. The BggAttribution component appears where price-history.md places it.
 
 ### T-064 App: collection total value
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Total estimated value of Owned games from summaries within the age limit, labeled as based on eBay asking prices, with the count of games without current price data and an age line that uses "oldest price data".
+- Goal: Total estimated value of Owned games, labeled as based on eBay asking prices. Games whose summary is older than 24 hours count as having no current price data: they are left out of the total, and their rows read `collection.rowPriceMissing` (`collection.totalTooOld`, `collection.totalCoverage`). The total shows the count of games without current price data and an age line that uses "oldest price data".
 
 ### T-065 App: affiliate disclosure in Settings
 - Milestone: M4
@@ -1013,13 +1032,17 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover ML Kit metrics if approved (MLKIT-03), image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q13), and opening eBay listings.
+- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q13), and opening eBay listings.
+- Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
+  1. Given the privacy policy, then it states that on Android the barcode scanner uses Google ML Kit, which processes camera images on the device without sending them to Google, and sends ML Kit usage and performance metrics to Google (MLKIT-02, MLKIT-03, MLKIT-04), and that iOS uses Apple's scanner (MLKIT-05). This disclosure is required because the user approved ML Kit on that condition (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
 ### T-079 App Store privacy label and Google Play Data Safety answers
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Answers in docs/store/ that match the app's real data flows: Apple's privacy details, including third-party SDKs (APPLE-04), and the Google Play Data safety form, which is required even if nothing is collected (GPLAY-06). Includes ML Kit if approved (MLKIT-04) and how cached search text is declared.
+- Goal: Answers in docs/store/ that match the app's real data flows: Apple's privacy details, including third-party SDKs (APPLE-04), and the Google Play Data safety form, which is required even if nothing is collected (GPLAY-06). Includes how cached search text is declared.
+- Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
+  1. Given the Google Play Data safety answers, then they account for the data Google ML Kit collects on Android (device information, app package and version, performance metrics, and API configuration, as Google's disclosure page lists, MLKIT-04), consistent with the privacy policy's ML Kit disclosure (MLKIT-03). The Apple privacy details answers state that iOS does not use ML Kit (MLKIT-05). This is required by the user's approval (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
 ### T-080 Store listing text
 - Milestone: M5
@@ -1031,13 +1054,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: About, a privacy policy link inside the app (APPLE-02, GPLAY-03), open source licenses, the ML Kit notice if approved, and BGG and eBay attributions in Settings.
+- Goal: About, the privacy policy link inside the app (`settings.privacyPolicy`, APPLE-02, GPLAY-03), open source licenses, the ML Kit notice on Android (`settings.mlKitNote`, MLKIT-03; approved on 2026-10-11), and BGG (`settings.bggCredit`) and eBay attributions in Settings.
 
 ### T-082 App: release builds and store submission prep
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: Signed release builds for both stores, with final ids, icons, and version numbering. Submission needs the user's approval.
+- Goal: Signed release builds for both stores, with final ids, icons, and version numbering, and the official "Powered by BGG" logo from T-087 in every BggAttribution (no placeholders left). Submission needs the user's approval.
 
 ### T-083 README and final assumptions, limitations, and risks
 - Milestone: M5
@@ -1058,10 +1081,10 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 Tasks only the user can do: accounts, applications, and messages to partners. The orchestrator reminds the user when each is due. PM records the answers in docs/api-research.md. Credentials never go into chat, tickets, or the repo; they go only into the server's git-ignored .env.
 
 ### T-087 BGG: register the app and apply for a commercial license
-- Milestone: Planning (start now; approval can take a week or more, BGG-04)
+- Milestone: Planning (the user submits it this week; approval can take a week or more, BGG-04)
 - Owner: user
-- Status: todo
-- Depends on: PRD Q1 (name), Q6 (publisher), Q10, Q23
+- Status: in-progress
+- Depends on: PRD Q1 (name) and Q6 (publisher) for the bracketed items in the application. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.
 - Goal: Register at https://boardgamegeek.com/applications and send the commercial license application from docs/api-research.md section 1.6, filled in and approved, including the question about cover images (PRD Q5). Once approved, create the Bearer token and download the official "Powered by BGG" logo files (BGG-01, BGG-02, BGG-41).
 - Acceptance criteria:
   1. Given BGG answers, then its written answer is shared with PM and recorded in docs/api-research.md (proved by: manual).
@@ -1071,7 +1094,7 @@ Tasks only the user can do: accounts, applications, and messages to partners. Th
 - Milestone: Planning (before M2 backend work)
 - Owner: user
 - Status: todo
-- Depends on: PRD Q10
+- Depends on: PRD Q10b
 - Goal: Send the email in docs/api-research.md section 3.3, asking about commercial use, a production key and base URL, rate limits, availability plans, and how to credit GameUPC (GUPC-04, GUPC-07).
 - Acceptance criteria:
   1. Given the operator answers, then the answer is shared with PM and recorded in docs/api-research.md, and any production key goes into the server's .env only (proved by: manual).

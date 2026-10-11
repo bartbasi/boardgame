@@ -14,6 +14,8 @@ Patterns set up in the first backlog (T-001, 2026-10-11):
 - Use "manual" proof for CI and infra criteria that need a scratch branch (coverage gate, secret scan), and say the branch is deleted afterward.
 - Work only the user can do (partner applications, accounts, emails) is a backlog ticket with owner "user" in a "User tasks" section, with a manual "answer recorded by PM" criterion.
 - When adding ids in a later round, never renumber. Append new Q and T ids and cross-reference duplicates (for example "Q4 (U9, T-003 OQ4)").
+- Answered questions move to an "Answered" list in PRD section 12 with the date and the same id. If a decision answers only part of a question, split it and keep the open part under a suffixed id (for example Q10b). Never drop an open part silently.
+- When a confirmed [ASSUMPTION] loses its marker, cite the docs/decisions.md entry in its place.
 
 Lesson from round 2 (2026-10-11): the PRD's 48-hour stale threshold was a PM guess, and UX built it into copy and specs before research showed eBay limits listings to 6 hours (EBAY-20). Mark numbers that depend on partner terms as "pending research", and check the research before UX specs rely on them.
 
