@@ -71,21 +71,20 @@ AdaptiveScaffold, AppNavigation, TwoPane, ContentColumn, OfflineBanner, Snackbar
 - Contrast: selected indicator uses secondaryContainer with onSecondaryContainer icon (3:1 or better against the bar surface).
 
 ## 8. Golden cases
-
-Matches T-015 criterion 6 plus additions. File names under app/test/goldens/.
+Total: 10 (8 in M1 from T-015, 2 in M2 from T-032). The other states are covered by widget tests.
 
 | File | Notes |
 |---|---|
-| app_shell_default_light_compact.png | In T-015 |
-| app_shell_default_dark_compact.png | In T-015 |
-| app_shell_default_light_expanded.png | In T-015 |
-| app_shell_default_dark_expanded.png | In T-015 |
-| app_shell_default_light_medium.png | Rail at 744 wide |
-| app_shell_default_light_landscape.png | Rail at 844 x 390, single pane |
-| app_shell_offline_light_compact.png | Offline banner on Search |
-| app_shell_offline_dark_expanded.png | Offline banner with rail |
-| app_shell_text200_light_compact.png | Nav labels at 200% |
-| app_shell_text200_dark_expanded.png | Rail labels at 200% |
+| app_shell_default_light_compact.png | T-015 |
+| app_shell_default_dark_compact.png | T-015 |
+| app_shell_default_light_expanded.png | T-015 |
+| app_shell_default_dark_expanded.png | T-015 |
+| app_shell_default_light_medium.png | T-015. Rail at 744 wide |
+| app_shell_default_light_landscape.png | T-015. Rail at 844 x 390, single pane |
+| app_shell_text200_light_compact.png | T-015. Nav labels at 200% |
+| app_shell_text200_dark_expanded.png | T-015. Rail labels at 200% |
+| app_shell_offline_light_compact.png | T-032. Offline banner on Search |
+| app_shell_offline_dark_expanded.png | T-032. Offline banner with rail |
 
 ## 9. What PM and reviewers should check
 

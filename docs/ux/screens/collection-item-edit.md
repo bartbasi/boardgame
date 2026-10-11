@@ -25,7 +25,7 @@ Fields use full width. Two short fields (purchase price and purchase date) sit s
 
 ## 3. Components
 
-MoneyField, DateField, ChoiceField, MultiLineField, ChipChoice, PhotoStrip, ListSelectorSheet, Snackbar. See docs/ux/components.md.
+MoneyField, DateField, ChoiceField, MultiLineField, ChipChoice, PhotoStrip, BggAttribution (compact), ListSelectorSheet, Snackbar. See docs/ux/components.md.
 
 ## 4. States
 
@@ -58,6 +58,8 @@ When the list changes (move) from inside this screen, the form re-renders for th
 - Back or the system gesture leaves the screen; everything was already saved.
 - Keyboard: the numeric keyboard for money; the date uses the picker, not the keyboard.
 
+The form ends with the compact BggAttribution (the screen shows the BGG game name and cover; BGG-40, BGG-41). The header works with no cover image (BGG-42): in no-image mode it shows the name and list only.
+
 ## 6. Copy
 
 `itemEdit.*` (title, sectionList, sectionDetails, sectionNotes, sectionPhotos, condition and the six condition values, purchasePrice, purchasePriceHelper, purchaseDate, purchaseDateEmpty, edition, editionHint, expansions, expansionsHint, notes, targetPrice, targetPriceHelper, priority and values, dateAdded, photos strings, error strings, saved, saveFailed, clearField, moveRow, removeRow, notFound), `addToCollection.moved`, `addToCollection.removed`, `common.optional`, `common.undo`, `common.openSettings`.
@@ -75,24 +77,17 @@ When the list changes (move) from inside this screen, the form re-renders for th
 - Targets: 48 dp for every control, including clear buttons and photo tiles (96 dp).
 
 ## 8. Golden cases
+Total: 7. Evaluating, photo permission, save failed, and not found differ in text or reuse shared layouts and are covered by widget tests. The BGG credit sits at the foot of the form.
 
 | File | Notes |
 |---|---|
 | collection_item_edit_owned_light_compact.png | All fields filled, 3 photos |
 | collection_item_edit_owned_dark_compact.png | |
-| collection_item_edit_owned_empty_light_compact.png | New item, no values, photos empty |
+| collection_item_edit_owned_empty_light_compact.png | New item, no values |
 | collection_item_edit_wanted_light_compact.png | Target and priority |
-| collection_item_edit_wanted_dark_expanded.png | |
-| collection_item_edit_evaluating_dark_compact.png | Notes and date added |
-| collection_item_edit_owned_light_medium.png | |
-| collection_item_edit_owned_light_landscape.png | |
-| collection_item_edit_error_light_compact.png | Price and date errors |
-| collection_item_edit_error_dark_compact.png | |
-| collection_item_edit_photopermission_light_compact.png | Denied, Open settings |
-| collection_item_edit_savefailed_dark_compact.png | |
-| collection_item_edit_notfound_light_compact.png | |
+| collection_item_edit_owned_light_landscape.png | Pinned header layout |
+| collection_item_edit_error_dark_compact.png | Price and date errors |
 | collection_item_edit_owned_text200_light_compact.png | |
-| collection_item_edit_owned_text200_dark_expanded.png | |
 
 ## 9. What PM and reviewers should check
 

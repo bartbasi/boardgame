@@ -13,7 +13,7 @@ Goal: the user sees what a game goes for used on eBay US, how reliable that is, 
    - "From 23 listings",
    - "Source: eBay US, used, item price only",
    - "Updated 5 hours ago".
-2. Two actions follow: "See eBay listings" and "See price history".
+2. The disclosure ("Paid link ..." placeholder) sits right above two actions: "See eBay listings" and, only if history is available, "See price history".
 
 ## History
 
@@ -24,7 +24,7 @@ Goal: the user sees what a game goes for used on eBay US, how reliable that is, 
 
 ## Collection total
 
-Owned shows an estimated total, labeled as the sum of median eBay asking prices, with how many games have no price data and how old the oldest data is. Each Owned, Wanted, and Evaluating row shows its own asking price with count and age.
+Owned shows an estimated total, labeled as the sum of median eBay asking prices, with how many games have no current price data (older than 24 hours counts as none) and how old the oldest data is. Each Owned, Wanted, and Evaluating row shows its own asking price with count and age.
 
 ## Branches
 
@@ -32,15 +32,16 @@ Owned shows an estimated total, labeled as the sum of median eBay asking prices,
 |---|---|
 | No listings | "No current listings." No $0. |
 | Fewer than 3 listings | Numbers shown with a "Few listings" note. |
-| Data older than 48 hours | "Out of date" chip and note. |
-| Offline | Last saved price with its age and a note; never an error screen. |
+| Price older than 6 hours | Numbers stay with an "Out of date" chip and note. |
+| Price older than 24 hours | No numbers: "Price not available. The last price we saved is too old to show." Collection rows read "No current price data" and the total leaves the game out. |
+| Offline | A price saved within 24 hours shows with its age and a note; older than that it is the "Price not available" state. Listings need a connection and are not shown offline. |
+| History turned off | The "See price history" action is absent. If the screen is reached anyway: "Price history is not available." |
 | Error, nothing saved | Message in the price card with Retry. The rest of the page works. |
 | No history yet | "No history yet. We save one price a day." |
 | Days with no listings | Gaps in the line, not zeros. |
-| Sold prices (later, behind a flag) | Separate card with the "Sold price" badge. Never merged with asking. |
 
 ## Rules
 
-- Every price shows amount, "asking" or "sold", source eBay, sample size, and data age.
+- Every price shows amount, "asking", source eBay, sample size, and data age. v1 has no sold prices.
 - An asking price is never called sold, value, or sale.
 - A chart always has a visible text summary and a table alternative.

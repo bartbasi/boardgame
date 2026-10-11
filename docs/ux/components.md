@@ -55,7 +55,7 @@ A slim, non-dismissable-but-not-blocking strip under the app bar: cloud-off icon
 
 ### LastUpdatedLabel
 A bodySmall line in onSurfaceVariant: `common.lastUpdated`. Always shown with cached data that could not refresh, and also after a successful refresh (reads "just now").
-- States: fresh (just now), aged (minutes, hours, days), stale (price data older than 48 hours: adds the StaleChip).
+- States: fresh (just now), aged (minutes, hours, days). Used for game details. Price data has its own rules: stale after 6 hours (StaleChip), not shown after 24 hours (EBAY-20, PRD section 6).
 
 ### Snackbar (InlineMessage)
 Short message at the bottom, with an optional Undo or action. Auto-dismisses after 5 seconds [ASSUMPTION]; stays 10 seconds if it has an action, and never covers the primary action. Does not block input. On expanded, it appears at the bottom of the content pane.
@@ -71,6 +71,7 @@ Linear progress indicator with label, for export, import, and backup. Indetermin
 Rounded square or 2:3 portrait image with placeholder.
 - States: loading (surfaceContainerHighest block), loaded, failed (placeholder with board-game icon), missing (same placeholder).
 - Semantics: `common.coverLabel` when loaded; `common.coverPlaceholderLabel` for placeholder; decorative thumbnails in rows are excluded because the row label already has the name.
+- No-image mode: BGG asked developers not to hotlink images (BGG-42, PRD Q5), so every screen must work with no cover images at all. One app setting (`showCoverImages`, default follows the answer to Q5) turns the image tile off everywhere. In no-image mode GameListRow drops the thumbnail and the text starts at the leading margin (row height 64 dp), DetailHeader drops the cover and the title uses the full width, ListingRow has no thumbnail unless eBay photos are allowed, and no cover semantic label is emitted. Every screen has a widget test in this mode. Default goldens use placeholders; a golden in no-image mode is listed where it matters.
 - Sizes: thumbnail 56 dp, row 64 dp, header 160 dp wide (compact) or 200 dp (medium, expanded).
 
 ### GameListRow
@@ -93,9 +94,12 @@ Description text, 6 lines collapsed at 100% text scale, with `common.showMore` /
 - Semantics: the button states whether it expands or collapses; the full text is always in the semantics tree.
 
 ### BggAttribution
-PLACEHOLDER (T-002). Holds the "Powered by BGG" logo and wording exactly as BGG's rules require, plus a link that opens outside the app. Shown at the bottom of game detail content, at the foot of search results, and in Settings About. Logo size and clear space follow BGG rules once known.
+BoardGameGeek is credited by name and the "Powered by BGG" logo is shown, linked to BoardGameGeek, at a legible size (BGG-40, BGG-41). It appears on every screen that shows BGG data: game detail (foot), search (foot of the results list), lookup-result (foot, in every state that shows games), collection (foot of each list, and in the left pane in two-pane), collection item edit (foot), listings and price history (foot, because they show the BGG game name), and Settings About. It is not shown on the scanner, manual entry, the list sheet, or backup screens, which show no BGG data.
+- Content: the logo image (asset from T-087; semantic label `common.bggLogoLabel`) with the credit text `common.bggCredit` beside or under it. The link URL comes from the backend (T-018); the app never builds BGG URLs. The link opens outside the app.
+- Variants: full (logo 40 dp tall with credit text; game detail, Settings, list screens) and compact (logo 32 dp tall with bodySmall credit; listings, price history, item edit). Never smaller than 32 dp tall. 8 dp clear space around the logo.
+- Placement rule: inside the scrolling content at the foot, not floating, and never hidden at 200% text (the text wraps under the logo).
 - States: default, focused, pressed.
-- Semantics: label `common.poweredByBggLabel` (placeholder), role link.
+- Open: the official logo file and any size rule (T-087, T-091). Until then a placeholder box with the same semantics is drawn.
 
 ### NotThisGameAction
 A TextButton with an icon, `gameDetail.notThisGame`, shown on game detail only when the screen was opened from a barcode. Opens the correction flow.
@@ -121,11 +125,11 @@ Bottom sheet (compact) or side sheet/popup card (medium, expanded) with filter g
 
 ### TotalValueHeader
 Card at the top of the Owned list. Shows the estimated total as a headline number, the basis line, coverage line, and oldest-data line. See screens/collection.md for the required words.
-- States: loading (skeleton), no price data (`collection.totalNoData`), partial coverage, stale (StaleChip), offline with cached prices (LastUpdatedLabel).
+- States: loading (skeleton), no current price data (`collection.totalNoData`), partial coverage (summaries older than 24 hours count as no data and are left out, with `collection.totalTooOld`), stale (some priced games 6 to 24 hours old: StaleChip and `collection.totalStale`), offline with cached prices inside the 24 hour limit (age shown).
 - Never shows "$0" for no data.
 
 ### PriceInline
-A compact price line inside a collection row: `collection.rowPrice`. Contains amount, the word "asking", source "eBay", listing count, and age. States: priced, none (`collection.rowPriceNone`), missing (`collection.rowPriceMissing`), stale.
+A compact price line inside a collection row: `collection.rowPrice`. Contains amount, the word "asking", source "eBay", listing count, and age. States: priced (within 6 hours), stale (6 to 24 hours, adds "Out of date"), none (`collection.rowPriceNone`), missing or too old (`collection.rowPriceMissing`; a summary older than 24 hours is treated as no current price data and its amount is never shown).
 
 ### FormFields (MoneyField, DateField, ChoiceField, MultiLineField, ChipChoice)
 - MoneyField: leading "$" in the prefix, numeric keyboard with decimal, max 2 decimals, clear button (48 dp), helper and error text. Value is USD only.
@@ -142,7 +146,7 @@ Horizontal list of square photo thumbnails (96 dp) with an "Add photo" tile firs
 ## Pricing components
 
 ### PriceBadge
-Small labeled chip: "Asking price" (`price.badgeAsking`) with a tag icon, or "Sold price" (`price.badgeSold`) with a check-circle icon. The two use different icons and different container roles (asking: secondaryContainer; sold: tertiaryContainer), and the text always says which. Asking is never rendered with a sold icon, color, or word.
+Small labeled chip: "Asking price" (`price.badgeAsking`) with a tag icon, on secondaryContainer. v1 has asking prices only (EBAY-100): there is no sold variant, no sold copy, and no sold state anywhere. If sold prices are ever approved, a separate badge, icon, and spec update come first.
 - Semantics: label is the text.
 
 ### PriceSummaryCard
@@ -152,35 +156,39 @@ The pricing section on game detail. Contents in order: PriceBadge and section ti
   - success: all lines.
   - few listings (fewer than 3 [ASSUMPTION]): numbers shown plus `price.fewNote`.
   - none: `price.noneTitle` and `price.noneBody`. No amount, no "$0". Source line still shown.
-  - stale (older than 48 hours [ASSUMPTION]): StaleChip plus `price.staleNote`.
+  - stale (older than 6 hours [ASSUMPTION], EBAY-20): StaleChip plus `price.staleNote`. Numbers still show.
+  - too old (older than 24 hours [ASSUMPTION, Q24]): no numbers. `price.tooOldTitle` and `price.tooOldBody`, with Retry when online. The source line stays. Never shows $0 or the old amount.
   - error with no cache: ErrorState inside the card with Retry.
-  - offline with cache: data plus `price.offlineNote`.
-  - sold prices (feature flag on later): a second, separate PriceSummaryCard with the Sold badge. Never merged with asking.
+  - offline with cache: valid only within the 24 hour limit. Data plus `price.offlineNote`, and the StaleChip after 6 hours. Past 24 hours the card is in the too old state.
+- The AffiliateDisclosure (`common.disclosureShort`, placeholder) sits directly above the two action buttons inside the card, next to "See eBay listings", the only way from game detail to eBay links.
 - Semantics: the card is one group whose label is `price.summaryLabel`; actions are separate buttons.
 
 ### DataAgeLabel
 Text such as "Updated 5 hours ago" using the shared time formatter. Always present with any price.
 
 ### StaleChip
-Chip with a clock icon and `price.stale`. Uses errorContainer or tertiaryContainer with text that passes 4.5:1. Not color alone: icon and word.
+Chip with a clock icon and `price.stale`, shown when price data is more than 6 hours old. Uses errorContainer or tertiaryContainer with text that passes 4.5:1. Not color alone: icon and word.
 
 ### FewListingsNote
 Inline note with an info icon and `price.fewNote` or `listings.fewNote`.
 
 ### ListingRow
-Thumbnail (CoverImage variant, 72 dp, placeholder allowed), title (bodyLarge, wraps up to 3 lines at 100%, no limit at large text), price (titleMedium) followed by the word "asking" in the same line, condition (bodyMedium), shipping note (`listings.rowShippingNote`, bodySmall), and a "View on eBay" button (OutlinedButton, 48 dp minimum height, external-link icon).
+Thumbnail (CoverImage variant, 72 dp, placeholder allowed), title (bodyLarge, wraps up to 3 lines at 100%, no limit at large text), price (titleMedium) followed by the word "asking" in the same line, condition (bodyMedium), shipping note (`listings.rowShippingNote`, bodySmall), the row's own age (`listings.rowAge`, "Checked 2 hours ago", bodySmall; a row older than 6 hours is never rendered, EBAY-20), and a "View on eBay" button (OutlinedButton, 48 dp minimum height, external-link icon).
+- No thumbnail in no-image mode.
 - States: default, pressed, focused, skeleton, opening (button shows no spinner delay; the link opens immediately), open failed (snackbar `listings.openFailed`).
 - Whole-row tap is not used; only the button opens eBay, so scrolling does not trigger accidental opens. [ASSUMPTION; reviewers may prefer a whole-row tap]
 - No confirmation step. The button opens the backend-provided URL outside the app.
 - Semantics: row label `listings.rowLabel`; button label `listings.viewOnEbayLabel`.
 
 ### AffiliateDisclosure
-Inline text (bodySmall, onSurfaceVariant) with an info icon. Text is a PLACEHOLDER until T-050. It is not a modal, never needs acknowledgment, and sits directly above the first listing in the listings screen and at the bottom of the price summary card (as a single line referencing listings), and in full in Settings.
+Inline text (bodyMedium, onSurface for 4.5:1) with an info icon. Wording is a PLACEHOLDER until Q25 and T-050. It must use an EPN-approved phrase such as "Paid link" and must not use "affiliate link" (EBAY-93). EPN's rule (EBAY-92): visible without scrolling and close to the links; text only in Settings, behind a link, or in small print is not enough. It is not a modal and never needs acknowledgment.
+- Placements: (1) Listings screen: pinned in the top region, on screen with no scrolling at every size, including phone landscape and text at 200% (screens/listings.md). (2) Game detail: directly above the "See eBay listings" button inside the price card. (3) Settings: the full text, visible without a tap. Any new screen that shows an eBay link places it next to the link.
+- States: default only. Wraps in full at large text; never truncated.
 - Semantics: read in order with the listings.
 
 ### PriceHistoryChart
 fl_chart line chart of the median asking price by day. Axis labels: dates on x, dollars on y. Points are marked with dots when fewer than 15 points. Days with no listings are gaps, not zeros. The line and area use primary; gridlines use outlineVariant (3:1 not required for gridlines because the information is also in the text summary and table).
-- States: loading (Chart skeleton), success, few points (fewer than 7 days: dots only, with `history.fewPoints`), empty (`history.emptyTitle`), error, offline with cache.
+- States: loading (Chart skeleton), success, history unavailable (feature flag off: EmptyState `history.unavailableTitle`, no chart), few points (fewer than 7 days: dots only, with `history.fewPoints`), empty (`history.emptyTitle`), error, offline with cache.
 - Interaction: tap or drag shows a tooltip card with the date, price, and listing count; keyboard and screen reader users use the table instead.
 - Semantics: the chart node has `history.chartLabel` containing the text summary; individual points are excluded; "Show as table" is the accessible detail view. Never rely on color alone: single series.
 - Reduce motion: no draw animation.

@@ -56,19 +56,16 @@ ListSelectorSheet, Snackbar, SkeletonBlock (small progress). See docs/ux/compone
 - Text at 200%: row descriptions wrap; the sheet scrolls and expands to full height if needed.
 
 ## 8. Golden cases
+Total: 6. Saving and the snackbar are covered by widget tests.
 
 | File | Notes |
 |---|---|
 | add_to_collection_add_light_compact.png | Sheet over game detail |
 | add_to_collection_add_dark_compact.png | |
 | add_to_collection_move_light_compact.png | Current list disabled |
-| add_to_collection_move_dark_expanded.png | Anchored card |
-| add_to_collection_add_light_medium.png | |
-| add_to_collection_saving_light_compact.png | Progress on a row |
+| add_to_collection_move_light_expanded.png | Anchored card |
 | add_to_collection_failed_dark_compact.png | Inline error |
-| add_to_collection_added_snackbar_light_compact.png | Snackbar with Undo and Add details |
 | add_to_collection_add_text200_light_compact.png | |
-| add_to_collection_move_text200_dark_compact.png | |
 
 ## 9. What PM and reviewers should check
 

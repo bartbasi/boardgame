@@ -76,30 +76,18 @@ Torch states: off, on, unavailable (hidden). The toggle is disabled while the ca
 - Text at 200%: action buttons stack; panel text wraps; no clipping.
 
 ## 8. Golden cases
-
-The camera preview is replaced by a neutral placeholder in all goldens (T-030 criterion 14).
+The camera preview is replaced by a neutral placeholder in all goldens (T-030 criterion 14). Total: 8. The panel states (denied, permanently denied, restricted, unavailable) share one layout, so one golden covers the layout and a second covers dark; the rest are covered by widget tests (state, text, and the always-visible manual and search actions).
 
 | File | Notes |
 |---|---|
 | scanner_scanning_light_compact.png | Hint, frame, torch toggle, both actions |
 | scanner_scanning_dark_compact.png | |
-| scanner_scanning_light_expanded.png | Capped preview, rail |
-| scanner_scanning_dark_landscape.png | Phone landscape two-column |
-| scanner_scanning_light_medium.png | |
-| scanner_hintslow_light_compact.png | Hint after 8 s |
-| scanner_torchon_dark_compact.png | Torch toggle in on state |
-| scanner_detected_light_compact.png | Check on frame |
+| scanner_scanning_light_landscape.png | Phone landscape two-column layout |
 | scanner_requesting_light_compact.png | Rationale behind the system prompt |
-| scanner_requesting_dark_compact.png | |
-| scanner_denied_light_compact.png | Allow camera button |
-| scanner_denied_dark_compact.png | |
-| scanner_permanentlydenied_light_compact.png | Open settings button |
-| scanner_permanentlydenied_dark_expanded.png | |
-| scanner_restricted_light_compact.png | No settings button |
-| scanner_unavailable_light_compact.png | Retry |
-| scanner_unavailable_dark_compact.png | |
-| scanner_denied_text200_light_compact.png | Actions stacked, panel wrapped |
-| scanner_scanning_text200_dark_compact.png | |
+| scanner_detected_light_compact.png | Check on frame |
+| scanner_permanentlydenied_light_compact.png | Panel with Open settings, both actions visible |
+| scanner_denied_dark_compact.png | Panel in dark with Allow camera |
+| scanner_permanentlydenied_text200_dark_compact.png | Actions stacked, panel wrapped |
 
 ## 9. What PM and reviewers should check
 

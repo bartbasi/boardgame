@@ -80,24 +80,17 @@ Restore is the only action that replaces data. The preview screen is the point o
 - Contrast: standard Material button roles; error text uses the error role with an icon.
 
 ## 8. Golden cases
+Total: 7. The never-backed-up state, all-skipped, and restore error variants differ in text and are covered by widget tests.
 
 | File | Notes |
 |---|---|
 | backup_and_export_idle_light_compact.png | Last backup shown |
 | backup_and_export_idle_dark_compact.png | |
-| backup_and_export_idle_never_light_compact.png | No backup yet |
-| backup_and_export_idle_light_medium.png | |
-| backup_and_export_idle_dark_expanded.png | |
 | backup_and_export_working_light_compact.png | Export progress |
 | backup_and_export_importpreview_light_compact.png | 3 skipped rows with reasons |
-| backup_and_export_importpreview_dark_compact.png | |
-| backup_and_export_importallskipped_light_compact.png | Confirm disabled |
+| backup_and_export_restorepreview_light_compact.png | Replace note and Restore button |
 | backup_and_export_importerror_dark_compact.png | Unreadable file |
-| backup_and_export_restorepreview_light_compact.png | |
-| backup_and_export_restorepreview_dark_expanded.png | |
-| backup_and_export_restoreerror_light_compact.png | Newer version |
 | backup_and_export_idle_text200_light_compact.png | |
-| backup_and_export_importpreview_text200_dark_compact.png | |
 
 ## 9. What PM and reviewers should check
 

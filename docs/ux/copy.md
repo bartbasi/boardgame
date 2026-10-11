@@ -44,8 +44,12 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | common.coverLabel | Cover of {name} |
 | common.yearUnknown | Year unknown |
 | common.nameYear | {name} ({year}) |
-| common.poweredByBgg | PLACEHOLDER (T-002): BGG attribution wording and logo |
-| common.poweredByBggLabel | PLACEHOLDER (T-002): BGG attribution link label |
+| common.bggCredit | Game data from BoardGameGeek |
+| common.bggLogoLabel | Powered by BGG. Opens BoardGameGeek. |
+| common.disclosureShort | PLACEHOLDER (Q25, T-050): "Paid link: as an eBay Partner, we may be compensated if you make a purchase." The word "affiliate" is not used. Final wording uses an EPN-approved phrase (EBAY-93). |
+| common.ageStampListing | Checked {when} |
+
+The Powered by BGG logo is an image asset (supplied under T-087, task BGG-41). It has the semantic label `common.bggLogoLabel`, is linked to BoardGameGeek (the URL comes from the backend, T-018), and is shown at a size where its text is easily legible (at least 32 dp tall [ASSUMPTION until the official files are seen]). The text credit `common.bggCredit` always sits next to it.
 
 ## app-shell
 
@@ -90,7 +94,7 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | scanner.unavailable.title | Camera not available |
 | scanner.unavailable.body | The camera could not start. Another app may be using it. You can still enter the barcode or search by title. |
 | scanner.starting | Starting camera |
-| scanner.iosUsageDescription | Board Game Collector uses the camera to read barcodes on game boxes. Images are not saved or sent. |
+| scanner.iosUsageDescription | Scan a game's barcode to look it up. If you add photos of your games, they stay on this device. |
 | scanner.androidRationale | Same text as scanner.permission.requestingBody |
 
 ## manual-entry
@@ -131,7 +135,6 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | search.resultCount | {count, plural, one{1 game found} other{{count} games found}} |
 | search.resultLabel | {name}, {year} |
 | search.resultLabelNoYear | {name}, year unknown |
-| search.resultsFooterBgg | PLACEHOLDER (T-002): BGG attribution in results |
 | search.forBarcodeBanner | Pick the game that matches barcode {code}. We will remember your choice. |
 | search.paneEmpty | Pick a game to see its details here. |
 
@@ -184,7 +187,6 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | gameDetail.updatedLabel | Details last updated {when} |
 | gameDetail.refreshing | Refreshing |
 | gameDetail.dataFromBgg | Game information from BoardGameGeek. |
-| gameDetail.openOnBgg | PLACEHOLDER (T-002): link label for the BGG page |
 | gameDetail.inCollection | In your collection: {list} |
 | gameDetail.collectionSection | Your collection |
 | gameDetail.shareLabel | Share |
@@ -256,13 +258,14 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | collection.totalTitle | Estimated total of Owned games |
 | collection.totalValue | {amount} |
 | collection.totalBasis | Sum of median eBay asking prices (used, item price only), not sold prices. |
-| collection.totalCoverage | {priced} of {total} games have price data. |
-| collection.totalNoData | No price data yet for your Owned games. |
+| collection.totalCoverage | {priced} of {total} games have current price data. |
+| collection.totalNoData | No current price data for your Owned games. |
 | collection.totalAge | Oldest price data: {when} |
-| collection.totalStale | Some prices are more than 2 days old. |
+| collection.totalStale | Some prices are more than 6 hours old. |
+| collection.totalTooOld | Prices older than 24 hours are left out. Connect to refresh them. |
 | collection.rowPrice | eBay asking {amount}, {count, plural, one{1 listing} other{{count} listings}}, {when} |
 | collection.rowPriceNone | eBay: no current listings |
-| collection.rowPriceMissing | No price data yet |
+| collection.rowPriceMissing | No current price data |
 | collection.rowPriceStale | eBay asking {amount}, {count, plural, one{1 listing} other{{count} listings}}, {when}. Out of date. |
 | collection.itemCount | {count, plural, one{1 game} other{{count} games}} |
 | collection.pickAGame | Pick a game to see its details here. |
@@ -382,14 +385,14 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | settings.sectionPricing | Prices and links |
 | settings.pricingInfo | About our prices |
 | settings.pricingInfoBody | Prices come from current eBay US listings for used games, item price only, without shipping. They are asking prices, not sold prices. |
-| settings.affiliateTitle | Affiliate disclosure |
-| settings.affiliateBody | PLACEHOLDER (T-050): full affiliate disclosure text from docs/legal/. Draft idea: "When you open an eBay listing from this app and buy something, we may earn a commission. It does not change your price." |
+| settings.affiliateTitle | Paid link disclosure |
+| settings.affiliateBody | PLACEHOLDER (Q25, T-050): full disclosure from docs/legal/. Draft idea: "Paid link: as an eBay Partner, we may be compensated if you make a purchase after opening an eBay listing from this app. It does not change your price." Must not use the words "affiliate link" (EBAY-93). |
 | settings.sectionAbout | About |
 | settings.version | Version {version} |
-| settings.bggAttribution | PLACEHOLDER (T-002): BGG attribution and logo |
-| settings.ebayStatement | PLACEHOLDER (T-002): eBay data statement if eBay requires one |
+| settings.bggCredit | Game data from BoardGameGeek (same as common.bggCredit), with the Powered by BGG logo (common.bggLogoLabel) |
+| settings.ebayStatement | PLACEHOLDER (T-091): eBay data statement if eBay requires one |
 | settings.privacyPolicy | Privacy policy |
-| settings.privacyPolicyNote | PLACEHOLDER (T-078): link opens the hosted policy in your browser |
+| settings.privacyPolicyNote | PLACEHOLDER (T-078): the row opens the hosted privacy policy URL. The row itself is final copy. |
 | settings.licenses | Open source licenses |
 | settings.cameraNote | Camera is used only to read barcodes. Nothing is recorded. |
 | settings.mlKitNote | PLACEHOLDER (PRD Q4): Google ML Kit metrics disclosure for Android |
@@ -405,12 +408,12 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | listings.title | eBay listings |
 | listings.subtitle | Current asking prices, used, item price only |
 | listings.summary | {count, plural, one{1 current listing} other{{count} current listings}} on eBay US, updated {when} |
-| listings.disclosure | PLACEHOLDER (T-050): short affiliate disclosure. Draft idea: "We may earn a commission if you buy through these links." |
+| listings.disclosure | PLACEHOLDER (Q25, T-050): "Paid links: as an eBay Partner, we may be compensated if you make a purchase." Same wording as common.disclosureShort. |
 | listings.rowPrice | {amount} asking |
 | listings.rowCondition | {condition} |
 | listings.rowShippingNote | Item price, shipping not included |
-| listings.rowEndsAt | Listing ends {date} |
-| listings.rowLabel | {title}. Asking price {amount}. {condition}. Opens on eBay. |
+| listings.rowAge | Checked {when} |
+| listings.rowLabel | {title}. Asking price {amount}. {condition}. Checked {when}. Opens on eBay. |
 | listings.viewOnEbay | View on eBay |
 | listings.viewOnEbayLabel | View {title} on eBay |
 | listings.sortLow | Price, low to high |
@@ -419,8 +422,8 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | listings.emptyTitle | No current listings |
 | listings.emptyBody | Nobody has this game listed on eBay US right now. Check back later. |
 | listings.errorTitle | Could not load listings |
-| listings.offlineBody | You are offline. Showing listings saved {when}. They may have ended. |
-| listings.staleNote | These listings are more than 2 days old and may have ended. |
+| listings.offlineTitle | You are offline |
+| listings.offlineBody | Listings and prices need a connection. Connect to see current eBay listings. |
 | listings.openFailed | Could not open eBay. Try again. |
 | listings.thumbLabel | Photo of listing {title} |
 | listings.thumbPlaceholder | No photo |
@@ -432,16 +435,15 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 |---|---|
 | price.sectionTitle | Used price on eBay |
 | price.badgeAsking | Asking price |
-| price.badgeSold | Sold price |
 | price.median | Median asking price |
-| price.medianSold | Median sold price |
 | price.range | Low {low}, high {high} |
 | price.sample | From {count, plural, one{1 listing} other{{count} listings}} |
-| price.sampleSold | From {count, plural, one{1 sale} other{{count} sales}} |
 | price.source | Source: eBay US, used, item price only |
 | price.updated | Updated {when} |
 | price.stale | Out of date |
-| price.staleNote | This price is more than 2 days old. |
+| price.staleNote | This price is more than 6 hours old. Connect to refresh it. |
+| price.tooOldTitle | Price not available |
+| price.tooOldBody | The last price we saved is too old to show. Connect to get a current price. |
 | price.few | Few listings |
 | price.fewNote | Based on only {count, plural, one{1 listing} other{{count} listings}}. It may not reflect the market. |
 | price.noneTitle | No current listings |
@@ -452,7 +454,6 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | price.seeListings | See eBay listings |
 | price.seeHistory | See price history |
 | price.summaryLabel | Median asking price {median} on eBay US, used, from {count} listings, low {low}, high {high}, updated {when}. |
-| price.soldDisabledNote | Sold prices are not available. |
 | price.noteAskingExplain | Asking prices are what sellers want, not what buyers paid. |
 
 ## price-history
@@ -471,6 +472,8 @@ Time phrases ({when}) come from one formatter: "just now", "5 minutes ago", "5 h
 | history.emptyBody | We save one price a day. Check back tomorrow to see the first points. |
 | history.fewPoints | Only {count, plural, one{1 day} other{{count} days}} of history so far. |
 | history.errorTitle | Could not load price history |
+| history.unavailableTitle | Price history is not available |
+| history.unavailableBody | We are not showing price history right now. Current asking prices are still available. |
 | history.offlineNote | You are offline. Showing history saved {when}. |
 | history.gapNote | Days with no listings are not drawn. |
 | history.summary | Median asking price on eBay US, used. From {start} to {end}: started at {first}, now {last}, {trend}. Lowest {min} on {minDate}, highest {max} on {maxDate}. {days} days of data. |

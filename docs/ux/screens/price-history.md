@@ -19,7 +19,7 @@ At 200% text the chart keeps its height (it is a graphic); axis labels use the s
 
 ## 3. Components
 
-PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, PriceBadge, DataAgeLabel, SkeletonBlock, EmptyState, ErrorState, OfflineBanner. See docs/ux/components.md.
+PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, BggAttribution (compact, at the foot), PriceBadge, DataAgeLabel, SkeletonBlock, EmptyState, ErrorState, OfflineBanner. See docs/ux/components.md.
 
 ## 4. States
 
@@ -35,7 +35,9 @@ PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, PriceBadge, Da
 | Offline with cache | OfflineBanner, cached chart, `history.offlineNote` with age. |
 | Range with no data | The selected range shows the data it has and `history.startsOn`; the selector does not hide ranges. |
 | Table view | Replaces the chart with HistoryTable (Date, Median asking, Listings). Toggle label becomes `history.hideTable`. The text summary stays. |
-| Sold prices (later) | Sold history, if ever shown, is a separate chart with the Sold badge and its own summary; never mixed with asking. Not in M4 baseline. |
+| History unavailable | The history feature is off (PRD Q24, section 6 rule 9; a backend flag, and the backend answers that history is unavailable). EmptyState: `history.unavailableTitle`, `history.unavailableBody`. No chart, no range selector, no table. The page does not use words like "error". Current asking prices remain available through Back. Game detail hides the `price.seeHistory` action when the feature is off, so users normally never reach this state; it exists for a flag that flips while the user is on the screen and for cached navigation. |
+
+v1 has asking prices only (EBAY-100), so there is no sold history state.
 
 ## 5. Interactions and navigation
 
@@ -46,7 +48,7 @@ PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, PriceBadge, Da
 
 ## 6. Copy
 
-`history.*` (all keys), `price.badgeAsking`, `common.retry`, `common.refreshFailed`.
+`history.*` (all keys), `common.bggCredit`, `common.bggLogoLabel`, `price.badgeAsking`, `common.retry`, `common.refreshFailed`.
 
 ## 7. Accessibility
 
@@ -61,25 +63,18 @@ PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, PriceBadge, Da
 - Targets: selector segments and toggle 48 dp.
 
 ## 8. Golden cases
+Total: 8. Empty, error, offline, one point, and gaps share layouts and are covered by widget tests (the success fixture contains one gap day).
 
 | File | Notes |
 |---|---|
+| price_history_loading_light_compact.png | |
 | price_history_success_light_compact.png | 90 days with summary |
 | price_history_success_dark_compact.png | |
-| price_history_success_light_medium.png | |
 | price_history_success_dark_expanded.png | |
-| price_history_success_light_landscape.png | |
 | price_history_fewpoints_light_compact.png | 4 days |
-| price_history_onepoint_dark_compact.png | |
-| price_history_gaps_light_compact.png | Line breaks |
 | price_history_table_dark_compact.png | Table view |
-| price_history_empty_light_compact.png | History starts note |
-| price_history_empty_dark_compact.png | |
-| price_history_loading_light_compact.png | |
-| price_history_error_light_compact.png | |
-| price_history_offline_dark_compact.png | Cached with age |
+| price_history_unavailable_light_compact.png | History feature off |
 | price_history_success_text200_light_compact.png | |
-| price_history_success_text200_dark_expanded.png | |
 
 ## 9. What PM and reviewers should check
 
@@ -88,4 +83,5 @@ PriceHistoryChart, ChartTextSummary, RangeSelector, HistoryTable, PriceBadge, Da
 - History start date is stated; no fake backfill.
 - Gaps are not zeros.
 - Table alternative exists.
-- Open questions: whether to ever show sold history (depends on Marketplace Insights); date range defaults (90 days proposed).
+- "History unavailable" has plain wording and no chart.
+- Open questions: whether the history feature is on at launch (Q24, depends on eBay's answer); how long cached history may be shown offline under eBay's age rules (Q24); date range defaults (90 days proposed).

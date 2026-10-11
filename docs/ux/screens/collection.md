@@ -21,11 +21,11 @@ Row content by list (subtitle line):
 - Wanted: `collection.rowWantedLine` ("Target $30.00, High priority"). PriceInline (M4) so the user sees the gap to target.
 - Evaluating: `collection.rowEvaluatingLine` ("Added Oct 11, 2026"). PriceInline (M4).
 
-Every row shows thumbnail, name, year (in the label), then the type-specific line. Swipe actions are not used (not accessible by default); a row's overflow menu (48 dp icon button, label "More actions for {name}") offers Move, Edit, Remove. Long press opens the same menu.
+Every row shows thumbnail (omitted in no-image mode, BGG-42), name, year (in the label), then the type-specific line. The list ends with the BGG credit and logo (BggAttribution full), because rows show BGG names (BGG-40, BGG-41); in two-pane the credit sits at the foot of the left pane. Swipe actions are not used (not accessible by default); a row's overflow menu (48 dp icon button, label "More actions for {name}") offers Move, Edit, Remove. Long press opens the same menu.
 
 ## 3. Components
 
-CollectionTabs, SortFilterBar, FilterSheet, TotalValueHeader, PriceInline, GameListRow, SkeletonRow, EmptyState, ErrorState, OfflineBanner, LastUpdatedLabel, TwoPane, ListSelectorSheet, Snackbar. See docs/ux/components.md.
+CollectionTabs, SortFilterBar, FilterSheet, TotalValueHeader, PriceInline, BggAttribution, GameListRow, SkeletonRow, EmptyState, ErrorState, OfflineBanner, LastUpdatedLabel, TwoPane, ListSelectorSheet, Snackbar. See docs/ux/components.md.
 
 ## 4. States
 
@@ -37,22 +37,22 @@ CollectionTabs, SortFilterBar, FilterSheet, TotalValueHeader, PriceInline, GameL
 | Searching or filtered with no results | EmptyState `collection.noMatchesTitle`, `collection.noMatchesBody`, action `collection.filterClear`. |
 | Filters applied | Chip row (each chip removable), Filter button badge with count, `collection.filtersApplied` available to screen readers. |
 | Error (database cannot open) | ErrorState: `collection.errorTitle`, `collection.errorBody`, Retry. Plain words, no exception text. |
-| Offline | No special state for the list; it is local. Rows with prices show cached prices with their age. OfflineBanner is not shown on this screen (the list is not blocked). The TotalValueHeader shows LastUpdatedLabel when it cannot refresh. |
+| Offline | No special state for the list; it is local. Rows with prices show cached prices with their age only while the price is 24 hours old or less; older ones read "No current price data". OfflineBanner is not shown on this screen (the list is not blocked). The TotalValueHeader shows LastUpdatedLabel when it cannot refresh. |
 | Partial data | Rows without a year or thumbnail use placeholders. Rows without prices show `collection.rowPriceMissing`. Fields not set are omitted from the subtitle. |
 
 ### Pricing in the Collection (M4)
 
 Every price here follows the pricing rules: amount, the word asking, eBay, sample size, data age.
 
-- **PriceInline** on each row: `collection.rowPrice`: "eBay asking $42.00, 23 listings, 5 hours ago". With no listings: `collection.rowPriceNone` ("eBay: no current listings"), never $0. No data yet: `collection.rowPriceMissing`. Older than 48 hours: `collection.rowPriceStale` adds "Out of date". With fewer than 3 listings the row adds the word "few" via the Few listings chip in the detail view only (rows stay short), but the listing count is always shown.
+- **PriceInline** on each row: `collection.rowPrice`: "eBay asking $42.00, 23 listings, 5 hours ago". With no listings: `collection.rowPriceNone` ("eBay: no current listings"), never $0. No data yet, or a summary older than 24 hours (EBAY-20): `collection.rowPriceMissing` ("No current price data"); the old amount is never shown. Between 6 and 24 hours old: `collection.rowPriceStale` adds "Out of date". With fewer than 3 listings the row adds the word "few" via the Few listings chip in the detail view only (rows stay short), but the listing count is always shown.
 - **TotalValueHeader** (Owned only):
   - Title `collection.totalTitle`, amount `collection.totalValue` (headlineSmall).
   - Basis line `collection.totalBasis` always visible: "Sum of median eBay asking prices (used, item price only), not sold prices."
-  - Coverage line `collection.totalCoverage`: "12 of 15 games have price data."
-  - Age line `collection.totalAge`: "Oldest price data: 6 days ago", and `collection.totalStale` if any price is older than 48 hours.
+  - Coverage line `collection.totalCoverage`: "12 of 15 games have current price data." Games whose summary is older than 24 hours count as having no current data and are left out of the sum, with `collection.totalTooOld` shown when any were left out for that reason.
+  - Age line `collection.totalAge`: "Oldest price data: 5 hours ago" (never more than 24 hours), and `collection.totalStale` if any price included is older than 6 hours.
   - No priced games: `collection.totalNoData` and no amount.
-  - The words "sold" and "worth" never appear. "Estimated" appears in the title.
-  - Loading: skeleton. Offline: cached numbers with LastUpdatedLabel.
+  - The total never calls the prices sold or "worth". "Estimated" appears in the title.
+  - Loading: skeleton. Offline: cached numbers only while inside the 24 hour limit, with the age shown; past it the total drops to no current data.
 - Sorting by price (`collection.sortValue`) puts rows with no price at the bottom.
 
 ## 5. Interactions and navigation
@@ -68,7 +68,7 @@ Every price here follows the pricing rules: amount, the word asking, eBay, sampl
 
 ## 6. Copy
 
-`collection.*` (title, tabOwned, tabWanted, tabEvaluating, tabCount, searchHint, sort and filter strings, empty strings, noMatches, error, row lines, total strings, rowPrice strings, itemCount, pickAGame), `addToCollection.*` (moved, removed, moveButton, removeButton), `common.refreshFailed`, `common.lastUpdated`.
+`common.bggCredit`, `common.bggLogoLabel`, `collection.*` (title, tabOwned, tabWanted, tabEvaluating, tabCount, searchHint, sort and filter strings, empty strings, noMatches, error, row lines, total strings, rowPrice strings, itemCount, pickAGame), `addToCollection.*` (moved, removed, moveButton, removeButton), `common.refreshFailed`, `common.lastUpdated`.
 
 ## 7. Accessibility
 
@@ -82,38 +82,29 @@ Every price here follows the pricing rules: amount, the word asking, eBay, sampl
 - Targets: rows 72 dp or taller, chips 48 dp tall hit area, overflow button 48 dp.
 
 ## 8. Golden cases
+Total: 13 (M3: 8, M4: 5). Evaluating, no matches, error, and medium share layouts with the listed goldens and are covered by widget tests. Golden lists are short (3 to 4 rows) so the BGG credit at the foot of the list is visible.
 
-| File | Notes |
-|---|---|
-| collection_owned_light_compact.png | 6 rows, no prices yet (M3 look) |
-| collection_owned_dark_compact.png | |
-| collection_owned_light_medium.png | |
-| collection_owned_dark_expanded.png | Two-pane with detail |
-| collection_owned_light_landscape.png | |
-| collection_wanted_light_compact.png | Target and priority lines |
-| collection_evaluating_dark_compact.png | Date added line |
-| collection_loading_light_compact.png | Skeleton |
-| collection_empty_owned_light_compact.png | |
-| collection_empty_owned_dark_compact.png | |
-| collection_empty_wanted_dark_expanded.png | |
-| collection_empty_evaluating_light_compact.png | |
-| collection_nomatches_light_compact.png | Filters applied, none match |
-| collection_filtersapplied_dark_compact.png | Chips and badge |
-| collection_error_light_compact.png | |
-| collection_owned_text200_light_compact.png | |
-| collection_owned_text200_dark_expanded.png | |
-| collection_owned_prices_light_compact.png | M4: total header and row prices |
-| collection_owned_prices_dark_compact.png | M4 |
-| collection_owned_prices_dark_expanded.png | M4 |
-| collection_owned_pricesstale_light_compact.png | M4: stale marker |
-| collection_owned_pricesnone_light_compact.png | M4: no price data, no listings |
-| collection_owned_pricesoffline_dark_compact.png | M4: cached prices with age |
-| collection_owned_prices_text200_light_compact.png | M4 |
+| File | Milestone | Notes |
+|---|---|---|
+| collection_owned_light_compact.png | M3 | Rows without prices, BGG credit |
+| collection_owned_dark_compact.png | M3 | |
+| collection_owned_dark_expanded.png | M3 | Two-pane with detail |
+| collection_wanted_light_compact.png | M3 | Target and priority lines |
+| collection_loading_light_compact.png | M3 | Skeleton |
+| collection_empty_owned_light_compact.png | M3 | |
+| collection_filtersapplied_dark_compact.png | M3 | Chips and badge |
+| collection_owned_text200_light_compact.png | M3 | |
+| collection_owned_prices_light_compact.png | M4 | Total header and row prices |
+| collection_owned_prices_dark_compact.png | M4 | |
+| collection_owned_prices_dark_expanded.png | M4 | |
+| collection_owned_pricesmixed_light_compact.png | M4 | Rows that are fresh, stale, none, and too old (shown as no current price data); total with coverage line |
+| collection_owned_prices_text200_light_compact.png | M4 | |
 
 ## 9. What PM and reviewers should check
 
 - Empty states tell the user how to add the first game.
-- Total header basis line says asking prices, not sold, and counts games without data.
+- Total header basis line says asking prices, not sold, and counts games without current data. Prices older than 24 hours are left out; older than 6 hours are marked.
+- BGG credit and logo at the foot of the lists.
 - Row price lines show amount, asking, eBay, count, age.
 - No-data rows never show $0.
 - Move and remove have Undo, no dialogs.

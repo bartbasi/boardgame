@@ -19,7 +19,7 @@ For none, unavailable, offline, and error states the content is an EmptyState or
 
 ## 3. Components
 
-GameListRow (candidate variant), SkeletonRow, EmptyState, ErrorState, OfflineBanner, TwoPane, Snackbar. See docs/ux/components.md.
+GameListRow (candidate variant), BggAttribution, SkeletonRow, EmptyState, ErrorState, OfflineBanner, TwoPane, Snackbar. See docs/ux/components.md.
 
 ## 4. States
 
@@ -47,6 +47,10 @@ GameListRow (candidate variant), SkeletonRow, EmptyState, ErrorState, OfflineBan
 - Retry reruns the lookup. Pull to refresh does the same.
 - Back always returns to where the user came from.
 
+BGG credit (BGG-40, BGG-41): any state that shows games from BGG (candidates and correction) ends with the BggAttribution (credit by name and the Powered by BGG logo, linked to BoardGameGeek). States with no BGG data (loading, none, unavailable, offline, error) do not need it. In two-pane the credit sits at the foot of the left list.
+
+No cover images (BGG-42, Q5): candidate rows work with no thumbnails; in no-image mode the rows are text only (name and year) and the expanded preview pane omits the cover.
+
 ## 6. Copy
 
 `lookup.title`, `lookup.loading`, `lookup.candidatesTitle`, `lookup.candidatesBody`, `lookup.candidateLabel`, `lookup.candidateLabelNoYear`, `lookup.noneTitle`, `lookup.noneBody`, `lookup.unavailableTitle`, `lookup.unavailableBody`, `lookup.offlineTitle`, `lookup.offlineBody`, `lookup.actionSearch`, `lookup.actionOtherBarcode`, `lookup.actionScanAgain`, `lookup.correctionTitle`, `lookup.correctionBody`, `lookup.currentMatch`, `lookup.matchSaved`, `common.retry`, `common.errorUnavailableTitle`, `common.errorUnavailableBody`, `common.errorRateLimitedBody`, `common.errorTimeoutBody`.
@@ -61,27 +65,18 @@ GameListRow (candidate variant), SkeletonRow, EmptyState, ErrorState, OfflineBan
 - Contrast: tag chips use secondaryContainer with onSecondaryContainer (4.5:1).
 
 ## 8. Golden cases
+Total: 8. None, unavailable, offline, and error share the EmptyState or ErrorState layout, so one of them is shown and the rest are covered by widget tests. Candidate goldens use a short list so the BGG credit and logo at the foot are visible.
 
 | File | Notes |
 |---|---|
 | lookup_result_loading_light_compact.png | Skeleton |
-| lookup_result_loading_dark_compact.png | |
-| lookup_result_candidates_light_compact.png | 3 candidates, one missing year |
+| lookup_result_candidates_light_compact.png | 3 candidates, one missing year, BGG credit visible |
 | lookup_result_candidates_dark_compact.png | |
-| lookup_result_candidates_light_medium.png | |
 | lookup_result_candidates_dark_expanded.png | Two-pane with preview |
-| lookup_result_candidates_light_landscape.png | |
 | lookup_result_none_light_compact.png | Not found with 3 actions |
-| lookup_result_none_dark_compact.png | |
-| lookup_result_unavailable_light_compact.png | |
 | lookup_result_offline_dark_compact.png | Offline banner and message |
-| lookup_result_offline_light_expanded.png | |
-| lookup_result_error_light_compact.png | Service unavailable |
-| lookup_result_ratelimited_light_compact.png | |
 | lookup_result_correction_light_compact.png | Current match tag |
-| lookup_result_correction_dark_expanded.png | |
 | lookup_result_candidates_text200_light_compact.png | |
-| lookup_result_none_text200_dark_compact.png | |
 
 ## 9. What PM and reviewers should check
 

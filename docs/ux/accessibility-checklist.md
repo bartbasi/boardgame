@@ -9,7 +9,7 @@ Automated checks (flutter_test, per screen, light and dark): `androidTapTargetGu
 - [ ] Body text is at least 4.5:1 against its background in light and dark. Large text (18 pt, or 14 pt bold) is at least 3:1.
 - [ ] Icons that carry meaning, input borders, focus indicators, chart lines, and selected states are at least 3:1 against neighbors.
 - [ ] Only theme color roles are used. No hard-coded colors.
-- [ ] Nothing is shown by color alone: errors have an icon and text; asking vs sold differ by word and icon; stale has a word and icon; selected tabs have a fill and a check or indicator.
+- [ ] Nothing is shown by color alone: errors have an icon and text; asking prices always carry the word "asking"; stale has a word and icon; selected tabs have a fill and a check or indicator.
 - [ ] Text over the camera preview sits on an opaque pill.
 - [ ] Disabled controls are visibly disabled (not the only way to know a button is unavailable: text explains why where it matters).
 
@@ -78,8 +78,10 @@ Automated checks (flutter_test, per screen, light and dark): `androidTapTargetGu
 
 ## 10. Pricing accessibility
 
-- [ ] Each price is read with amount, asking or sold, source, sample size, and age in one grouped announcement.
-- [ ] The asking and sold badges are different in words and icons.
+- [ ] Each price is read with amount, asking, source, sample size, and age in one grouped announcement.
+- [ ] The Powered by BGG logo has a label and a link, is at least 32 dp tall, and sits with the credit text on every screen that shows BGG data.
+- [ ] Every screen works with no cover images (no-image mode): no blank gaps, no broken labels.
+- [ ] The disclosure uses an EPN-approved phrase (not "affiliate link"), is on screen without scrolling next to the listings at every size, and each listing row announces its age.
 - [ ] Disclosure text is read in order near the listings.
 
 ## 11. Device checks (manual, per release candidate)

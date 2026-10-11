@@ -62,6 +62,7 @@ The error appears only after submit, not while typing (so a half-typed number is
 - The numeric keyboard shows on both platforms; no spaces or separators are required.
 
 ## 8. Golden cases
+Total: 6. Other error messages differ only in text and are covered by widget tests.
 
 | File | Notes |
 |---|---|
@@ -69,12 +70,8 @@ The error appears only after submit, not while typing (so a half-typed number is
 | manual_entry_initial_dark_compact.png | |
 | manual_entry_initial_light_expanded.png | Centered column |
 | manual_entry_error_checkdigit_light_compact.png | Error text and icon |
-| manual_entry_error_checkdigit_dark_compact.png | |
-| manual_entry_error_length_light_compact.png | |
-| manual_entry_error_empty_dark_expanded.png | |
+| manual_entry_error_checkdigit_dark_compact.png | Error container roles |
 | manual_entry_initial_text200_light_compact.png | Wrapped helper |
-| manual_entry_error_checkdigit_text200_dark_compact.png | |
-| manual_entry_initial_light_medium.png | |
 
 ## 9. What PM and reviewers should check
 

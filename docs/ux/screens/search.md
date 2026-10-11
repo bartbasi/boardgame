@@ -10,7 +10,7 @@ Find a game by title. Entry points: the Search destination; `scanner.actionSearc
 
 | Size | Layout |
 |---|---|
-| Compact portrait | App bar `search.title`. Search field (SearchBar style, full width, 56 dp) with clear button, keyboard action "Search". Under it: results list (GameListRow, 72 dp or taller), then a footer with the BGG attribution (placeholder). In barcode mode a banner (`search.forBarcodeBanner`) sits between the field and the list. Tapping a result pushes game detail. |
+| Compact portrait | App bar `search.title`. Search field (SearchBar style, full width, 56 dp) with clear button, keyboard action "Search". Under it: results list (GameListRow, 72 dp or taller), then a footer with the BGG credit and the Powered by BGG logo (BggAttribution full, BGG-40, BGG-41). In barcode mode a banner (`search.forBarcodeBanner`) sits between the field and the list. Tapping a result pushes game detail. |
 | Phone landscape | Field on top at full width; results below in one column, up to 2 columns of rows [ASSUMPTION: single column]. Keyboard overlays; list scrolls. |
 | Medium | Same as compact; results list capped at 640 dp wide and centered; thumbnails 64 dp. |
 | Expanded | TwoPane. Left (400 dp): field, banner, results. Right: the selected game's detail (game-detail spec embedded). Nothing selected shows `search.paneEmpty`. Tapping a result loads its detail on the right without leaving search. |
@@ -28,7 +28,7 @@ GameListRow (search result variant), CoverImage, SkeletonRow, EmptyState, ErrorS
 | Initial (no query) | Field focused (keyboard open on arrival from the scanner or lookup; not auto-opened when the user arrives by tapping the tab, so the tab can be browsed). EmptyState: `search.initialTitle`, `search.initialBody`, actions `search.actionScan` and `search.actionManual`. |
 | One character | Hint `search.hintShort` under the field. No request. |
 | Loading | 5 skeleton rows under the field. The previous results are replaced only when the new ones arrive (so typing does not flash empty). A subtle linear progress line under the field while a request is in flight. |
-| Success | Rows with thumbnail, name, year. A count line `search.resultCount` above the list (read by screen readers). Exact title matches come first (backend order). Footer: BGG attribution placeholder. |
+| Success | Rows with thumbnail, name, year. A count line `search.resultCount` above the list (read by screen readers). Exact title matches come first (backend order). Footer: BGG credit and logo. |
 | Empty (no results) | EmptyState: `search.emptyTitle`, `search.emptyBody`, action `search.actionManual`. |
 | Error: service unavailable | ErrorState: `search.errorTitle` plus `common.errorUnavailableBody`, Retry reruns the same query. |
 | Error: rate limited | ErrorState: `search.errorTitle` plus `common.errorRateLimitedBody` (or the no-time version), Retry stays enabled. |
@@ -52,7 +52,7 @@ Debounce: a search runs 400 ms after the last keystroke [ASSUMPTION], or at once
 
 ## 6. Copy
 
-`search.title`, `search.fieldLabel`, `search.fieldHint`, `search.clear`, `search.hintShort`, `search.initialTitle`, `search.initialBody`, `search.actionScan`, `search.actionManual`, `search.emptyTitle`, `search.emptyBody`, `search.errorTitle`, `search.offlineTitle`, `search.offlineBody`, `search.resultCount`, `search.resultLabel`, `search.resultLabelNoYear`, `search.resultsFooterBgg`, `search.forBarcodeBanner`, `search.paneEmpty`, `common.retry`, `common.errorUnavailableBody`, `common.errorRateLimitedBody`, `common.errorRateLimitedBodyNoTime`, `common.errorTimeoutBody`, `lookup.matchSaved`.
+`search.title`, `search.fieldLabel`, `search.fieldHint`, `search.clear`, `search.hintShort`, `search.initialTitle`, `search.initialBody`, `search.actionScan`, `search.actionManual`, `search.emptyTitle`, `search.emptyBody`, `search.errorTitle`, `search.offlineTitle`, `search.offlineBody`, `search.resultCount`, `search.resultLabel`, `search.resultLabelNoYear`, `common.bggCredit`, `common.bggLogoLabel`, `search.forBarcodeBanner`, `search.paneEmpty`, `common.retry`, `common.errorUnavailableBody`, `common.errorRateLimitedBody`, `common.errorRateLimitedBodyNoTime`, `common.errorTimeoutBody`, `lookup.matchSaved`.
 
 ## 7. Accessibility
 
@@ -61,32 +61,22 @@ Debounce: a search runs 400 ms after the last keystroke [ASSUMPTION], or at once
 - When results change, the count line is announced politely ("12 games found"). Loading, empty, and error states announce their title.
 - Keyboard: the search key submits immediately. Escape or the clear button clears.
 - Contrast: result subtitles use onSurfaceVariant on surface (4.5:1 or better in both themes).
-- Text at 200%: names wrap fully (no ellipsis); thumbnail shrinks to 48 dp; the field label stays visible; the footer wraps.
+- Text at 200%: names wrap fully (no ellipsis); thumbnail shrinks to 48 dp (or is absent in no-image mode); the field label stays visible; the footer wraps.
 - Skeleton rows are one polite "Loading" announcement.
 
 ## 8. Golden cases
+Total: 8 (this ticket also delivers the two app_shell offline goldens listed in app-shell.md). Error, rate limited, and offline share one layout; the offline golden covers it. Barcode mode, no-image mode, and partial rows are covered by widget tests; the results golden includes rows with a missing year and a missing thumbnail, and shows the BGG credit at the foot of a short list.
 
 | File | Notes |
 |---|---|
 | search_initial_light_compact.png | Initial empty state with two actions |
-| search_initial_dark_compact.png | |
 | search_loading_light_compact.png | Skeleton rows |
-| search_loading_dark_expanded.png | Left pane skeletons, empty right pane |
-| search_results_light_compact.png | 6 rows, mixed missing year and thumbnail |
+| search_results_light_compact.png | 3 rows, mixed missing year and thumbnail, BGG credit and logo visible |
 | search_results_dark_compact.png | |
-| search_results_light_medium.png | |
-| search_results_light_expanded.png | Two-pane, right pane empty text |
 | search_results_selected_dark_expanded.png | Two-pane with a selected game detail |
-| search_results_light_landscape.png | Phone landscape |
 | search_empty_light_compact.png | No results |
-| search_empty_dark_compact.png | |
-| search_error_light_compact.png | Service unavailable |
-| search_ratelimited_dark_compact.png | |
 | search_offline_light_compact.png | Offline banner and message |
-| search_offline_dark_expanded.png | |
-| search_barcodemode_light_compact.png | Pinned banner with barcode |
 | search_results_text200_light_compact.png | Wrapped names |
-| search_results_text200_dark_expanded.png | |
 
 ## 9. What PM and reviewers should check
 
