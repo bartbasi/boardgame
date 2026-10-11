@@ -33,11 +33,12 @@ Stubs (M3 to M5) have only an id, title, owner, milestone, status, and a one-lin
 
 UI and backend tickets refer to these so that every ticket uses the same values.
 
-- **Window sizes** for widget and golden tests [ASSUMPTION until T-003 confirms]: compact 390 x 844 dp, medium 744 x 1133 dp, expanded 1280 x 800 dp.
-- **Large text:** text scale factor 2.0.
+- **Window sizes** for widget and golden tests (confirmed in docs/ux/screens/app-shell.md): compact 390 x 844 dp, medium 744 x 1133 dp, expanded 1280 x 800 dp. A fourth size, landscape 844 x 390 dp (phone landscape, expanded by width), is used only for goldens a spec names.
+- **Large text:** text scale factor 2.0. Goldens rendered at 2.0 add the suffix `text200` to the state, for example `scanner_denied_text200_light_compact.png`.
 - **Accessibility guidelines pass** means flutter_test's `androidTapTargetGuideline`, `iOSTapTargetGuideline`, `labeledTapTargetGuideline`, and `textContrastGuideline` all pass for the screen, in light and dark themes.
 - **Offline** in app tests: the fake data source returns the no-connection failure.
-- **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec.
+- **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
+- **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B10 point to its "Blocking risks" table.
 - **Barcode vectors** (check digits verified by hand):
   - Valid UPC-A: `036000291452`, `012345678905`
   - Valid EAN-13: `4006381333931`, `0036000291452` (the EAN-13 form of `036000291452`)
@@ -61,11 +62,20 @@ T-014 and T-015 both edit app.yml, and T-011 and T-019 both edit server.yml, so 
 
 ### M2
 
-Gate before M2 starts: T-002 has confirmed the BGG and GameUPC facts, T-003 has the M2 screen specs, and the user has answered PRD Q4 (ML Kit), Q5 (images), and Q10 (BGG token and GameUPC access).
+Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q4 (ML Kit), Q5 (images), and Q10 (BGG and GameUPC access). The BGG token comes from T-087 and GameUPC production details from T-088. T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
 
 - Backend lane: T-018 first, because the app's T-028 needs the contract. Then T-019, T-021, T-022, T-023, T-024, T-025. T-020 fits anywhere after T-008.
 - App lane: T-026 and T-027 start right away (no backend dependency) and can run in parallel worktrees because they touch separate folders. Then T-030 and T-031, then T-028 (after T-018 is merged), T-029, T-032, T-033, T-034, T-035. T-036 when its blockers clear.
 - The app lane and the backend lane run in parallel. Within a lane, run tickets in sequence unless noted. Most app tickets touch the router and app/lib/l10n/app_en.arb, and most backend tickets touch the router and server/.env.example.
+
+### M4
+
+- T-084 (eBay account deletion endpoint) must be deployed and verified by eBay before any production eBay API call (EBAY-10). That includes T-085 (category check) and recording production fixtures for T-053. So M4 backend work that needs production eBay data waits for a deployment (PRD Q8, R13). Sandbox calls are not affected.
+- T-089 (the question to eBay) and T-090 (eBay and EPN accounts) should be done before M4 starts.
+
+### User tasks
+
+T-087 and T-088 start now (BGG approval can take a week or more, BGG-04). T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
 
 ---
 
@@ -87,7 +97,7 @@ Gate before M2 starts: T-002 has confirmed the BGG and GameUPC facts, T-003 has 
 ### T-002 API and store policy research
 - Milestone: Planning
 - Owner: product-manager
-- Status: in-progress
+- Status: in-review
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/api-research.md
@@ -101,7 +111,7 @@ Gate before M2 starts: T-002 has confirmed the BGG and GameUPC facts, T-003 has 
 ### T-003 UX flows, screen specs, components, copy, and accessibility checklist (M2 to M4)
 - Milestone: Planning
 - Owner: ux-designer
-- Status: ready
+- Status: in-review
 - Depends on: T-001 (the draft is enough to start; revise after the user's review)
 - UX spec: n/a (this ticket writes them)
 - Linked files: docs/ux/
@@ -251,15 +261,15 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - Owner: flutter-developer
 - Status: todo
 - Depends on: T-004, T-006
-- UX spec: docs/ux/screens/app-shell.md (T-003). Until it exists, use the destinations Scan, Collection, and Settings [ASSUMPTION] and a placeholder seed color.
+- UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` [ASSUMPTION, PRD Q31]; dynamic color off.
 - Linked files: app/
 - Acceptance criteria:
   1. Given app/, then it is a Flutter project with Android minSdk 24 and iOS deployment target 15.0 [ASSUMPTION], using the display name and ids from PRD Q1 (placeholders until answered) (proved by: manual, read the build files).
   2. Given lib/features/, then scanner, game_detail, pricing, collection, and settings each have data, domain, and presentation folders, and shared code lives in lib/core/ (proved by: manual).
   3. Given any Dart file under a domain folder, when the architecture test runs, then it fails if the file imports package:flutter, dart:ui, or any plugin package; it passes for the skeleton, and it proves itself against a fixture that contains a forbidden import (proved by: unit).
-  4. Given a compact window (390 x 844 dp), then a bottom NavigationBar shows the top-level destinations; given a medium or expanded window (744 or 1280 dp wide), then a NavigationRail shows them (proved by: widget).
-  5. Given the user scrolls a placeholder list on Collection, switches to Settings, and comes back, then the scroll position is kept (proved by: widget).
-  6. Given the system theme is dark, then the app uses the dark Material 3 color scheme generated from the same seed as the light scheme; given light, then the light scheme (proved by: widget with platform brightness set).
+  4. Given a compact window (390 x 844 dp), then a bottom NavigationBar shows Scan, Search, Collection, and Settings in that order; given a medium, expanded, or landscape window (744, 1280, or 844 dp wide), then a NavigationRail shows them; and the app starts on Scan with nothing shown between launch and the Scan placeholder (proved by: widget).
+  5. Given the user scrolls a placeholder list on Collection, switches to Settings, and comes back, then the scroll position is kept; given the user taps the already selected destination, then it returns to that destination's root (proved by: widget).
+  6. Given the system theme is dark, then the app uses the dark Material 3 color scheme generated with `ColorScheme.fromSeed` from `0xFF1F6B5C`, the same seed as the light scheme; given light, then the light scheme; dynamic (wallpaper) color is not used (proved by: widget with platform brightness set).
   7. Given each placeholder screen at text scale 2.0 in compact and expanded sizes, then no overflow error is thrown (proved by: widget).
   8. Given the navigation destinations, then each has a semantic label and the accessibility guidelines pass in both themes (proved by: widget).
   9. Given user-facing strings, then they come from app/lib/l10n/app_en.arb through Flutter's localization code generation [ASSUMPTION], with keys matching docs/ux/copy.md once it exists, and no widget contains a hard-coded user-facing string (proved by: manual review).
@@ -311,15 +321,15 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - Owner: flutter-developer
 - Status: todo
 - Depends on: T-014
-- UX spec: docs/ux/screens/app-shell.md (for the sample goldens; placeholders until T-003)
+- UX spec: docs/ux/screens/app-shell.md (golden cases). Its two offline goldens need the offline banner and the Search screen, so they are delivered in T-032, not here.
 - Linked files: app/test/goldens/, app/test/ (golden helpers and test config), app/tool/ (Docker script), .github/workflows/app.yml
 - Acceptance criteria:
   1. Given the Windows dev machine with Docker Desktop, when the documented command runs, then it renders and updates goldens inside a Linux container that uses the same Flutter version as CI; the handoff gives the exact command so the orchestrator can record it in docs/decisions.md (proved by: manual).
   2. Given goldens produced by that command and committed, when app.yml runs the golden tests on ubuntu, then they pass with no changes (proved by: CI run on the ticket branch).
   3. Given `flutter test --update-goldens` run directly on Windows or macOS, then the run fails with a message pointing to the Docker command, and no PNG is written (proved by: unit for the platform guard, plus a manual run on Windows).
   4. Given any golden, then text renders as real, readable glyphs in the app's fonts, not boxes, so UX and PM can review copy (proved by: manual, open the PNG).
-  5. Given the golden helper, then it renders a widget at the shared window sizes, in light and dark, at text scale 1.0 and 2.0, and names files `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/ (proved by: golden).
-  6. Given the app shell from T-012, then these goldens exist and pass: app_shell_default_light_compact.png, app_shell_default_dark_compact.png, app_shell_default_light_expanded.png, app_shell_default_dark_expanded.png (proved by: golden).
+  5. Given the golden helper, then it renders a widget at the four shared window sizes (compact, medium, expanded, landscape), in light and dark, at text scale 1.0 and 2.0, and names files `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, adding the `text200` suffix to the state at text scale 2.0 (proved by: golden).
+  6. Given the app shell from T-012, then these goldens exist and pass: app_shell_default_light_compact.png, app_shell_default_dark_compact.png, app_shell_default_light_expanded.png, app_shell_default_dark_expanded.png, app_shell_default_light_medium.png, app_shell_default_light_landscape.png, app_shell_text200_light_compact.png, app_shell_text200_dark_expanded.png (proved by: golden).
   7. Given a golden mismatch in CI, then the job fails and uploads the diff images as an artifact (proved by: manual, a scratch commit that changes a color, reverted afterward).
   8. Given font files bundled for tests, then their license is recorded in the handoff, and anything other than MIT, BSD, or Apache 2.0 is approved by the user before it is committed (proved by: manual).
 
@@ -379,6 +389,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given the error codes `invalid_barcode`, `invalid_query`, `invalid_bgg_id`, `not_found`, `rate_limited`, `upstream_unavailable`, and `internal_error`, then each decodes from a fixture, and an unknown code decodes to `unknown` (proved by: unit).
   7. Given packages/api_contract/test/fixtures/, then there is one example JSON file per response type and status, and the app's data layer tests in T-028 reuse them (proved by: unit).
   8. Given the handoff, then it lists every DTO and field added, for the flutter-developer (proved by: manual).
+  9. Given the game detail and game summary responses, then they carry the URL of the game's BGG page, built by the backend, so the app's "Powered by BGG" link (BGG-41) never builds BGG URLs itself. The handoff notes how the URL format was confirmed on BGG's site (proved by: unit, fixture round trip).
 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
@@ -417,20 +428,21 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: backend-developer
 - Status: todo
-- Depends on: T-002, T-008; PRD Q10 (a BGG token to record fixtures)
+- Depends on: T-002, T-008, T-087 (a BGG token needs an approved app registration, BGG-01, BGG-02, BGG-04; until then the client is built against recorded fixtures)
 - UX spec: n/a
 - Linked files: server/ (BGG client and queue), server/test/fixtures/bgg/, server/.env.example
 - Acceptance criteria:
-  1. Given 5 BGG requests enqueued at the same moment, then they start at 0, 2, 4, 6, and 8 s on a fake clock. There is one queue per server process with a minimum interval of 2 s by default, configurable, and set to the value in docs/api-research.md if it states a different limit (proved by: unit).
-  2. Given any BGG request, then the scheme is https, the host is exactly boardgamegeek.com (never www.boardgamegeek.com), and the paths and parameters are the ones docs/api-research.md documents (proved by: unit, capturing requests).
-  3. Given any BGG request, then it carries the Bearer token from config the way docs/api-research.md documents; the token never appears in logs, errors, or fixtures; a missing token fails startup (proved by: unit with log capture, plus a test that scans the fixtures folder for the token pattern).
-  4. Given BGG answers 202 twice and then 200, then the client waits the delay docs/api-research.md gives (2 s, doubling, if it gives none [ASSUMPTION]) between tries and returns the parsed 200 result; after 5 consecutive 202 answers [ASSUMPTION] it returns an upstream unavailable failure (proved by: unit with a fake clock).
-  5. Given BGG answers 429 with `Retry-After: 30`, then the whole queue pauses for at least 30 s, not only that request; without Retry-After it pauses 60 s [ASSUMPTION] (proved by: unit with a fake clock).
-  6. Given a 5xx, a timeout (10 s default [ASSUMPTION]), or malformed XML, then the client returns a typed failure and no exception escapes it (proved by: unit with fixtures).
-  7. Given an XML fixture whose DOCTYPE declares an external entity pointing to a local file or a URL, then parsing neither reads the file nor makes a network call, and the result is a parse failure or the entity stays unresolved (proved by: unit).
-  8. Given recorded search and thing fixtures with the token scrubbed, then the parser maps them to internal models, including Unicode names such as "Café International" and HTML entities in descriptions decoded to plain text (proved by: unit).
-  9. Given more than 50 requests already waiting [ASSUMPTION], then a new request fails fast with a busy failure, so endpoints can answer 503 with Retry-After instead of hanging (proved by: unit).
-  10. Given each upstream call, then one log line records the BGG operation name, status, and duration, with no token and no search text (proved by: unit with log capture).
+  1. Given 5 BGG requests enqueued at the same moment, then they start at 0, 5, 10, 15, and 20 s on a fake clock. There is one queue per server process, with a minimum interval of 5 s by default [ASSUMPTION: BGG publishes no limit, and its wiki says a 5-second wait seems to suffice, BGG-20, BGG-21], configurable (proved by: unit).
+  2. Given any BGG request, then it goes to `https://boardgamegeek.com/xmlapi2/` (BGG-30): scheme https, host exactly boardgamegeek.com, never www (BGG-03), using only the search path (BGG-31) and the thing path (BGG-33). Nothing calls BGG's JSON API or other private endpoints (BGG-17) (proved by: unit, capturing requests).
+  3. Given 45 game ids needed at once, then the client sends 3 thing requests with 20, 20, and 5 ids, because thing accepts at most 20 ids (BGG-33) (proved by: unit).
+  4. Given any BGG request, then it carries the header `Authorization: Bearer <token>` with the token from config (BGG-02). The token never appears in logs, errors, or fixtures, and a missing token fails startup (proved by: unit with log capture, plus a test that scans the fixtures folder for the token pattern).
+  5. Given BGG answers 202 twice and then 200, then the client waits at least 5 s and then at least 10 s (doubling, with jitter [ASSUMPTION]) and returns the parsed 200 result; after 5 consecutive 202 answers [ASSUMPTION] it returns an upstream unavailable failure. BGG documents 202 only for collection requests (BGG-23), but the client handles it anyway (proved by: unit with a fake clock).
+  6. Given BGG answers 429, 500, or 503 (the wiki says requests sent too often get 500 or 503, BGG-21), then the whole queue pauses, not only that request. It pauses for the Retry-After value when present; otherwise it backs off exponentially with jitter, starting at 10 s, doubling, and capped at 5 minutes [ASSUMPTION; developers report 429 responses without Retry-After, BGG-22, unverified]. The request is retried at most 3 times [ASSUMPTION] and then returns a typed failure (proved by: unit with a fake clock).
+  7. Given a timeout (10 s default [ASSUMPTION]) or malformed XML, then the client returns a typed failure and no exception escapes it (proved by: unit with fixtures).
+  8. Given an XML fixture whose DOCTYPE declares an external entity pointing to a local file or a URL, then parsing neither reads the file nor makes a network call, and the result is a parse failure or the entity stays unresolved (proved by: unit).
+  9. Given search and thing fixtures recorded from real BGG responses with the token scrubbed, then the parser maps them to internal models, including Unicode names such as "Café International" and HTML entities in descriptions decoded to plain text. Field names come from the recorded fixtures and are listed in the handoff, not taken from memory (docs/api-research.md section 1.4). Apart from entity decoding and trimming whitespace, BGG values are not changed (BGG-15) (proved by: unit).
+  10. Given the expected wait for a new request (requests already waiting times the interval) is more than 20 s [ASSUMPTION], then the request fails fast with a busy failure, so endpoints can answer 503 with Retry-After instead of hanging (proved by: unit).
+  11. Given each upstream call, then one log line records the BGG operation name, status, and duration, with no token and no search text (proved by: unit with log capture).
 
 ### T-022 Server: GET /v1/games/{bggId} with 7-day cache
 - Milestone: M2
@@ -459,7 +471,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Linked files: server/ (search route, search cache, migration)
 - Acceptance criteria:
   1. Given `q` missing, empty, one character after trimming, or longer than 100 characters [ASSUMPTION], then the endpoint returns 400 `invalid_query` and makes no BGG call (proved by: endpoint, table-driven).
-  2. Given `q=catan`, then the endpoint returns 200 with at most 50 results [ASSUMPTION], limited to the BGG item types docs/api-research.md lists for board games and expansions (proved by: endpoint with fixture).
+  2. Given `q=catan`, then the endpoint returns 200 with at most 50 results [ASSUMPTION], requesting only the BGG types `boardgame` and `boardgameexpansion` (BGG-31). Developers report that `type=boardgame` also returns expansions (BGG-32, unverified), so the result type comes from each item, not from the request (proved by: endpoint with fixture).
   3. Given results, then exact name matches (case-insensitive) come first and the rest keep BGG's order (proved by: unit).
   4. Given the queries "Catan", " catan ", and "CATAN" within 24 hours [ASSUMPTION], then the second and third are served from the cache and the BGG fake records 1 call in total (proved by: endpoint).
   5. Given a query with no results, then the endpoint returns 200 with an empty list, not 404 (proved by: endpoint).
@@ -472,17 +484,18 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: backend-developer
 - Status: todo
-- Depends on: T-002, T-008; PRD Q10 (GameUPC access to record fixtures)
+- Depends on: T-002, T-008, T-088 (production base URL, key, limits, and permission are UNVERIFIED until the operator answers, GUPC-07)
 - UX spec: n/a
 - Linked files: server/ (GameUPC client), server/test/fixtures/gameupc/, server/.env.example
 - Acceptance criteria:
-  1. Given a lookup, then the client calls only the host, endpoint, and auth method documented in docs/api-research.md, with credentials from config that never appear in logs or fixtures (proved by: unit, capturing requests, with log capture).
-  2. Given recorded fixtures for one match, several matches, and no match, then the client maps them to BGG ids with names and any ranking field docs/api-research.md confirms (proved by: unit).
+  1. Given a lookup, then the client calls the configured base URL with the `x-api-key` header (GUPC-02), and the key never appears in logs or fixtures. Development and fixture recording may use the documented test endpoint `https://api.gameupc.com/test/upc/{upc}` with its public test key (GUPC-02). The production URL and key come only from config, after T-088 (proved by: unit, capturing requests, with log capture).
+  2. Given recorded fixtures with `bgg_info_status` `verified` and one `bgg_info` entry, `choose_from_bgg_info_or_search` with several entries, and an empty `bgg_info`, then the client maps them to a list of BGG ids ordered by `confidence` (GUPC-02). An unknown status with entries maps to candidates, and one without entries maps to no match (proved by: unit).
   3. Given a timeout of 3 s [ASSUMPTION], a 5xx, a 429, or malformed JSON, then the client returns a typed unavailable failure and never throws (proved by: unit, table-driven).
   4. Given a 429 with `Retry-After: 60`, then for the next 60 s the client returns unavailable immediately without calling GameUPC (proved by: unit with a fake clock).
   5. Given 5 consecutive failures [ASSUMPTION], then the client skips calls for 60 s [ASSUMPTION] and then tries again (proved by: unit with a fake clock).
-  6. Given the rate limit in docs/api-research.md, then the client never exceeds it (proved by: unit with a fake clock).
-  7. Given GameUPC's terms in docs/api-research.md (commercial use, caching, attribution), then the handoff states how this client complies (proved by: manual).
+  6. Given GameUPC publishes no rate limit (GUPC-07), then the client sends at most 1 request per second [ASSUMPTION], configurable, until the operator gives a limit (proved by: unit with a fake clock).
+  7. Given v1, then the client never calls `update_url` or sends votes, and no request it sends contains a device or user identifier (GUPC-02, PRD Q9) (proved by: unit, capturing requests).
+  8. Given the operator's answer from T-088, then the handoff states how the client complies with the permission, limits, caching, and credit terms (proved by: manual).
 
 ### T-025 Server: GET /v1/lookup/barcode/{code}
 - Milestone: M2
@@ -494,13 +507,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Acceptance criteria:
   1. Given `036000291452`, `4006381333931`, and `96385074`, then they pass validation; given `036000291453`, `12345`, and `03600029145A`, then the endpoint returns 400 `invalid_barcode` and makes no upstream call (proved by: endpoint, table-driven).
   2. Given `036000291452` and `0036000291452`, then both normalize to the GTIN-13 `0036000291452` and share one stored mapping [ASSUMPTION: GTIN-13 is the storage key] (proved by: unit and endpoint).
-  3. Given GameUPC returns exactly one BGG id, then the endpoint returns 200 with status `matched` and one game summary (proved by: endpoint).
-  4. Given GameUPC returns several BGG ids, then the endpoint returns 200 with status `candidates` and up to 10 summaries [ASSUMPTION] in GameUPC's ranking order (proved by: endpoint).
+  3. Given GameUPC returns status `verified` with exactly one BGG id (GUPC-02), then the endpoint returns 200 with status `matched` and one game summary (proved by: endpoint).
+  4. Given GameUPC returns several BGG ids, then the endpoint returns 200 with status `candidates` and up to 10 summaries [ASSUMPTION], ordered by GameUPC's `confidence` (GUPC-02) (proved by: endpoint).
   5. Given GameUPC returns no BGG id, then the endpoint returns 200 with status `none` and an empty list, not 404 (proved by: endpoint).
   6. Given GameUPC times out or fails and no mapping is stored, then the endpoint returns 200 with status `unavailable` within 4 s in total [ASSUMPTION], and that answer is not stored as a mapping (proved by: endpoint with a slow fake).
-  7. Given a stored mapping younger than 30 days [ASSUMPTION, or the period docs/api-research.md allows], then GameUPC is not called (proved by: endpoint, fake call count 0).
-  8. Given candidates, then each summary has at least bggId and name, taken from GameUPC's response if docs/api-research.md confirms it includes names, otherwise from the game cache or from BGG through the queue (proved by: endpoint).
-  9. Given docs/api-research.md confirms GameUPC can return a product name without a BGG id, then the backend runs a BGG title search with that name and returns status `candidates` with those results. If it is not confirmed, this criterion is dropped and the handoff says so (proved by: endpoint).
+  7. Given a stored mapping younger than 30 days [ASSUMPTION, or the period the GameUPC operator allows, T-088], then GameUPC is not called (proved by: endpoint, fake call count 0).
+  8. Given candidates, then each summary has bggId and name. GameUPC's documented fields do not include names (GUPC-02), so names come from the game cache or from one batched BGG thing request of up to 20 ids through the queue (BGG-33). If the BGG queue is busy, the endpoint returns 503 `upstream_unavailable` with Retry-After and stores nothing new (proved by: endpoint).
+  9. Given docs/api-research.md confirms GameUPC can return a product name without a BGG id (not confirmed as of 2026-10-11, GUPC-02, GUPC-07), then the backend runs a BGG title search with that name and returns status `candidates` with those results. If it is not confirmed when this ticket starts, this criterion is dropped and the handoff says so (proved by: endpoint).
   10. Given any lookup, then the database receives only the barcode, the mapping, and timestamps, and nothing about the requester (proved by: manual, reviewer and PM read the migration and code).
   11. Given any 200 response, then it decodes with the api_contract lookup DTO (proved by: endpoint).
 
@@ -571,7 +584,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-012, T-026; PRD Q4 (user approval of Google ML Kit on Android)
+- Depends on: T-003, T-012, T-026; PRD Q4 (user approval of Google ML Kit on Android, MLKIT-01 to MLKIT-07)
 - UX spec: docs/ux/screens/scanner.md
 - Linked files: app/lib/features/scanner/presentation/, app/android/ (camera permission), app/ios/Runner/Info.plist (camera usage text)
 - Acceptance criteria:
@@ -581,14 +594,16 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given detections in formats other than UPC-A, EAN-13, and EAN-8 (QR, UPC-E, Code 128), then nothing happens (proved by: widget with a fake scanner).
   5. Given a detection with a bad check digit (`036000291453`), then nothing happens: no haptic, no navigation (proved by: widget).
   6. Given the same code detected 5 times within 500 ms, then exactly one navigation happens; after the user comes back to the scanner, the same code can be scanned again. The debounce window is 2 s [ASSUMPTION] (proved by: widget with a fake clock).
-  7. Given a device with a torch, then a torch toggle shows, switches the torch on and off, and its label changes between the copy.md on and off strings; given no torch, then the toggle is hidden (proved by: widget with a fake controller; manual on device).
-  8. Given permission is denied or permanently denied (on iOS, denied or restricted), then the screen shows the copy.md explanation and an "Open settings" button that opens the app's page in system settings (proved by: widget with a fake permission state; manual on device for the settings link).
-  9. Given every scanner state (starting, scanning, denied, camera unavailable), then manual entry and title search are visible and one tap away (proved by: widget).
+  7. Given a device with a torch, then a torch toggle shows and switches the torch on and off, and its visible and semantic labels change between `scanner.torchOn`, `scanner.torchOff`, `scanner.torchLabelOn`, and `scanner.torchLabelOff` as scanner.md assigns them; given no torch, then the toggle is hidden (proved by: widget with a fake controller; manual on device).
+  8. Given permission is denied or permanently denied, then the screen shows the copy.md explanation and an "Open settings" button that opens the app's page in system settings. Given iOS reports the camera as restricted (parental or device policy), then the screen shows `scanner.restricted.body` with no settings button, because settings cannot change it (proved by: widget with a fake permission state; manual on device for the settings link).
+  9. Given every scanner state (starting, scanning, denied, permanently denied, restricted, camera unavailable), then manual entry and title search are visible and one tap away (proved by: widget).
   10. Given the user switches tabs or sends the app to the background, then the camera stops, and it restarts on return (proved by: widget with a fake controller; manual on device).
   11. Given the device is offline, then scanning still works and opens the lookup result, which handles being offline (proved by: widget).
-  12. Given the iOS Info.plist and the Android manifest, then the camera usage text matches docs/ux/copy.md and the store guidance in docs/api-research.md (proved by: manual).
+  12. Given the iOS Info.plist, then `NSCameraUsageDescription` is present (APPLE-01) with the copy.md text `scanner.iosUsageDescription`, which clearly describes the use (APPLE-03). Given the Android manifest, then it declares the CAMERA permission (GPLAY-01), and the app requests it only on the scanner screen (GPLAY-02) (proved by: manual).
   13. Given both themes at text scale 2.0 in compact and expanded sizes, then nothing overflows and the accessibility guidelines pass, and a successful scan is announced to screen readers with the copy.md text (proved by: widget).
-  14. Given the golden list in scanner.md (with the camera preview replaced by a placeholder), then every listed golden exists and passes (proved by: golden).
+  14. Given the golden list in scanner.md (with the camera preview replaced by a placeholder), including the restricted state, then every listed golden exists and passes (proved by: golden).
+  15. Given the merged Android manifest, then the camera hardware feature is declared as not required [ASSUMPTION], so the app installs on devices without a camera, where manual entry and title search still work (GPLAY-01) (proved by: manual, read the merged manifest).
+  16. Given Android, then the bundled ML Kit model is used [ASSUMPTION], so the first scan works offline without a Google Play services download (MLKIT-06). The handoff records the change in APK size (proved by: manual).
 
 ### T-031 App: manual barcode entry
 - Milestone: M2
@@ -599,8 +614,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Linked files: app/lib/features/scanner/presentation/
 - Acceptance criteria:
   1. Given the scanner screen or the search screen, when the user taps the manual entry action, then the manual entry screen opens (proved by: widget).
-  2. Given the barcode field, then it shows a numeric keyboard, accepts digits only, and stops at 13 characters (proved by: widget).
-  3. Given `036000291452` is entered and submitted, then the app opens the lookup result for that code (proved by: widget).
+  2. Given the barcode field, then it shows a numeric keyboard, drops non-digit characters as they are typed or pasted (`manualEntry.errorNonDigit` is only the spec's fallback), and stops at 13 characters (proved by: widget).
+  3. Given `036000291452` (12 digits), `4006381333931` (13 digits), or `96385074` (8 digits) is entered and submitted, then the app opens the lookup result for that code (proved by: widget).
   4. Given `036000291453` or `12345` is submitted, then an inline copy.md error explains the problem, focus stays in the field, the error is announced to screen readers, and there is no navigation (proved by: widget).
   5. Given the initial (empty) state, then the field shows the copy.md helper text. This screen makes no network call, so loading and offline are handled by the lookup result screen; given the device is offline, submitting a valid code still opens the lookup result (proved by: widget).
   6. Given both themes at text scale 2.0 in compact and expanded sizes, then nothing overflows and the accessibility guidelines pass (proved by: widget).
@@ -624,7 +639,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   8. Given the user types "cat" and then "catan", and the "cat" response arrives after the "catan" response, then the "catan" results stay on screen (proved by: widget).
   9. Given the screen was opened for a barcode that had no match, when the user taps a result, then that barcode is stored as a confirmed match for the game and its detail opens (proved by: widget).
   10. Given both themes at text scale 2.0 in compact, medium, and expanded sizes, then nothing overflows, the accessibility guidelines pass, and each row is read by screen readers with its name and year (proved by: widget).
-  11. Given the golden list in search.md, then every listed golden exists and passes (proved by: golden).
+  11. Given the golden list in search.md, then every listed golden exists and passes. This ticket also delivers the two offline goldens from app-shell.md (app_shell_offline_light_compact.png and app_shell_offline_dark_expanded.png), because the offline banner first appears on Search (proved by: golden).
+  12. Given results from BGG, then BoardGameGeek is credited by name and the "Powered by BGG" logo shows where search.md places it (BGG-40, BGG-41) (proved by: widget and golden).
 
 ### T-033 App: lookup result and candidate selection
 - Milestone: M2
@@ -641,25 +657,26 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given the lookup is in flight, then a skeleton shows (proved by: widget).
   6. Given the device is offline and the code has a confirmed match on the device, then the game detail opens; given offline with no stored match, then the copy.md offline message shows with Retry and a search by title action (proved by: widget).
   7. Given the service unavailable or rate limited failure, then a plain-language error with Retry shows (proved by: widget).
-  8. Given the correction entry point (used by "Not this game?" in T-034), when the user picks a different candidate or search result, then the new choice replaces the stored match for that barcode (proved by: widget).
+  8. Given the correction entry point (used by "Not this game?" in T-034), then the screen uses the correction-mode copy from lookup-result.md and marks the stored game with the "Current match" tag; when the user picks a different candidate or search result, then the new choice replaces the stored match for that barcode (proved by: widget). The expanded two-pane preview in the spec is optional for this ticket.
   9. Given both themes at text scale 2.0 in compact, medium, and expanded sizes, then nothing overflows, the accessibility guidelines pass, and candidate rows have screen reader labels with name and year (proved by: widget).
   10. Given the golden list in lookup-result.md, then every listed golden exists and passes (proved by: golden).
+  11. Given candidates from BGG, then BoardGameGeek is credited by name and the "Powered by BGG" logo shows where lookup-result.md places it (BGG-40, BGG-41) (proved by: widget and golden).
 
 ### T-034 App: game detail screen
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-033; PRD Q5 (cover images)
+- Depends on: T-003, T-029, T-033, T-087 (official "Powered by BGG" logo files, BGG-41); PRD Q5 (cover images)
 - UX spec: docs/ux/screens/game-detail.md (the M2 part)
 - Linked files: app/lib/features/game_detail/presentation/
 - Acceptance criteria:
   1. Given a game with every field, then the fields game-detail.md lists (for example name, year, cover image, players, play time, designers, publishers, description) show as specified (proved by: widget with a fixture).
   2. Given a game missing optional fields (no year, no image, no designers), then those parts are hidden or show the spec's placeholder, never "null", "0", or an empty label (proved by: widget).
-  3. Given the screen, then the BGG attribution that docs/api-research.md requires (logo, wording, link) shows where the spec places it, and its link opens outside the app (proved by: widget and golden; manual check against BGG's rules).
+  3. Given the screen, then BoardGameGeek is credited by name, and the official "Powered by BGG" logo shows at a legible size where the spec places it, linked to the game's BGG page, which opens outside the app (BGG-40, BGG-41) (proved by: widget and golden; manual check against BGG's rules).
   4. Given loading, then a skeleton shows (proved by: widget).
   5. Given not found, then the copy.md not-found message shows with a search action (proved by: widget).
   6. Given an error with no cached copy, then a plain-language error with Retry shows (proved by: widget).
-  7. Given the device is offline and a copy fetched 3 days ago is cached, then the cached data shows with the copy.md "Last updated" label reading 3 days ago, and no error screen (proved by: widget with a fake clock).
+  7. Given the device is offline and a copy fetched 3 days ago is cached, then the cached data shows with `gameDetail.updatedLabel` ("Details last updated 3 days ago"), and no error screen (proved by: widget with a fake clock).
   8. Given pull to refresh succeeds, then the data and the "Last updated" label update; given it fails, then the cached data stays and a non-blocking copy.md message appears (proved by: widget).
   9. Given the cover image is loading, fails, or is missing, then a placeholder shows, and the image has the copy.md semantic label (for example "Cover of Catan") (proved by: widget).
   10. Given a 200-character Unicode title, then it wraps without overflow at text scale 2.0 in compact, medium, and expanded sizes (proved by: widget).
@@ -667,6 +684,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   12. Given M2, then no collection or pricing sections show yet [ASSUMPTION] (proved by: widget).
   13. Given both themes, then the accessibility guidelines pass (proved by: widget).
   14. Given the M2 golden list in game-detail.md, then every listed golden exists and passes (proved by: golden).
+  15. Given no cover image is available or allowed (BGG-42, PRD Q5), then the screen is complete without it, as game-detail.md lays out (proved by: widget and golden).
 
 ### T-035 App: M2 flow integration test
 - Milestone: M2
@@ -783,41 +801,44 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 
 ## M4 Pricing (stubs)
 
-### T-050 Affiliate disclosure wording
+### T-050 EPN disclosure wording
 - Milestone: M4
 - Owner: product-manager
 - Status: todo
-- Goal: Short and full EPN affiliate disclosure text in docs/legal/, checked against EPN and FTC requirements, for the listings view and Settings.
+- Depends on: PRD Q25 (wording choice)
+- Goal: Disclosure text in docs/legal/: a short line for next to the listings, visible without scrolling, using an EPN-approved phrase ("Affiliate link" is not approved), and a full version for Settings (EBAY-92, EBAY-93). Checked against EPN's rules and FTC guidance.
 
 ### T-051 API contract: pricing DTOs
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Price summary, listing, and history DTOs that carry the asking or sold label, source, sample size, and data age.
+- Goal: Price summary, listing, and history DTOs that carry the asking label (a sold label exists but is unused in v1, EBAY-100), source, sample size, and the fetch time that age limits are measured from (EBAY-20). Listings carry no seller identifiers.
 
 ### T-052 Server: eBay OAuth application token
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Get, cache, and refresh the eBay application token as docs/api-research.md documents, with secrets only in .env.
+- Depends on: T-090
+- Goal: A client credentials token from the eBay token endpoint with the `https://api.ebay.com/oauth/api_scope` scope, kept in memory and reused until it expires after 2 hours, with secrets only in .env (EBAY-30 to EBAY-34).
 
 ### T-053 Server: eBay Browse API client
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Search by GTIN first and keywords as fallback, used condition, board game category, EPN campaign id passed as documented, itemAffiliateWebUrl with plain URL fallback.
+- Depends on: T-052, T-085; T-084 live before any production call
+- Goal: item_summary search by `gtin` first (never combined with `q`), keywords as fallback with one `category_ids` value, `conditions:{USED}`, fixed-price listings (the default), `X-EBAY-C-MARKETPLACE-ID: EBAY_US`, the campaign id in `X-EBAY-C-ENDUSERCTX`, itemAffiliateWebUrl with itemWebUrl as fallback, and at most two retries on infrastructure errors (EBAY-40 to EBAY-53, EBAY-72).
 
 ### T-054 Server: listing filter and price statistics
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Remove lots, bundles, and outliers by documented, tested rules, then compute median, low, high, and count.
+- Goal: Remove lots, bundles, and outliers by documented, tested rules, then compute median, low, high, and count for one product. Never category-wide or site-wide statistics (EBAY-23).
 
 ### T-055 Server: GET /v1/prices/{bggId}
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Current price summary and listings, labeled as asking prices, with source and timestamp, inside the eBay budget.
+- Goal: Current price summary and listings, labeled as asking prices, with source and fetch time. Listings are cached at most 6 hours, then deleted, and never served older (EBAY-20, EBAY-21). The cache stores no seller or buyer identifiers [ASSUMPTION]. Stays inside the eBay budget.
 
 ### T-056 Server: looked-up games registry
 - Milestone: M4
@@ -829,83 +850,116 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: A daily snapshot for each tracked game, within the daily call budget, with budget use logged and a warning at 80% [ASSUMPTION].
+- Goal: A daily snapshot of the four statistics for each tracked game, behind a backend flag that stays off until eBay answers (B2, PRD Q24). Stays within the 5,000-call default budget (EBAY-70), with budget use from T-086 logged and a warning at 80% [ASSUMPTION].
 
 ### T-058 Server: GET /v1/prices/{bggId}/history
 - Milestone: M4
 - Owner: backend-developer
 - Status: todo
-- Goal: Daily snapshot history for one game, with the date the history starts.
+- Goal: Daily snapshot history for one game, with the date the history starts, behind the same flag as T-057. With the flag off, the endpoint reports that history is unavailable.
 
 ### T-059 Server: Marketplace Insights behind a feature flag
 - Milestone: M4
 - Owner: backend-developer
-- Status: todo
-- Goal: Sold prices from Marketplace Insights, labeled as sold, behind a flag that is off by default until eBay approves access.
+- Status: blocked
+- Depends on: eBay granting access, which cannot be requested today (EBAY-100, EBAY-102, EBAY-103); PRD Q27
+- Goal: On hold. If access is ever granted: sold prices labeled as sold, behind a flag that is off by default, and eBay's written consent before the data feeds a pricing tool (EBAY-24).
 
 ### T-060 App: pricing data layer and local price cache
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Repository for price summary, listings, and history with on-device cache, so last known prices show offline.
+- Goal: Repository for price summary, listings, and history with an on-device cache that follows PRD section 6 rule 6: listings older than 6 hours are hidden, including offline (EBAY-20), and summaries are shown only within their age limit.
 
 ### T-061 App: price summary on game detail
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Median, low, high, and count with asking label, source, sample size, and data age; few-listing and stale markers.
+- Goal: Median, low, high, and count with asking label, source, sample size, and data age; a few-listings marker; a stale marker after 6 hours; nothing shown after 24 hours [ASSUMPTION, PRD section 6]; the history action only when history is available.
 
-### T-062 App: listings with "View on eBay" and affiliate disclosure
+### T-062 App: listings with "View on eBay" and the EPN disclosure
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Listing rows that open the backend-provided URL outside the app with no confirmation step, plus the inline disclosure.
+- Goal: Listing rows, each with its age (EBAY-20). Only the "View on eBay" button opens the backend-provided URL outside the app, with no confirmation step; tapping the rest of the row does nothing (PRD Q32). The EPN disclosure sits next to the listings and is visible without scrolling (EBAY-92, EBAY-93).
 
 ### T-063 App: price history chart with screen reader summary
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: An fl_chart history chart with a text summary and an empty state that says when history starts.
+- Goal: An fl_chart history chart with a text summary and an empty state that says when history starts, shown only when the backend history flag is on (PRD Q24); otherwise the entry point is hidden.
 
 ### T-064 App: collection total value
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: Total estimated value of Owned games, labeled as based on eBay asking prices, with the count of games without price data.
+- Goal: Total estimated value of Owned games from summaries within the age limit, labeled as based on eBay asking prices, with the count of games without current price data and an age line that uses "oldest price data".
 
 ### T-065 App: affiliate disclosure in Settings
 - Milestone: M4
 - Owner: flutter-developer
 - Status: todo
-- Goal: The full affiliate disclosure from docs/legal/ in Settings.
+- Goal: The full EPN disclosure from docs/legal/ in Settings, as visible text. This adds to the disclosure next to the listings and does not replace it (EBAY-92).
+
+### T-084 Server: eBay marketplace account deletion endpoint
+- Milestone: M4 (must be live before the first production eBay API call, so it may move earlier; PRD R13)
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-008, T-020; a public HTTPS deployment to go live (PRD Q8, T-071)
+- UX spec: n/a
+- Linked files: server/ (eBay notification route), server/.env.example
+- Acceptance criteria (written in full now because the facts are confirmed, EBAY-10 and EBAY-11):
+  1. Given a GET carrying eBay's challenge code, then the response is 200 with the JSON field `challengeResponse` holding the SHA-256 hash of the challenge code, the verification token, and the endpoint URL, joined in that order (EBAY-11). The exact query parameter name and the hash encoding come from the eBay page cited in EBAY-11; if docs/api-research.md does not record them, the developer raises it under "Research notes for PM" before coding (proved by: unit, with a fixed challenge code, token, and URL whose expected hash was computed independently and stored in the fixture).
+  2. Given a POST notification, then the endpoint acknowledges it immediately with 200, 201, 202, or 204 (EBAY-11), and no part of the notification body is stored or logged (proved by: endpoint with log capture).
+  3. Given the verification token in config, then startup fails unless it is 32 to 80 characters of letters, digits, underscore, or hyphen (EBAY-11) (proved by: unit, table-driven).
+  4. Given the endpoint URL in config, then startup fails if it is not https or points to localhost or an internal IP address (EBAY-11) (proved by: unit).
+  5. Given this route, then app attestation does not apply, because eBay's servers call it, not our app. It has its own per-IP limit of 60 requests per minute [ASSUMPTION] (proved by: endpoint).
+  6. Given the listing cache from T-055, then it stores no seller or buyer identifiers [ASSUMPTION], so acknowledging a notification is all that is needed. The handoff confirms this against the cache schema (proved by: manual, reviewer and PM read the schema).
+  7. Given production, then the endpoint is deployed, eBay's verification succeeds, and the subscription shows in the eBay developer portal before any production eBay credential goes on the server (proved by: manual, by the orchestrator with the user's approval).
+
+### T-085 Server: confirm board game category ids with the Taxonomy API
+- Milestone: M4 (early)
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-052; T-084 live (this is a production eBay call)
+- Goal: Confirm category 2550 and its children 180349 and 19100 for EBAY_US with getDefaultCategoryTreeId and getCategorySubtree (EBAY-60, EBAY-61). Check whether a search on non-leaf 2550 includes its children (UNVERIFIED). Report the results under "Research notes for PM" so they are recorded in docs/api-research.md before T-053 relies on them.
+
+### T-086 Server: daily eBay usage logging
+- Milestone: M4
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-052
+- Goal: Once a day, read the Browse calls used and remaining with the Developer Analytics getRateLimits method (EBAY-74) and log them. This feeds the 80% budget warning in T-057.
 
 ---
 
 ## M5 Hardening and store readiness (stubs)
 
 ### T-066 Server: App Attest verification
-- Milestone: M5
+- Milestone: M5 (moves earlier if a deployment happens before M5, PRD Q8)
 - Owner: backend-developer
 - Status: todo
-- Goal: Verify App Attest on every /v1 request from iOS as docs/api-research.md documents. Must land before any public deployment.
+- Depends on: PRD Q26 (per-install key) and the orchestrator's protection design decision
+- Goal: Verify App Attest from iOS installs (APPLE-11 to APPLE-13) in the chosen design. Proposed: verify when a session starts, then issue a short-lived signed server token for later /v1 requests [ASSUMPTION]. Must land before any public deployment.
 
 ### T-067 Server: Play Integrity verification
-- Milestone: M5
+- Milestone: M5 (moves earlier if a deployment happens before M5, PRD Q8)
 - Owner: backend-developer
 - Status: todo
-- Goal: Verify Play Integrity on every /v1 request from Android as docs/api-research.md documents. Must land before any public deployment.
+- Depends on: the same design decision as T-066
+- Goal: Verify Play Integrity standard request tokens from Android installs in the same design, within the default quota of 10,000 token requests and 10,000 decodes a day across all installs (GPLAY-07 to GPLAY-09). Must land before any public deployment.
 
 ### T-068 App: App Attest on iOS
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: Generate and attach App Attest assertions to backend requests, with graceful behavior when attestation is unavailable.
+- Goal: Generate and attest an App Attest key and attach proof to backend requests as the design requires, with the App Attest entitlement (APPLE-12), skipping gracefully where App Attest is unsupported (APPLE-11).
 
 ### T-069 App: Play Integrity on Android
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: Request and attach Play Integrity tokens to backend requests, within quota, with graceful fallback.
+- Goal: Play Integrity standard requests on Android, preparing the token provider no more than 5 times a minute per install (GPLAY-09), with graceful fallback.
 
 ### T-070 Server: log retention and aggregate counters
 - Milestone: M5
@@ -917,19 +971,19 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: backend-developer
 - Status: todo
-- Goal: A written, reviewed runbook and production Compose and Caddy config for the VM. Running it needs the user's approval.
+- Goal: A written, reviewed runbook and production Compose and Caddy config for an Ampere A1 VM (linux/arm64) within 2 OCPUs and 12 GB in total (OCI-02), created in the home region (OCI-05), and sized or upgraded per PRD Q20 so Oracle does not reclaim it as idle (OCI-07). Running it needs the user's approval.
 
 ### T-072 Deploy: daily backups and tested restore
 - Milestone: M5
 - Owner: backend-developer
 - Status: todo
-- Goal: Daily PostgreSQL backups kept 14 days [ASSUMPTION], with a restore procedure tested against a scratch database.
+- Goal: Daily PostgreSQL backups kept 14 days [ASSUMPTION] and copied off the VM [ASSUMPTION] to the place chosen in PRD Q21, with a restore procedure tested against a scratch database.
 
 ### T-073 App: offline behavior audit and fixes
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: Every screen shows cached data with "Last updated" instead of an error screen when offline.
+- Goal: Every screen shows cached data with "Last updated" instead of an error screen when offline, except eBay data past its age limit (listings after 6 hours, summaries per PRD section 6 rule 6, EBAY-20), which is hidden and replaced by a plain message.
 
 ### T-074 App: error handling audit and fixes
 - Milestone: M5
@@ -959,25 +1013,25 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Drafts in docs/legal/ that match what the app and backend actually do, including third-party processing.
+- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover ML Kit metrics if approved (MLKIT-03), image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q13), and opening eBay listings.
 
 ### T-079 App Store privacy label and Google Play Data Safety answers
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Answers in docs/store/ that match the app's real data flows, including ML Kit metrics if approved.
+- Goal: Answers in docs/store/ that match the app's real data flows: Apple's privacy details, including third-party SDKs (APPLE-04), and the Google Play Data safety form, which is required even if nothing is collected (GPLAY-06). Includes ML Kit if approved (MLKIT-04) and how cached search text is declared.
 
 ### T-080 Store listing text
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: App Store and Google Play listing text in docs/store/, with honest pricing claims (asking prices, eBay US).
+- Goal: App Store and Google Play listing text in docs/store/ with honest pricing claims (asking prices, eBay US, APPLE-09), no "eBay" in the app name without EPN approval (EBAY-82), and the Google Play "Contains ads" answer settled together with PRD Q25 (GPLAY-12).
 
 ### T-081 App: Settings about, privacy, licenses, and attributions
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Goal: About, privacy policy link, open source licenses, and BGG and eBay attributions in Settings.
+- Goal: About, a privacy policy link inside the app (APPLE-02, GPLAY-03), open source licenses, the ML Kit notice if approved, and BGG and eBay attributions in Settings.
 
 ### T-082 App: release builds and store submission prep
 - Milestone: M5
@@ -990,3 +1044,87 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: orchestrator
 - Status: todo
 - Goal: README complete per the brief, plus the final list of assumptions, known limitations, and open risks.
+
+### T-093 iOS privacy manifest check
+- Milestone: M5
+- Owner: flutter-developer
+- Status: todo
+- Goal: Before App Store upload, make sure the iOS build's `PrivacyInfo.xcprivacy` files (ours and every plugin's) accurately declare collected data and required-reason API use (APPLE-15), consistent with T-079's answers.
+
+---
+
+## User tasks
+
+Tasks only the user can do: accounts, applications, and messages to partners. The orchestrator reminds the user when each is due. PM records the answers in docs/api-research.md. Credentials never go into chat, tickets, or the repo; they go only into the server's git-ignored .env.
+
+### T-087 BGG: register the app and apply for a commercial license
+- Milestone: Planning (start now; approval can take a week or more, BGG-04)
+- Owner: user
+- Status: todo
+- Depends on: PRD Q1 (name), Q6 (publisher), Q10, Q23
+- Goal: Register at https://boardgamegeek.com/applications and send the commercial license application from docs/api-research.md section 1.6, filled in and approved, including the question about cover images (PRD Q5). Once approved, create the Bearer token and download the official "Powered by BGG" logo files (BGG-01, BGG-02, BGG-41).
+- Acceptance criteria:
+  1. Given BGG answers, then its written answer is shared with PM and recorded in docs/api-research.md (proved by: manual).
+  2. Given approval, then the token is in the server's .env only, and the logo files are handed to the flutter-developer for T-034 (proved by: manual).
+
+### T-088 GameUPC: email the operator
+- Milestone: Planning (before M2 backend work)
+- Owner: user
+- Status: todo
+- Depends on: PRD Q10
+- Goal: Send the email in docs/api-research.md section 3.3, asking about commercial use, a production key and base URL, rate limits, availability plans, and how to credit GameUPC (GUPC-04, GUPC-07).
+- Acceptance criteria:
+  1. Given the operator answers, then the answer is shared with PM and recorded in docs/api-research.md, and any production key goes into the server's .env only (proved by: manual).
+
+### T-089 eBay: ask Developer Support about storing price statistics
+- Milestone: before M4
+- Owner: user
+- Status: todo
+- Depends on: T-090 (sent from the eBay developer account), PRD Q24
+- Goal: Send the question in docs/api-research.md section 2.12. The written answer decides whether the snapshot and history flag may be turned on (B2).
+- Acceptance criteria:
+  1. Given eBay answers, then the answer is shared with PM and recorded in docs/api-research.md, and PRD section 6 rules 6 and 9 are updated to match (proved by: manual).
+
+### T-090 eBay: developer account, production keyset, and EPN account
+- Milestone: before M4
+- Owner: user
+- Status: todo
+- Depends on: PRD Q15
+- Goal: Create the eBay developer account and a production keyset, check in the portal that Browse is listed with its daily limit (docs/api-research.md section 2.1, EBAY-70), read the license clauses listed in docs/api-research.md section 8 before accepting the API License Agreement, and create the EPN account and campaign id. No production eBay call is made until T-084 is live (EBAY-10).
+- Acceptance criteria:
+  1. Given the accounts exist, then PM is told the Browse daily limit shown in the portal and any license wording that differs from docs/api-research.md, and the credentials and campaign id go into the server's .env only (proved by: manual).
+
+### T-091 Confirm "likely" research facts in a browser
+- Milestone: Planning (before each fact drives a decision)
+- Owner: user
+- Status: todo
+- Goal: Read the official pages listed in docs/api-research.md section 8 (BGG terms and commercial use pages, the eBay API License Agreement, the eBay call limits page, the EPN agreement and disclosure FAQ). They blocked our page fetcher. Tell PM what differs so the facts can be marked confirmed or corrected.
+- Acceptance criteria:
+  1. Given each page is read, then PM updates the confidence of the related facts in docs/api-research.md (proved by: manual).
+
+### T-092 EPN: apply for mobile app approval
+- Milestone: M5 (right after the store listing goes live)
+- Owner: user
+- Status: todo
+- Depends on: T-082, T-090
+- Goal: Submit EPN's mobile app application with the live store link and test access (EBAY-90). Until EPN approves, app traffic may earn nothing (EBAY-91).
+- Acceptance criteria:
+  1. Given EPN answers, then the answer is shared with PM and recorded (proved by: manual).
+
+### T-094 App Review: permission proof ready
+- Milestone: M5
+- Owner: user
+- Status: todo
+- Depends on: T-087; T-092 if it is answered by then
+- Goal: Have the written BGG commercial license, GameUPC's permission, and EPN's approval (or the pending application) ready to show Apple on request (APPLE-08).
+- Acceptance criteria:
+  1. Given an App Store submission, then the documents are on hand, and a short note for the reviewer is drafted in docs/store/ by PM (proved by: manual).
+
+### T-095 eBay: Application Growth Check, if the budget runs short
+- Milestone: after launch (only if needed)
+- Owner: user
+- Status: todo
+- Depends on: T-086 logs showing usage near the daily limit
+- Goal: Apply for the free Application Growth Check to raise the 5,000-call daily Browse limit (EBAY-70, EBAY-72, EBAY-73). The backend-developer first prepares the compliance points it reviews (current API versions, at most two retries, no needless calls).
+- Acceptance criteria:
+  1. Given eBay's decision, then the new limit is recorded in docs/api-research.md and the snapshot budget setting is updated (proved by: manual).

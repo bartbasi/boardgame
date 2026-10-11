@@ -1,1 +1,3 @@
-- [Official sources and access quirks](reference_official_sources.md) — where BGG, eBay, EPN, GameUPC, Apple, Google, ML Kit, Oracle docs live; which block WebFetch and workarounds
+- [Dependency terms](reference_dependency_terms.md): mobile_scanner (BSD-3) bundles Google ML Kit on Android; ML Kit terms and metrics disclosure URLs
+- [Research access](reference_research_access.md): which partner sites block WebFetch, which official sources are readable, "likely" vs confirmed
+- [Criteria patterns](project_criteria_patterns.md): shared test definitions, verified barcode vectors, fact-id citations, prose rule, user tasks, never renumber
