@@ -1,0 +1,1 @@
+- [UX decisions from T-003](project_ux_decisions.md) — seed color, nav, sizes, no-dialog rule, copy and pricing wording
