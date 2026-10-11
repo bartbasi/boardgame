@@ -1,2 +1,1 @@
-- [Dependency terms](reference_dependency_terms.md): mobile_scanner (BSD-3) bundles Google ML Kit on Android; ML Kit terms and metrics disclosure URLs
-- [Criteria patterns](project_criteria_patterns.md): shared test definitions, verified barcode vectors, conditional upstream criteria, prose check rule
+- [Official sources and access quirks](reference_official_sources.md) — where BGG, eBay, EPN, GameUPC, Apple, Google, ML Kit, Oracle docs live; which block WebFetch and workarounds
