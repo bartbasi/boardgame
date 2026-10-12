@@ -49,3 +49,6 @@ CI workflow QA (from T-011):
 - Verify runs with `gh run view <id> -R bartbasi/boardgame --json jobs --jq ...` and `--log | grep`. Step names show as UNKNOWN STEP in log output; use --json jobs for per-step conclusions.
 - Verify action SHAs: `gh api repos/<owner>/<repo>/git/matching-refs/tags/v --paginate --jq '.[]|select(.object.sha=="<sha>")|.ref'`.
 - Build context size differs warm (1.84kB) vs fresh builder (86.86kB); judge by the fresh number.
+App coverage gate (T-014 r3):
+- Test the gate CLI hermetically: temp package (pubspec, lib/, generated imports test) + `Process.runSync('dart', [absToolPath, ...], workingDirectory: tmp, runInShell: true)`. Running it in app/ reads real lib/ and breaks when a scratch branch adds a violating file.
+- Pure-Dart tool functions (`evaluateGate`, `isGenerated`) are unit-testable with in-memory sources maps. Big heredocs with quotes fail in Bash; use Write.
