@@ -1,6 +1,8 @@
 # Server and API contract checks (T-011): format, analyze, tests with an 80%
 # line coverage gate, stale generated code in packages/api_contract, and the
-# server image for linux/arm64 and linux/amd64 with the T-009 image checks.
+# server image for linux/arm64 and linux/amd64 with the T-009 image checks,
+# the in-binary health check in both images, and `docker compose config` on
+# deploy/docker-compose.yml (T-098).
 #
 # Nothing is pushed anywhere: there is no registry login, no `push: true`, and
 # the token is read-only. Publishing the image needs the user's approval
@@ -117,6 +119,17 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false  # no step needs repository credentials
+
+      # Records the runner image and the Docker image store, because the
+      # meaning of `docker image inspect` .Size depends on the store
+      # (T-098 AC3: ubuntu-latest moves to Ubuntu 26.04 from 2026-10-19,
+      # https://github.com/actions/runner-images/issues/14748).
+      - name: Runner and Docker
+        run: |
+          echo "runner image: ${ImageOS:-unknown} ${ImageVersion:-unknown}"
+          docker version --format 'docker client {{.Client.Version}}, server {{.Server.Version}}'
+          docker compose version
+          docker info --format 'storage driver {{.Driver}} {{json .DriverStatus}}'
 
       # Same values as server/tool/docker_build.sh computes locally.
       - name: Version
@@ -244,3 +257,44 @@ jobs:
               printf "ok: build context %s (limit %d bytes)\n", s, limit
             }
             END { if (NR == 0) { print "::error::no transferring context line in the build log"; exit 1 } }'
+
+  # T-098 AC2: deploy/docker-compose.yml must parse and interpolate with the
+  # placeholder values in deploy/.env.example. The workflow runs on every
+  # change under deploy/ (see `on:`). Nothing is built, pulled, or started.
+  compose:
+    name: compose config
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      COMPOSE_FILE_PATH: deploy/docker-compose.yml
+      ENV_EXAMPLE: deploy/.env.example
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # no step needs repository credentials
+
+      # `config -q` validates the file and prints nothing; it exits non-zero
+      # on a syntax or schema error, or when a `${VAR:?}` variable is unset
+      # or empty, so .env.example must name every required variable.
+      # https://docs.docker.com/reference/cli/docker/compose/config/
+      - name: docker compose config with deploy/.env.example
+        run: |
+          docker compose version
+          docker compose -f "$COMPOSE_FILE_PATH" --env-file "$ENV_EXAMPLE" config -q
+          echo "ok: $COMPOSE_FILE_PATH is valid with the placeholders in $ENV_EXAMPLE"
+
+      # Self-check: without the env file the required-variable guards must
+      # stop Compose, so the step above cannot pass by ignoring the values.
+      - name: docker compose config without values fails
+        run: |
+          if docker compose -f "$COMPOSE_FILE_PATH" --env-file /dev/null config -q > noenv.log 2>&1; then
+            cat noenv.log
+            echo "::error::docker compose config passed with no values; the required-variable guards are missing."
+            exit 1
+          fi
+          cat noenv.log
+          if ! grep -q "copy deploy/.env.example" noenv.log; then
+            echo "::error::docker compose config failed, but not with the required-variable message."
+            exit 1
+          fi
+          echo "ok: docker compose config without values failed with the required-variable message"
