@@ -60,6 +60,13 @@ Compose/deploy (T-010, 2026-10-12): local stack in deploy/, built via deploy/com
 - backend-developer (T-010): docs again pointed at handoff open questions already decided on main; check README pointers against main's decisions.md (`git show main:docs/decisions.md`).
 - Merge-conflict check between ticket branches: `git merge-tree --write-tree --name-only <a> <b>` (read-only).
 
+CI workflows (T-011 server.yml, T-014 app.yml, T-016 repo.yml; 2026-10-12):
+- Default `run` shell without `shell:` is `bash -e` (no pipefail). T-014 convention: `defaults.run.shell: bash`, repeated in job defaults. Check every workflow for pipelines and awk without an END/NR==0 guard.
+- Values from repo files or step outputs go through `env:`, not `${{ }}` inside `run:` (T-016 convention). backend-developer slipped on this in T-011.
+- Dart coverage (coverage 1.15.1) counts only loaded libraries. Server gate works because tests import the barrel. Check new lib files are exported or imported.
+- Trial merge of two branches without checkout: `git merge-tree --write-tree --name-only --no-messages A B`.
+- Run logs: `gh run view <id> --log | grep -E "line coverage|transferring context|ok \("`.
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.

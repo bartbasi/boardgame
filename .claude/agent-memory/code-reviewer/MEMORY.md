@@ -1,1 +1,1 @@
-- [Review patterns](review-patterns.md): recurring findings by agent, confirmed conventions, forward checks, Dart and Flutter commands
+- [Review patterns](review-patterns.md): recurring findings by agent, confirmed conventions, forward checks, Dart and Flutter commands, CI workflow checks (pipefail, env interpolation, coverage scope)
