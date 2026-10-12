@@ -62,6 +62,9 @@ void main() {
       ),
       'conditional': ('package:flutter/widgets.dart', 'Flutter'),
       'export': ('package:flutter/widgets.dart', 'Flutter'),
+      // T-013: lib/core/domain is domain code too.
+      'core_domain': ('package:dio/dio.dart', 'allowlist'),
+      'core_data': ('../data/client.dart', 'core data layer'),
     };
 
     for (final entry in badCases.entries) {

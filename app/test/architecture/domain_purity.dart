@@ -71,26 +71,33 @@ List<String> directiveUris(String source) {
   ];
 }
 
-/// Checks every Dart file under `<libDir>/features/<feature>/domain/`.
+/// Checks every Dart file under `<libDir>/features/<feature>/domain/` and
+/// `<libDir>/core/domain/` (shared domain code such as Result and Failure,
+/// added in T-013).
 ///
 /// A domain file, and every file of [packageName] it reaches through imports
 /// or exports, may only use: `dart:` libraries outside
 /// [forbiddenDartLibraries], packages in [allowedDomainPackages], and files
 /// of its own package that are not in a feature's data or presentation
-/// layer. Returns the violations; an empty list means the layer is pure.
+/// layer or in `core/data/`. Returns the violations; an empty list means
+/// the layer is pure.
 List<PurityViolation> checkDomainPurity({
   required Directory libDir,
   required String packageName,
 }) {
   final featuresDir = Directory(_join(libDir.path, 'features'));
-  if (!featuresDir.existsSync()) return const [];
+  final coreDomainDir = Directory(_join(libDir.path, 'core/domain'));
   final domainFiles = [
-    for (final entity in featuresDir.listSync(recursive: true))
-      if (entity is File &&
-          entity.path.endsWith('.dart') &&
-          _segments(entity.path, libDir).length >= 3 &&
-          _segments(entity.path, libDir)[2] == 'domain')
-        entity,
+    if (featuresDir.existsSync())
+      for (final entity in featuresDir.listSync(recursive: true))
+        if (entity is File &&
+            entity.path.endsWith('.dart') &&
+            _segments(entity.path, libDir).length >= 3 &&
+            _segments(entity.path, libDir)[2] == 'domain')
+          entity,
+    if (coreDomainDir.existsSync())
+      for (final entity in coreDomainDir.listSync(recursive: true))
+        if (entity is File && entity.path.endsWith('.dart')) entity,
   ]..sort((a, b) => a.path.compareTo(b.path));
 
   final violations = <PurityViolation>[];
@@ -173,6 +180,11 @@ _Classification _ownFile(File target, Directory libDir) {
       (segments[2] == 'data' || segments[2] == 'presentation')) {
     return _Classification(
       reason: 'domain must not depend on the ${segments[2]} layer',
+    );
+  }
+  if (segments.length >= 2 && segments[0] == 'core' && segments[1] == 'data') {
+    return const _Classification(
+      reason: 'domain must not depend on the core data layer',
     );
   }
   return _Classification(follow: target);
