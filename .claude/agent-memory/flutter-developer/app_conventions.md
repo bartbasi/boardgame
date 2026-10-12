@@ -14,6 +14,9 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - `test/l10n/strings_test.dart` also fails on literal strings passed to `Text(`, `label:`, `title:`, `tooltip:` and similar in lib/.
 - Domain purity test: `test/architecture/domain_purity.dart` has the package allowlist (collection, equatable, freezed_annotation, json_annotation, meta). freezed or json in domain needs nothing extra; anything else needs an allowlist edit.
 - Test helpers in `test/helpers/pump_app.dart`: `WindowSizes` (not `TestWindow`, which clashes with flutter_test), `largeTextScale`, `setTestWindow`, `pumpApp` (renders one frame, no settle).
+- `tapDestination(tester, label)` lives in `test/helpers/pump_app.dart`; QA's tests use it too.
+- Dispose `tester.ensureSemantics()` handles with try/finally, NOT addTearDown: flutter_test (3.47.7) checks for live handles before tear-downs run, so addTearDown fails every test.
+- Rail layout removes the leading MediaQuery padding from content (rail's SafeArea already uses it); tests use `tester.view.padding = FakeViewPadding(...)`.
 - Do not depend on packages/api_contract until T-013 (T-007 builds it in parallel).
 
 **Why:** the reviewer and the strings and architecture tests enforce these, and later tickets (T-013, T-032, T-039) build on them.
