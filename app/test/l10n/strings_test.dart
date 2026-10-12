@@ -29,6 +29,20 @@ Map<String, String> readCopyTable(String markdown) {
   };
 }
 
+/// String literals passed straight to the usual text parameters. `\s*`
+/// spans newlines, so literals that dart format wraps onto the next line are
+/// found too.
+final RegExp _hardCoded = RegExp(
+  r'''(?:\b(?:Text|Text\.rich|Tooltip|SnackBar|TextSpan)\(\s*|\b(?:label|tooltip|semanticLabel|semanticsLabel|title|message|text|hintText|labelText|helperText|errorText):\s*)r?['"]''',
+);
+
+/// 1-based line numbers where a hard-coded string literal match starts in
+/// [source]. Reads the whole text, not one line at a time.
+List<int> hardCodedStringLines(String source) => [
+  for (final match in _hardCoded.allMatches(source))
+    '\n'.allMatches(source.substring(0, match.start)).length + 1,
+];
+
 void main() {
   final arb = jsonDecode(
     File('lib/l10n/app_en.arb').readAsStringSync(),
@@ -60,11 +74,40 @@ void main() {
     }
   });
 
+  group('hardCodedStringLines', () {
+    test('finds a literal on the same line', () {
+      expect(hardCodedStringLines("Text('Hello')"), [1]);
+      expect(hardCodedStringLines('x(label: "Hi")'), [1]);
+    });
+
+    test('finds a literal that dart format wrapped onto the next line', () {
+      const source = '''
+final a = Text(
+  'This is a long sentence that dart format moved to its own line.',
+);
+final b = NavigationDestination(
+  label:
+      'Another long label that was wrapped after the colon',
+);
+''';
+      expect(hardCodedStringLines(source), [1, 5]);
+    });
+
+    test('finds raw strings and TextSpan text', () {
+      expect(hardCodedStringLines("Text(r'Raw')"), [1]);
+      expect(hardCodedStringLines("TextSpan(text: 'Span')"), [1]);
+    });
+
+    test('ignores localized strings', () {
+      expect(hardCodedStringLines('Text(l10n.navScan)'), isEmpty);
+      expect(
+        hardCodedStringLines('Text(\n  l10n.devPlaceholderItem(number),\n)'),
+        isEmpty,
+      );
+    });
+  });
+
   test('no widget in lib/ has a hard-coded user-facing string', () {
-    // String literals passed straight to the usual text parameters.
-    final hardCoded = RegExp(
-      r'''(?:Text|Tooltip|SnackBar)\(\s*['"]|(?:label|tooltip|semanticLabel|semanticsLabel|title|message|hintText|labelText|helperText|errorText):\s*['"]''',
-    );
     final offenders = <String>[];
     for (final entity in Directory('lib').listSync(recursive: true)) {
       final path = entity.path.replaceAll(r'\', '/');
@@ -74,9 +117,8 @@ void main() {
           path.startsWith('lib/l10n/')) {
         continue;
       }
-      final lines = entity.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        if (hardCoded.hasMatch(lines[i])) offenders.add('$path:${i + 1}');
+      for (final line in hardCodedStringLines(entity.readAsStringSync())) {
+        offenders.add('$path:$line');
       }
     }
     expect(offenders, isEmpty, reason: offenders.join('\n'));
