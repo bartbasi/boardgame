@@ -9,6 +9,8 @@ As of 2026-10-11, these official sites blocked WebFetch (HTTP 403, 429, or a bot
 
 Readable directly: eBay's Browse OpenAPI spec (https://developer.ebay.com/develop/api/spec/browse_api.json), the eBay account deletion page, Apple's review guidelines and DeviceCheck docs, Google Play policy and Play Integrity docs, the ML Kit terms, pub.dev, Oracle's Always Free docs on docs.oracle.com, gameupc.com with its demo.py, wikidata.org pages, Wikipedia and Commons policy pages, devs.upcitemdb.com (plans and termsofservice; www.upcitemdb.com/termsofservice is a 404), go-upc.com (plans/api and terms-and-conditions/), store.gs1us.org, ean-search.org/ean-database-api.html, and world.openproductsfacts.org.
 
+Apple documentation trick (2026-10-12): developer.apple.com/documentation/... pages render with JavaScript and WebFetch sees only the title. The same page is readable as JSON at developer.apple.com/tutorials/data/documentation/<same path>.json; cite the HTML URL and note the JSON form. developer.android.com/identity/data/autobackup is readable directly.
+
 Wikidata trick: the query service answers a URL-encoded SPARQL GET through WebFetch, for example https://query.wikidata.org/sparql?format=json&query=<encoded>. Use COUNT queries for live coverage numbers instead of estimating. Board game class is Q131436.
 
 Tool hiccup: on 2026-10-11 WebFetch and WebSearch both returned a "session limit" error for a while, intermittently. Writing up verified facts first and retrying later worked; fire calls two or three at a time, not six.

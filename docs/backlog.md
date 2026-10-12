@@ -207,7 +207,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-008 Backend skeleton: /health, fail-fast config, minimal structured logs
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: in-review
 - Depends on: T-005, T-007
 - UX spec: n/a
 - Linked files: server/, server/.env.example
@@ -300,7 +300,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - Status: todo
 - Depends on: T-012
 - UX spec: n/a
-- Linked files: app/lib/core/
+- Linked files: app/lib/core/, app/android/app/src/main/AndroidManifest.xml
 - Acceptance criteria:
   1. Given lib/core, then a pure Dart Result type (success or failure) and a sealed Failure hierarchy exist with at least: no connection, timeout, rate limited (with an optional retry-after duration), service unavailable, not found, invalid input (with the API error code), and unexpected (proved by: unit, including an exhaustive switch over all cases).
   2. Given the app is built with `--dart-define=API_BASE_URL=https://api.example.test`, then every request goes to that base URL (proved by: unit with a fake HTTP adapter).
@@ -315,6 +315,9 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   11. Given each error the HTTP library can raise (connection error, each timeout kind, bad response, cancel, unknown) and a response body that is not valid JSON, then the client returns a Failure and never throws (proved by: unit, table-driven).
   12. Given a release build, then request and response bodies are never logged (proved by: unit or manual review).
   13. Given lib/core domain and data code, then line coverage is at least 80% (proved by: unit, coverage report).
+  14. Given `flutter build apk --release`, then the release APK declares `android.permission.INTERNET`, which comes from app/android/app/src/main/AndroidManifest.xml and not only from the debug and profile manifests (T-012 review R1-G5). Check with `aapt dump permissions` on the release APK, recorded in the handoff (proved by: manual).
+  15. Given that release APK installed on the API 36 emulator and built with an https API_BASE_URL the emulator can reach (the T-010 local stack if it is ready and its certificate is trusted, otherwise any public https URL the developer records in the handoff), when the HTTP client sends one GET, then it receives an HTTP response, not the no connection failure. The trigger used for this check is not committed (proved by: manual on emulator).
+  16. Given a response body that is valid JSON but not a JSON object (`[]`, `"ok"`, `42`, `null`), for a 200 and for a 4xx or 5xx status, then the data layer never passes it to an api_contract `fromJson`: a 200 returns the unexpected failure, an error status maps to its Failure by status code alone, and nothing throws (docs/decisions.md 2026-10-12, T-007: callers check that a body is a JSON object before decoding) (proved by: unit, table-driven).
 
 ### T-014 app.yml CI workflow
 - Milestone: M1
@@ -332,6 +335,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   6. Given a push to main or a manual run, then a macOS job runs `flutter build ios --no-codesign` and succeeds; given a push to any other branch or a pull request, then no macOS job runs. The repository bartbasi/boardgame is private, and macOS builds run only on main and manual runs (docs/decisions.md 2026-10-11) (proved by: manual, run logs for a main push and a branch push).
   7. Given the workflow file, then permissions are read-only and every third-party action is pinned to a full commit SHA (proved by: manual).
   8. Given a typical change, then the ubuntu jobs finish in 15 minutes or less [ASSUMPTION] (proved by: manual).
+  9. Given the ubuntu job, then it regenerates every committed generated file: `flutter gen-l10n` and `dart run build_runner build --delete-conflicting-outputs` in app/ (Riverpod and gen-l10n output), and `dart run build_runner build --delete-conflicting-outputs` in packages/api_contract/ (freezed and json_serializable output), then runs `git diff --exit-code` and fails on any difference (docs/decisions.md 2026-10-12, T-007 and T-012). Given a scratch commit that changes a string in app_en.arb without regenerating, then the job fails; the branch is deleted afterward (proved by: manual, run log).
 
 ### T-015 Linux golden image pipeline
 - Milestone: M1
@@ -625,6 +629,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   14. Given the golden list in scanner.md (with the camera preview replaced by a placeholder), including the restricted state, then every listed golden exists and passes (proved by: golden).
   15. Given the merged Android manifest, then the camera hardware feature is declared as not required [ASSUMPTION], so the app installs on devices without a camera, where manual entry and title search still work (GPLAY-01) (proved by: manual, read the merged manifest).
   16. Given Android, then the bundled ML Kit model is used [ASSUMPTION], so the first scan works offline without a Google Play services download (MLKIT-06). The handoff records the change in APK size (proved by: manual).
+  17. Given a screen reader is on, when the user changes destination with the bar (compact) or the rail (expanded), then the new destination's screen title is announced, for all four destinations, not only Scan (app-shell.md section 7; a T-012 gap, built here because Scan is the first real destination screen) (proved by: widget that captures the announcement; manual with TalkBack).
+  18. Given this ticket replaces the Scan placeholder, then the Scan destination no longer uses `devPlaceholderBody`, and any `dev*` key in app_en.arb that no screen uses anymore is deleted. `dev*` keys must not ship (docs/decisions.md 2026-10-12, T-012) (proved by: unit, the strings test; manual grep of lib/).
 
 ### T-031 App: manual barcode entry
 - Milestone: M2
@@ -641,6 +647,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given the initial (empty) state, then the field shows the copy.md helper text. This screen makes no network call, so loading and offline are handled by the lookup result screen; given the device is offline, submitting a valid code still opens the lookup result (proved by: widget).
   6. Given both themes at text scale 2.0 in compact and expanded sizes, then nothing overflows and the accessibility guidelines pass (proved by: widget).
   7. Given the golden list in manual-entry.md, then every listed golden exists and passes (proved by: golden).
+  8. Given a compact window, when the barcode field gets focus, then the NavigationBar hides, and when focus leaves the field, then it returns; given a medium or expanded window, then the rail stays. This is the first text field in the app, so the shell behavior is built here and reused by later screens (app-shell.md section 2 [ASSUMPTION]; PRD Q32: if the user vetoes it, drop this criterion and note it in the handoff) (proved by: widget).
 
 ### T-032 App: title search screen
 - Milestone: M2
@@ -663,6 +670,9 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   11. Given the golden list in search.md, then every listed golden exists and passes. This ticket also delivers the two offline goldens from app-shell.md (app_shell_offline_light_compact.png and app_shell_offline_dark_expanded.png), because the offline banner first appears on Search (proved by: golden).
   12. Given results from BGG, then the BggAttribution component (`common.bggCredit`, logo with `common.bggLogoLabel`) shows where search.md places it, following the BGG attribution rule in "Shared test definitions" (BGG-40, BGG-41) (proved by: widget and golden).
   13. Given no-image mode, then result rows show without thumbnails and without gaps (proved by: widget).
+  14. Given a compact window, when the search field gets focus, then the NavigationBar hides, and it returns when focus leaves, using the shell behavior from T-031 (app-shell.md section 2 [ASSUMPTION]; PRD Q32: drop if vetoed) (proved by: widget).
+  15. Given a medium or expanded window and a hardware keyboard, when the Search screen opens and the user presses Tab, then the first focus stop is the screen content (the search field), not the rail, and Shift+Tab from there reaches the rail (app-shell.md section 7, the "skip" pattern, `shell.skipToContent`; a T-012 gap) (proved by: widget with simulated key events; manual with a hardware keyboard on the emulator).
+  16. Given this ticket replaces the Search placeholder, then the Search destination no longer uses `devPlaceholderBody`, and any `dev*` key in app_en.arb that no screen uses anymore is deleted (docs/decisions.md 2026-10-12, T-012) (proved by: unit, the strings test; manual grep of lib/).
 
 ### T-033 App: lookup result and candidate selection
 - Milestone: M2
@@ -737,6 +747,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given two runs in a row, then the second has a higher build number, set automatically (proved by: manual).
   5. Given the test build, then API_BASE_URL points to the backend chosen in PRD Q8 (proved by: manual).
   6. Given the handoff, then it lists every secret by name with how to create it, for the orchestrator to put in README.md (proved by: manual).
+  7. Given PRD Q1 is answered, then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it (proved by: manual, the T-082 checklist search).
+  8. Given the Android test build installed from the internal testing track on a phone, when the user runs a title search, then results come from the backend chosen in Q8. This proves a store-signed release build reaches the API (T-012 review R1-G5) (proved by: manual on device).
 
 ---
 
@@ -746,7 +758,9 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
+- Depends on: PRD Q38 (Android Auto Backup and iOS iCloud backup of app data; must be answered before this ticket starts)
 - Goal: Drift tables and a tested migration from schema v1 for Owned, Wanted, and Evaluating items with their fields, one list per game at a time. Items point to games by internal id, not `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys").
+- Carry-over from T-012 review R1-G4 (becomes criteria when scoped): apply the Q38 answer. Android sets `android:allowBackup` explicitly in the main manifest (GPLAY-14); if backups are off, add `dataExtractionRules` for Android 12+, including the `device-transfer` section (GPLAY-16, GPLAY-17), and rules for Android 11 and lower; on iOS, mark the database and photo files excluded on every save (APPLE-17). If backups stay on, check the 25 MB limit against a 2,000-game collection (GPLAY-15).
 
 ### T-038 Add to collection and move between lists
 - Milestone: M3
@@ -759,6 +773,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: flutter-developer
 - Status: todo
 - Goal: Three lists with sort, filter, and search, fast at 2,000 games, with helpful empty states, the BggAttribution component where collection.md places it (BGG-40, BGG-41), and a no-image mode widget test.
+- Carry-overs from T-012 (become criteria when scoped): replace the Collection placeholder list and placeholder item screen, so `devPlaceholderItem` and `devPlaceholderBody` are no longer used there, and delete any `dev*` key no screen uses anymore (docs/decisions.md 2026-10-12). The list's search field hides the compact bar while focused, using the T-031 shell behavior (PRD Q32). The skip pattern from T-032 holds on Collection.
 
 ### T-040 Owned item details and edit
 - Milestone: M3
@@ -813,6 +828,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: flutter-developer
 - Status: todo
 - Goal: The Settings screen with entries for backup, restore, export, and import.
+- Carry-over from T-012 (becomes a criterion when scoped): replace the Settings placeholder so `devPlaceholderBody` is no longer used there, and delete any `dev*` key no screen uses anymore (docs/decisions.md 2026-10-12).
 
 ### T-049 Integration test: scan to add to collection
 - Milestone: M3
@@ -1037,7 +1053,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q13), and opening eBay listings.
+- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q38, which absorbs Q13), and opening eBay listings.
 - Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
   1. Given the privacy policy, then it states that on Android the barcode scanner uses Google ML Kit, which processes camera images on the device without sending them to Google, and sends ML Kit usage and performance metrics to Google (MLKIT-02, MLKIT-03, MLKIT-04), and that iOS uses Apple's scanner (MLKIT-05). This disclosure is required because the user approved ML Kit on that condition (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
@@ -1045,7 +1061,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Answers in docs/store/ that match the app's real data flows: Apple's privacy details, including third-party SDKs (APPLE-04), and the Google Play Data safety form, which is required even if nothing is collected (GPLAY-06). Includes how cached search text is declared.
+- Goal: Answers in docs/store/ that match the app's real data flows: Apple's privacy details, including third-party SDKs (APPLE-04), and the Google Play Data safety form, which is required even if nothing is collected (GPLAY-06). Includes how cached search text is declared, and whether Android Auto Backup copies app data to the user's Google Drive (PRD Q38, GPLAY-14, GPLAY-15).
 - Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
   1. Given the Google Play Data safety answers, then they account for the data Google ML Kit collects on Android (device information, app package and version, performance metrics, and API configuration, as Google's disclosure page lists, MLKIT-04), consistent with the privacy policy's ML Kit disclosure (MLKIT-03). The Apple privacy details answers state that iOS does not use ML Kit (MLKIT-05). This is required by the user's approval (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
@@ -1065,7 +1081,23 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
+- Depends on: PRD Q1 (final name and ids)
 - Goal: Signed release builds for both stores, with final ids, icons, and version numbering, and the official "Powered by BGG" logo from T-087 in every BggAttribution (no placeholders left). Submission needs the user's approval.
+- Acceptance criteria (only these so far; the full set comes when the ticket is scoped):
+  1. Given a release build of the Android app in CI, then it is signed with the upload key from GitHub Actions secrets, not the Flutter template's debug key: the certificate printed by `apksigner verify --print-certs` (or `keytool -printcert -jarfile`) on the App Bundle or APK is the upload certificate and not "Android Debug" (T-012 review R1-G3) (proved by: manual, run log).
+  2. Given the release signing settings are missing (no key file or secrets), when a release build runs, then it fails with a message naming the missing setting and produces no artifact. It never falls back to the debug key. Checked once locally and once in CI on a scratch branch without the secrets, deleted afterward (proved by: manual).
+  3. Given PRD Q1 is answered, then every item in the rename checklist below has the final value, and `git grep` over app/ for `com.example` and for the placeholder name finds nothing in tracked files (proved by: manual).
+  4. Given the release build, then app_en.arb has no key starting with `dev`, and the strings test fails if one is added (docs/decisions.md 2026-10-12, T-012: `dev*` strings must not ship) (proved by: unit).
+- Rename checklist for PRD Q1 (from the T-012 handoff, R1-G6). Applied here, or in T-036 if the first test upload comes first (Q1 says the id must change before any store upload). All items change together:
+  - `app/lib/l10n/app_en.arb`: `shellAppName`, then run `flutter gen-l10n`. docs/ux/copy.md `shell.appName` changes too (ux-designer owns it).
+  - `app/android/app/src/main/AndroidManifest.xml`: `android:label`.
+  - `app/android/app/build.gradle.kts`: `namespace` and `applicationId`.
+  - `app/android/app/src/main/kotlin/com/example/boardgamecollector/MainActivity.kt`: the `package` line, and move the file to the folder that matches the new package.
+  - `app/ios/Runner/Info.plist`: `CFBundleDisplayName` and `CFBundleName` (under 16 characters).
+  - `app/ios/Runner.xcodeproj/project.pbxproj`: `PRODUCT_BUNDLE_IDENTIFIER` (3 Runner entries and 3 RunnerTests entries).
+  - `app/pubspec.yaml`: `description`. The Dart package name `board_game_collector` can stay.
+  - `app/README.md`: first paragraph.
+  - Outside app/: the BGG application (T-087) and the store listings (T-080) use the same name.
 
 ### T-083 README and final assumptions, limitations, and risks
 - Milestone: M5

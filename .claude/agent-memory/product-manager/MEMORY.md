@@ -1,3 +1,3 @@
 - [Dependency terms](reference_dependency_terms.md): mobile_scanner (BSD-3) bundles Google ML Kit on Android; ML Kit terms and metrics disclosure URLs
-- [Research access](reference_research_access.md): sites that block WebFetch, readable sources, Wikidata SPARQL via URL, "likely" vs confirmed
+- [Research access](reference_research_access.md): sites that block WebFetch, Apple docs via JSON URL, Wikidata SPARQL via URL, "likely" vs confirmed
 - [Criteria patterns](project_criteria_patterns.md): shared test definitions, verified barcode vectors, fact-id citations, prose rule, user tasks, never renumber
