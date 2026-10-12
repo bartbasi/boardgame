@@ -58,3 +58,6 @@ App coverage gate (T-014 r3):
 
 Goldens (from T-015):
 - Goldens render on GitHub Actions only. On Windows they skip; `--update-goldens` fails by design with a guard message. Verify CI with `gh run view <id> --log | grep app_shell_` and `gh api repos/{owner}/{repo}/actions/runs/<id>/artifacts`. Read PNGs with the Read tool to check glyphs.
+
+Coverage gate (T-099):
+- `formatReport(result, out.noExecutableLines, exempt:, markers:, errors:, parts:)` takes GateOutcome fields, not the outcome. Gate step output in CI logs: `gh run view <id> --log | grep -E "FAIL|##\[error"`. Handoff has no QA header until QA adds it; insert before "## Open questions".
