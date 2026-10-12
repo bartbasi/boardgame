@@ -82,8 +82,8 @@ Total: 10 (8 in M1 from T-015, 2 in M2 from T-032). The other states are covered
 | app_shell_default_dark_expanded.png | T-015 |
 | app_shell_default_light_medium.png | T-015. Rail at 744 wide |
 | app_shell_default_light_landscape.png | T-015. Rail at 844 x 390, single pane |
-| app_shell_text200_light_compact.png | T-015. Nav labels at 200% |
-| app_shell_text200_dark_expanded.png | T-015. Rail labels at 200% |
+| app_shell_default_text200_light_compact.png | T-015. Nav labels at 200% |
+| app_shell_default_text200_dark_expanded.png | T-015. Rail labels at 200% |
 | app_shell_offline_light_compact.png | T-032. Offline banner on Search |
 | app_shell_offline_dark_expanded.png | T-032. Offline banner with rail |
 
