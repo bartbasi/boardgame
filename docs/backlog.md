@@ -380,17 +380,24 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-015 Linux golden image pipeline
 - Milestone: M1
 - Owner: flutter-developer
-- Status: todo
+- Status: done
 - Depends on: T-014
 - UX spec: docs/ux/screens/app-shell.md (golden cases). Its two offline goldens need the offline banner and the Search screen, so they are delivered in T-032, not here.
-- Linked files: app/test/goldens/, app/test/ (golden helpers and test config), app/tool/ (Docker script), .github/workflows/app.yml
+- Linked files: app/test/goldens/, app/test/ (golden helpers and test config), .github/workflows/app.yml
+- Note: reworded at sign-off to match the user's decision of 2026-10-12 (goldens render on GitHub Actions only, no local Docker image).
 - Acceptance criteria:
-  1. Given the Windows dev machine with Docker Desktop, when the documented command runs, then it renders and updates goldens inside a Linux container that uses the same Flutter version as CI; the handoff gives the exact command so the orchestrator can record it in docs/decisions.md (proved by: manual).
-  2. Given goldens produced by that command and committed, when app.yml runs the golden tests on ubuntu, then they pass with no changes (proved by: CI run on the ticket branch).
-  3. Given `flutter test --update-goldens` run directly on Windows or macOS, then the run fails with a message pointing to the Docker command, and no PNG is written (proved by: unit for the platform guard, plus a manual run on Windows).
+  1. Given a pushed branch, when the developer runs these commands from the repository root, then app.yml's manual (workflow_dispatch) render job renders the goldens on ubuntu with the same Flutter version as the CI checks job, uploads them as the artifact `goldens`, and the downloaded PNGs are committed; the handoff gives the exact commands so the orchestrator can record them in docs/decisions.md (proved by: manual, a successful render run plus the commit of its PNGs):
+     `gh workflow run app.yml --ref <branch> -f update_goldens=true`
+     `gh run list --workflow app.yml --branch <branch> --event workflow_dispatch --limit 1`
+     `rm -f app/test/goldens/*.png`
+     `gh run download <run-id> --name goldens --dir app/test/goldens`
+     `git add -A app/test/goldens`
+     `git commit -m "T-0xx: update goldens from app.yml run <run-id>"`
+  2. Given goldens produced by that render run and committed, when app.yml runs the golden tests on ubuntu, then they pass with no changes (proved by: CI run on the ticket branch).
+  3. Given `flutter test --update-goldens` run directly on Windows or macOS, then the run fails with a message pointing to the app.yml render run (`gh workflow run app.yml --ref <branch> -f update_goldens=true`), and no PNG is written (proved by: unit for the platform guard, plus a manual run on Windows).
   4. Given any golden, then text renders as real, readable glyphs in the app's fonts, not boxes, so UX and PM can review copy (proved by: manual, open the PNG).
   5. Given the golden helper, then it renders a widget at the four shared window sizes (compact, medium, expanded, landscape), in light and dark, at text scale 1.0 and 2.0, and names files `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, adding the `text200` suffix to the state at text scale 2.0 (proved by: golden).
-  6. Given the app shell from T-012, then these goldens exist and pass: app_shell_default_light_compact.png, app_shell_default_dark_compact.png, app_shell_default_light_expanded.png, app_shell_default_dark_expanded.png, app_shell_default_light_medium.png, app_shell_default_light_landscape.png, app_shell_text200_light_compact.png, app_shell_text200_dark_expanded.png (proved by: golden).
+  6. Given the app shell from T-012, then these goldens exist and pass: app_shell_default_light_compact.png, app_shell_default_dark_compact.png, app_shell_default_light_expanded.png, app_shell_default_dark_expanded.png, app_shell_default_light_medium.png, app_shell_default_light_landscape.png, app_shell_default_text200_light_compact.png, app_shell_default_text200_dark_expanded.png (proved by: golden).
   7. Given a golden mismatch in CI, then the job fails and uploads the diff images as an artifact (proved by: manual, a scratch commit that changes a color, reverted afterward).
   8. Given font files bundled for tests, then their license is recorded in the handoff, and anything other than MIT, BSD, or Apache 2.0 is approved by the user before it is committed (proved by: manual).
 
