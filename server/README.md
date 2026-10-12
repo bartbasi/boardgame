@@ -84,7 +84,8 @@ sh server/tool/docker_build.sh --platform linux/arm64,linux/amd64     # both pla
 docker run --rm --env-file server/.env -p 127.0.0.1:8080:8080 boardgame-server:local
 ```
 
-- The build stage runs on the build machine's own platform and cross-compiles with `dart compile exe --target-os=linux --target-arch=arm64|x64` (Dart 3.8 and later, https://dart.dev/tools/dart-compile), so building arm64 needs no CPU emulation. Cross-compiling downloads extra Dart SDK binaries during the build, so the build needs network access.
+- The build stage runs on the build machine's own platform and cross-compiles with `dart compile exe --target-os=linux --target-arch=arm64|x64` (Dart 3.8 and later, https://dart.dev/tools/dart-compile), so building arm64 needs no CPU emulation. Cross-compiling downloads extra Dart SDK binaries during the build, so the build needs network access. An early layer compiles an empty program for the target, so that download sits in its own cached layer and is not repeated when the code changes (T-011).
+- Smoke test a loaded image: `sh server/tool/image_smoke_test.sh boardgame-server:local linux/amd64 0.1.0+<sha>` checks the platform, user `65532:65532`, size (100 MB or less), `GET /health` within 5 s with that version, exit 0 on `docker stop`, and exit 78 with no environment. CI runs it for both platforms.
 - `GIT_SHA` is required (7 to 40 lowercase hex characters); the build fails with a clear message without it. The version is `<pubspec version>+<GIT_SHA>`, and the pubspec version must not have its own `+build` part. The script also passes it as `APP_VERSION`, which the build checks against the pubspec and stores in the `org.opencontainers.image.version` label.
 - Uncommitted changes: the script stops if server/ or packages/api_contract/ has uncommitted changes, because the image would carry a commit hash that does not match its code. For a local experiment, run it with `ALLOW_DIRTY=1`; the version then ends in `-dirty` (for example `0.1.0+abc1234-dirty`). Never deploy a `-dirty` image.
 - Health checks: the image has no shell and no curl. T-010 adds a `--healthcheck` mode to the executable (`/app/server --healthcheck`) for the Compose health check (docs/decisions.md, 2026-10-12).
@@ -105,3 +106,5 @@ The real-process SIGTERM test runs only on Linux and macOS. On Windows, run ever
 ```sh
 sh server/tool/test_linux.sh    # from the repo root
 ```
+
+CI: `.github/workflows/server.yml` (T-011) runs on every push and pull request that touches server/, packages/api_contract/, deploy/, the root analysis_options.yaml, or the workflow. It runs the checks above for both packages on Dart 3.13.5 with an 80% line coverage gate, fails if the committed api_contract generated files are stale, builds the image for linux/arm64 and linux/amd64 without pushing it, smoke tests both (arm64 under QEMU), and checks that a build without GIT_SHA fails and that the build context holds only the allowlisted files.
