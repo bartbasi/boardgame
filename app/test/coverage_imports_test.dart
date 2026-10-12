@@ -4,6 +4,14 @@
 // loads still show up in coverage/lcov.info (T-014).
 // ignore_for_file: unused_import
 
+import 'package:board_game_collector/core/data/network/api_client.dart';
+import 'package:board_game_collector/core/data/network/api_client_provider.dart';
+import 'package:board_game_collector/core/data/network/api_config.dart';
+import 'package:board_game_collector/core/data/network/failure_mapper.dart';
+import 'package:board_game_collector/core/data/network/http_log_interceptor.dart';
+import 'package:board_game_collector/core/data/network/retry_policy.dart';
+import 'package:board_game_collector/core/domain/failure.dart';
+import 'package:board_game_collector/core/domain/result.dart';
 import 'package:board_game_collector/core/layout/window_size_class.dart';
 import 'package:board_game_collector/core/theme/app_theme.dart';
 import 'package:board_game_collector/core/theme/theme_mode_controller.dart';
