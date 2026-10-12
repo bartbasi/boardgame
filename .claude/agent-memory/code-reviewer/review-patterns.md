@@ -71,6 +71,12 @@ CI workflows (T-011 server.yml, T-014 app.yml, T-016 repo.yml; 2026-10-12):
 - Gate tools: any report line starting with FAIL becomes an ::error:: annotation, so check that every FAIL line is a real reason.
 - Pin check: `gh api repos/<r>/git/ref/tags/<tag> --jq '.object.type+" "+.object.sha'` (type must be commit, else follow the tag object).
 
+CI script checks (T-098, 2026-10-12, approved round 1):
+- Negative self-checks often prove only one case: Compose `${VAR:?}` stops at the FIRST missing variable, so a no-values run proves one guard only (R1-S1). Ask for one run per variable.
+- Verify red-proof claims: `gh api repos/{owner}/{repo}/compare/<branch sha>...<scratch sha> --jq '.files[]|.filename+" "+.patch'` shows the scratch commit changed only the intended line (works after the scratch branch is deleted).
+- Ubuntu 26.04 runners use the containerd image store: `docker image inspect` .Size is compressed size there; the smoke test measures `docker export` instead. ubuntu-latest moves from 2026-10-19.
+- Log grep for step output without timestamps: `gh run view <id> --log | grep -E "ok \(|FAIL" | sed -E 's/^.*Z //'`.
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
