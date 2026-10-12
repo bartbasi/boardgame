@@ -1,0 +1,1 @@
+- [Commands and patterns](commands_and_patterns.md) — suite commands, test helpers, shell gotchas on Windows
