@@ -9,6 +9,14 @@ Recurring problems (who makes them):
 - backend-developer (T-007): SDK lower bound set below what was tested (`^3.9.0` while the lockfile and freezed 4 need 3.13). Check pubspec `sdk:` against `sdks:` in pubspec.lock and the dev deps.
 - qa-engineer (T-007): occasional tautological assertions in edge-case tests (e.g. `contains(cond ? '' : 'm')`). Read QA test bodies, not just counts.
 
+- backend-developer (T-008): responsive to findings and often improves on the suggested fix (error boundary outside /v1 guards was better than my order). Judge alternatives on merit.
+
+Server conventions confirmed (T-008):
+- Server never uses shelf_io.serve/serveRequests (they print raw URL to stderr); bindAndServe in server/lib/src/http/serve.dart. Grep `shelf_io.serve` in server/lib on every server ticket.
+- Order: requestLog > errorBoundary > root router > /v1 mount behind buildApp(v1Middleware). Guards go in v1Middleware.
+- Logger.error uses describeError; it does NOT redact URL paths or ArgumentError values (R2-S1 carry-over). Check this on T-020, T-066, and the first /v1 data endpoint.
+- Compose must set stop_grace_period 15s (T-010 check); Caddy upstream keep-alive < 65 s.
+
 Conventions confirmed in review:
 - api_contract generated *.freezed.dart / *.g.dart are committed; root analysis_options excludes them, so analyze says nothing about generated code.
 - Decoding errors surface as CheckedFromJsonException (json_serializable `checked: true`), re-exported by api_contract.
@@ -19,7 +27,8 @@ Commands:
 - Pub cache in Git Bash: "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" (quote it, the user path has a space).
 - Dash check: `git diff main...HEAD -- . ':!*.freezed.dart' ':!*.g.dart' ':!*.lock' | grep -n $'\xe2\x80\x94\|\xe2\x80\x93'` (grep -P with \x{2014} fails here).
 - Ownership: `for c in $(git log --format=%h main..HEAD); do git show --stat --format= $c; done`
-- `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list.
+- `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list. Sum: awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{print lh"/"lf}' coverage/lcov.info (SF paths contain C:, so do not split SF on ':').
+- shelf source to verify adapter behavior: "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev/shelf-1.4.2/lib/shelf_io.dart".
 
 Recurring problems, app (first seen T-012, 2026-10-12):
 - flutter-developer: tests guard rules with line-by-line regexes (strings_test hard-coded check) that miss dart-format-wrapped code. Check multi-line forms.
