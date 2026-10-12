@@ -19,6 +19,8 @@ Learned on T-012 and T-013 (2026-10-12):
 - `aapt dump permissions` lives at C:\dev\android-sdk\build-tools\36.0.0\aapt.exe.
 - Emulators exist since 2026-10-12: AVDs bgc_api24 and bgc_api36 in C:\dev\android-sdk (`emulator\emulator.exe -avd bgc_api36 -no-snapshot -no-window -no-audio -no-boot-anim`). A PHYSICAL phone (adb serial R3CWA0Q2JQP) may be attached: always use `adb -s emulator-5554`, never bare adb.
 - Disk: C: is nearly full. Even with -no-snapshot the emulator wrote a 2.6 GB `snapshots/default_boot/ram.img` (T-013), and the permission system refused my deleting it. After T-013 the orchestrator said: no more Gradle or emulator builds in that ticket. Ask before any emulator run or release build.
+- T-015 (2026-10-12): three `docker build`s of a Flutter SDK image (each re-downloads and unpacks about 2.5 GB when an early layer changes) grew Docker's docker_data.vhdx to 17.9 GB and filled C: to 0 bytes; the Docker engine then hung (`docker ps`, `docker desktop restart` time out). The VHDX does not shrink by itself. Before building big images: check `df -h /c`, order Dockerfile layers so edits do not invalidate the SDK layer, prune after each failed build, and stop at under 5 GB free.
+- The Linux Flutter archive's bin/cache/artifacts/material_fonts has only MaterialIcons-Regular.otf; the Windows cache here also has Roboto (lowercase names). Tests must not rely on SDK Roboto.
 - Windows Developer Mode was OFF at T-012; plugin packages may need it for symlinks. Raise it in the handoff rather than working around it.
 - Widget tests use a font where every glyph is a square, so widths (for example the NavigationRail, 141 dp) are wider than on device.
 
