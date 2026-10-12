@@ -8,9 +8,15 @@
 #
 # or by hand:
 #
+#   sha=$(git rev-parse --short=7 HEAD)
 #   docker buildx build -f server/Dockerfile \
-#     --build-arg GIT_SHA=$(git rev-parse --short=7 HEAD) \
+#     --build-arg GIT_SHA=$sha --build-arg APP_VERSION=0.1.0+$sha \
 #     --platform linux/arm64,linux/amd64 .
+#
+# GIT_SHA is 7 to 40 lowercase hex characters, optionally followed by -dirty.
+# APP_VERSION must equal `<server/pubspec.yaml version>+<GIT_SHA>`; the build
+# checks it and fails otherwise. It is passed in only so the image can carry
+# it as a label.
 #
 # How it works:
 # - The build stage always runs on the build machine's own platform and
@@ -46,13 +52,14 @@ COPY server/lib server/lib
 
 ARG TARGETARCH
 ARG GIT_SHA
+ARG APP_VERSION
 RUN set -eu; \
     case "${TARGETARCH}" in \
       amd64) dart_arch=x64 ;; \
       arm64) dart_arch=arm64 ;; \
       *) echo "T-009: unsupported target architecture '${TARGETARCH}' (use linux/amd64 or linux/arm64)" >&2; exit 1 ;; \
     esac; \
-    if ! printf '%s' "${GIT_SHA:-}" | grep -Eqx '[0-9a-f]{7,40}'; then \
+    if ! printf '%s' "${GIT_SHA:-}" | grep -Eqx '[0-9a-f]{7,40}(-dirty)?'; then \
       echo "T-009: build arg GIT_SHA is required: the short git commit hash, for example --build-arg GIT_SHA=\$(git rev-parse --short=7 HEAD)" >&2; \
       exit 1; \
     fi; \
@@ -62,6 +69,10 @@ RUN set -eu; \
       exit 1; \
     fi; \
     app_version="${pubspec_version}+${GIT_SHA}"; \
+    if [ "${APP_VERSION:-}" != "${app_version}" ]; then \
+      echo "T-009: build arg APP_VERSION must be '${app_version}' (server/pubspec.yaml version + GIT_SHA), got '${APP_VERSION:-}'" >&2; \
+      exit 1; \
+    fi; \
     echo "T-009: compiling server ${app_version} for linux/${dart_arch}"; \
     mkdir -p /out; \
     cd server; \
@@ -81,9 +92,13 @@ FROM ${DART_IMAGE} AS runtime-files
 # Final image.
 FROM scratch
 
+# Both values were checked in the build stage (APP_VERSION is pubspec version
+# plus GIT_SHA), so the labels match what GET /health reports.
 ARG GIT_SHA
+ARG APP_VERSION
 LABEL org.opencontainers.image.title="boardgame-server" \
-      org.opencontainers.image.revision="${GIT_SHA}"
+      org.opencontainers.image.revision="${GIT_SHA}" \
+      org.opencontainers.image.version="${APP_VERSION}"
 
 COPY --from=runtime-files /runtime/ /
 COPY --from=build /out/server /app/server
