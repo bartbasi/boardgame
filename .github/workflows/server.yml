@@ -235,19 +235,19 @@ jobs:
           repo=$(git ls-files -z | xargs -0 cat | wc -c)
           limit=$((allowed + allowed / 4 + 16000))
           echo "allowlisted files: $allowed bytes; whole repo: $repo bytes; context limit: $limit bytes"
-          if docker buildx build --builder default -f server/Dockerfile --platform linux/amd64 --progress=plain . > nosha.log 2>&1; then
-            cat nosha.log
+          if docker buildx build --builder default -f server/Dockerfile --platform linux/amd64 --progress=plain . > "$RUNNER_TEMP/nosha.log" 2>&1; then
+            cat "$RUNNER_TEMP/nosha.log"
             echo "::error::The build without GIT_SHA succeeded; it must fail."
             exit 1
           fi
-          if ! grep -q "build arg GIT_SHA is required" nosha.log; then
-            cat nosha.log
+          if ! grep -q "build arg GIT_SHA is required" "$RUNNER_TEMP/nosha.log"; then
+            cat "$RUNNER_TEMP/nosha.log"
             echo "::error::The build failed, but not with the GIT_SHA message."
             exit 1
           fi
           echo "ok: the build without GIT_SHA failed with the expected message"
-          grep "transferring context" nosha.log
-          grep "transferring context" nosha.log | tail -n 1 | awk -v limit="$limit" '
+          grep "transferring context" "$RUNNER_TEMP/nosha.log"
+          grep "transferring context" "$RUNNER_TEMP/nosha.log" | tail -n 1 | awk -v limit="$limit" '
             {
               if (!match($0, /transferring context: [0-9.]+(B|kB|MB|GB)/)) { print "::error::no context size in the build log"; exit 1 }
               s = substr($0, RSTART + 22, RLENGTH - 22)
@@ -283,18 +283,32 @@ jobs:
           docker compose -f "$COMPOSE_FILE_PATH" --env-file "$ENV_EXAMPLE" config -q
           echo "ok: $COMPOSE_FILE_PATH is valid with the placeholders in $ENV_EXAMPLE"
 
-      # Self-check: without the env file the required-variable guards must
-      # stop Compose, so the step above cannot pass by ignoring the values.
-      - name: docker compose config without values fails
+      # Self-check (T-098 R1-S1): every variable in .env.example must be
+      # guarded with `${VAR:?}`. For each one, run `config -q` with only that
+      # line removed and require Compose to stop naming it. Compose stops at
+      # the first missing variable, so one run with no values at all would
+      # prove only the first guard. Together with the step above (every
+      # guarded variable is in .env.example), the two sets match.
+      - name: docker compose config fails when any one variable is missing
         run: |
-          if docker compose -f "$COMPOSE_FILE_PATH" --env-file /dev/null config -q > noenv.log 2>&1; then
-            cat noenv.log
-            echo "::error::docker compose config passed with no values; the required-variable guards are missing."
+          vars=$(grep -E '^[A-Z_][A-Z0-9_]*=' "$ENV_EXAMPLE" | cut -d= -f1)
+          if [ -z "$vars" ]; then
+            echo "::error::no variables found in $ENV_EXAMPLE"
             exit 1
           fi
-          cat noenv.log
-          if ! grep -q "copy deploy/.env.example" noenv.log; then
-            echo "::error::docker compose config failed, but not with the required-variable message."
-            exit 1
-          fi
-          echo "ok: docker compose config without values failed with the required-variable message"
+          for var in $vars; do
+            env_file="$RUNNER_TEMP/env-minus-$var"
+            log="$RUNNER_TEMP/config-minus-$var.log"
+            grep -v -E "^$var=" "$ENV_EXAMPLE" > "$env_file"
+            if docker compose -f "$COMPOSE_FILE_PATH" --env-file "$env_file" config -q > "$log" 2>&1; then
+              cat "$log"
+              echo "::error::docker compose config passed without $var; add a \${$var:?...} guard in $COMPOSE_FILE_PATH."
+              exit 1
+            fi
+            if ! grep -q "required variable $var is missing" "$log"; then
+              cat "$log"
+              echo "::error::docker compose config without $var failed, but not with the required-variable message for $var."
+              exit 1
+            fi
+            echo "ok: without $var, docker compose config failed: $(cat "$log")"
+          done

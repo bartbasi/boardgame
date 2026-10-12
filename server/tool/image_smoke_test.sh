@@ -69,7 +69,7 @@ user="$(docker image inspect -f '{{.Config.User}}' "$IMAGE")"
 # Docker 29) reports the compressed content size, about half (T-098 AC3).
 # It is printed for the record only.
 store_size="$(docker image inspect -f '{{.Size}}' "$IMAGE")"
-docker create --name "$NAME-fs" --platform "$PLATFORM" "$IMAGE" >/dev/null
+docker create --pull never --name "$NAME-fs" --platform "$PLATFORM" "$IMAGE" >/dev/null
 docker export -o "$WORK/rootfs.tar" "$NAME-fs"
 docker rm "$NAME-fs" >/dev/null
 unpacked="$(wc -c <"$WORK/rootfs.tar" | tr -d '[:space:]')"
@@ -115,6 +115,7 @@ hc_code=$?
 set -e
 [ "$hc_code" -eq 0 ] || {
   cat "$WORK/hc.log" >&2
+  docker logs "$NAME" >&2 || true
   fail "--healthcheck with the server up exited $hc_code, want 0"
 }
 echo "ok ($PLATFORM): --healthcheck with the server up exited 0"
@@ -125,6 +126,7 @@ hc_down_code=$?
 set -e
 [ "$hc_down_code" -eq 1 ] || {
   cat "$WORK/hc-down.log" >&2
+  docker logs "$NAME" >&2 || true
   fail "--healthcheck with nothing listening exited $hc_down_code, want 1"
 }
 reason="$(jq -er '.reason' "$WORK/hc-down.log")" ||
@@ -139,6 +141,7 @@ usage_code=$?
 set -e
 [ "$usage_code" -eq 64 ] || {
   cat "$WORK/hc-usage.log" >&2
+  docker logs "$NAME" >&2 || true
   fail "an unknown argument exited $usage_code, want 64"
 }
 echo "ok ($PLATFORM): an unknown argument exited 64"
