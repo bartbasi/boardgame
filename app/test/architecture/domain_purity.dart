@@ -78,9 +78,9 @@ List<String> directiveUris(String source) {
 /// A domain file, and every file of [packageName] it reaches through imports
 /// or exports, may only use: `dart:` libraries outside
 /// [forbiddenDartLibraries], packages in [allowedDomainPackages], and files
-/// of its own package that are not in a feature's data or presentation
-/// layer or in `core/data/`. Returns the violations; an empty list means
-/// the layer is pure.
+/// of its own package under `features/<feature>/domain/` or `core/domain/`
+/// (an allowlist, see [isDomainPath]). Returns the violations; an empty
+/// list means the layer is pure.
 List<PurityViolation> checkDomainPurity({
   required Directory libDir,
   required String packageName,
@@ -175,6 +175,9 @@ _Classification _classify({
 
 _Classification _ownFile(File target, Directory libDir) {
   final segments = _segments(target.path, libDir);
+  if (isDomainPath(segments)) return _Classification(follow: target);
+  // Specific messages for the common mistakes; everything else outside the
+  // allowlist gets the general one (T-013 review R1-G5).
   if (segments.length >= 3 &&
       segments[0] == 'features' &&
       (segments[2] == 'data' || segments[2] == 'presentation')) {
@@ -187,8 +190,22 @@ _Classification _ownFile(File target, Directory libDir) {
       reason: 'domain must not depend on the core data layer',
     );
   }
-  return _Classification(follow: target);
+  return const _Classification(
+    reason:
+        'domain may only import domain files '
+        '(features/<feature>/domain/ or core/domain/)',
+  );
 }
+
+/// Whether [segments] (a path relative to lib/) is an allowed own-package
+/// import for domain code: `features/<feature>/domain/...` or
+/// `core/domain/...`. This is an allowlist, so new folders such as lib/app/
+/// or lib/core/presentation/ are refused by default.
+bool isDomainPath(List<String> segments) =>
+    (segments.length >= 4 &&
+        segments[0] == 'features' &&
+        segments[2] == 'domain') ||
+    (segments.length >= 3 && segments[0] == 'core' && segments[1] == 'domain');
 
 /// Path segments of [path] relative to [libDir], with `.` and `..` resolved.
 List<String> _segments(String path, Directory libDir) {

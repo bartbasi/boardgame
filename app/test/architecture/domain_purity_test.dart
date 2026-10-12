@@ -80,9 +80,39 @@ void main() {
     }
 
     test('a transitive violation names both files', () {
-      final violation = _checkFixture('transitive').single;
-      expect(violation.domainFile, 'features/settings/domain/settings.dart');
-      expect(violation.file, 'core/ui/colors.dart');
+      // core/domain/colors.dart is also checked on its own, so pick the
+      // violation reached from the feature's domain file.
+      final violation = _checkFixture('transitive').singleWhere(
+        (v) => v.domainFile == 'features/settings/domain/settings.dart',
+      );
+      expect(violation.file, 'core/domain/colors.dart');
+      expect(violation.uri, 'package:flutter/material.dart');
+    });
+
+    test('own files outside the domain allowlist are refused (R1-G5)', () {
+      final violations = _checkFixture('outside_domain');
+      expect(violations.map((v) => v.uri).toSet(), {
+        'package:board_game_collector/app/routes.dart',
+        '../../../core/ui/spacing.dart',
+      });
+      expect(
+        violations.every((v) => v.reason.contains('may only import domain')),
+        isTrue,
+        reason: violations.join('\n'),
+      );
+    });
+
+    test('isDomainPath allows only feature domain and core domain', () {
+      expect(isDomainPath(['features', 'pricing', 'domain', 'p.dart']), isTrue);
+      expect(isDomainPath(['core', 'domain', 'result.dart']), isTrue);
+      expect(isDomainPath(['core', 'domain', 'sub', 'x.dart']), isTrue);
+      expect(isDomainPath(['features', 'pricing', 'data', 'p.dart']), isFalse);
+      expect(isDomainPath(['core', 'ui', 'x.dart']), isFalse);
+      expect(isDomainPath(['core', 'presentation', 'x.dart']), isFalse);
+      expect(isDomainPath(['app', 'app.dart']), isFalse);
+      expect(isDomainPath(['main.dart']), isFalse);
+      expect(isDomainPath(['features', 'domain']), isFalse);
+      expect(isDomainPath(const []), isFalse);
     });
 
     test('a conditional import checks every alternative', () {
