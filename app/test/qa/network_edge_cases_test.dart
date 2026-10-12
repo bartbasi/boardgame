@@ -171,12 +171,28 @@ void main() {
       }
     });
     test('backoff stays sane for absurd retry numbers', () {
+      // Tightened by flutter-developer in T-013 round 2 (review R1-S1): the
+      // old bounds also accepted 0, which is what an overflowing ceiling
+      // gave. Half of the 8 s cap is exactly 4 s for every retry from 6 up.
       const policy = RetryPolicy();
       final r = FixedRandom(0.5);
-      for (final n in [63, 64, 65, 100, 1000]) {
+      for (final n in [
+        6,
+        7,
+        10,
+        45,
+        46,
+        47,
+        62,
+        63,
+        64,
+        65,
+        100,
+        1000,
+        1 << 30,
+      ]) {
         final d = policy.backoff(n, r);
-        expect(d.isNegative, isFalse, reason: 'retry $n');
-        expect(d, lessThanOrEqualTo(policy.maxBackoff), reason: 'retry $n');
+        expect(d, const Duration(seconds: 4), reason: 'retry $n');
       }
     });
   });

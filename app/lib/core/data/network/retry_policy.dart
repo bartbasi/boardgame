@@ -49,10 +49,13 @@ final class RetryPolicy {
   /// The jittered wait before retry number [retry] (1 for the first retry).
   Duration backoff(int retry, Random random) {
     assert(retry >= 1, 'retry is 1-based');
-    final ceilingMicros = min(
-      maxBackoff.inMicroseconds,
-      baseDelay.inMicroseconds * pow(factor, retry - 1).toInt(),
-    );
+    // Grow the ceiling step by step and stop at the cap, so a large retry
+    // number can never overflow (T-013 review R1-S1).
+    final cap = maxBackoff.inMicroseconds;
+    var ceilingMicros = min(baseDelay.inMicroseconds, cap);
+    for (var i = 1; i < retry && ceilingMicros < cap && factor > 1; i++) {
+      ceilingMicros = min(ceilingMicros * factor, cap);
+    }
     return Duration(
       microseconds: (ceilingMicros * random.nextDouble()).floor(),
     );
