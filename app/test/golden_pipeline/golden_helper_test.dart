@@ -149,8 +149,14 @@ void main() {
 
     test('GoldenCase.fileName matches goldenFileName', () {
       expect(
-        const GoldenCase('app_shell', null, .dark, .expanded, .large).fileName,
-        'app_shell_text200_dark_expanded.png',
+        const GoldenCase(
+          'app_shell',
+          'default',
+          .dark,
+          .expanded,
+          .large,
+        ).fileName,
+        'app_shell_default_text200_dark_expanded.png',
       );
       expect(
         const GoldenCase('app_shell', 'default', .light, .compact).fileName,
@@ -162,7 +168,7 @@ void main() {
   group('AC5 and AC6 goldenFileName', () {
     test('names the eight app shell goldens as the spec lists them', () {
       String name(
-        String? state,
+        String state,
         GoldenTheme theme,
         GoldenSize size, [
         GoldenTextScale scale = GoldenTextScale.normal,
@@ -182,8 +188,8 @@ void main() {
           name('default', GoldenTheme.dark, GoldenSize.expanded),
           name('default', GoldenTheme.light, GoldenSize.medium),
           name('default', GoldenTheme.light, GoldenSize.landscape),
-          name(null, GoldenTheme.light, GoldenSize.compact, .large),
-          name(null, GoldenTheme.dark, GoldenSize.expanded, .large),
+          name('default', GoldenTheme.light, GoldenSize.compact, .large),
+          name('default', GoldenTheme.dark, GoldenSize.expanded, .large),
         ],
         [
           'app_shell_default_light_compact.png',
@@ -192,8 +198,8 @@ void main() {
           'app_shell_default_dark_expanded.png',
           'app_shell_default_light_medium.png',
           'app_shell_default_light_landscape.png',
-          'app_shell_text200_light_compact.png',
-          'app_shell_text200_dark_expanded.png',
+          'app_shell_default_text200_light_compact.png',
+          'app_shell_default_text200_dark_expanded.png',
         ],
       );
     });
@@ -248,16 +254,31 @@ void main() {
       }
     });
 
-    test('a missing state is allowed only at large text', () {
-      expect(
-        () => goldenFileName(
-          screen: 'app_shell',
-          state: null,
-          theme: GoldenTheme.light,
-          size: GoldenSize.compact,
-        ),
-        throwsArgumentError,
+    test('the default state keeps its segment at large text (UX, round 3)', () {
+      final name = goldenFileName(
+        screen: 'app_shell',
+        state: 'default',
+        theme: GoldenTheme.light,
+        size: GoldenSize.compact,
+        textScale: GoldenTextScale.large,
       );
+      expect(name, 'app_shell_default_text200_light_compact.png');
+      expect(name, isNot('app_shell_text200_light_compact.png'));
+    });
+
+    test('text200 cannot be written into the state by hand', () {
+      for (final state in ['text200', 'default_text200', 'text200_x']) {
+        expect(
+          () => goldenFileName(
+            screen: 'app_shell',
+            state: state,
+            theme: GoldenTheme.light,
+            size: GoldenSize.compact,
+          ),
+          throwsArgumentError,
+          reason: state,
+        );
+      }
     });
 
     test('rejects names that are not lower_snake_case', () {

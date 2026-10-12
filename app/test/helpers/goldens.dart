@@ -91,13 +91,12 @@ enum GoldenTextScale {
 
 /// File name `<screen>_<state>_<theme>_<size>.png`.
 ///
-/// At [GoldenTextScale.large] the state gets the `text200` suffix
-/// (`longtitle_text200`). Screen specs that name a large text golden without
-/// a state (`app_shell_text200_light_compact.png`) pass a null [state]; a
-/// null state is allowed only at large text.
+/// At [GoldenTextScale.large] the state always gets the `text200` suffix,
+/// the default state included (`app_shell_default_text200_light_compact.png`,
+/// UX decision in T-015 round 3). There is no bare `text200` form.
 String goldenFileName({
   required String screen,
-  required String? state,
+  required String state,
   required GoldenTheme theme,
   required GoldenSize size,
   GoldenTextScale textScale = GoldenTextScale.normal,
@@ -106,19 +105,20 @@ String goldenFileName({
   if (!namePart.hasMatch(screen)) {
     throw ArgumentError.value(screen, 'screen', 'use lower_snake_case');
   }
-  if (state != null && !namePart.hasMatch(state)) {
+  if (!namePart.hasMatch(state)) {
     throw ArgumentError.value(state, 'state', 'use lower_snake_case');
   }
-  final String stateLabel;
-  switch (textScale) {
-    case GoldenTextScale.normal:
-      if (state == null) {
-        throw ArgumentError.notNull('state');
-      }
-      stateLabel = state;
-    case GoldenTextScale.large:
-      stateLabel = state == null ? 'text200' : '${state}_text200';
+  if (state.split('_').contains('text200')) {
+    throw ArgumentError.value(
+      state,
+      'state',
+      'text200 is added from the text scale, not written in the state',
+    );
   }
+  final stateLabel = switch (textScale) {
+    GoldenTextScale.normal => state,
+    GoldenTextScale.large => '${state}_text200',
+  };
   return '${screen}_${stateLabel}_${theme.name}_${size.name}.png';
 }
 
@@ -206,7 +206,7 @@ class GoldenCase {
   ]);
 
   final String screen;
-  final String? state;
+  final String state;
   final GoldenTheme theme;
   final GoldenSize size;
   final GoldenTextScale textScale;
@@ -286,7 +286,7 @@ final Key _goldenBoundary = UniqueKey();
 /// to load.
 void goldenTest({
   required String screen,
-  required String? state,
+  required String state,
   required GoldenTheme theme,
   required GoldenSize size,
   GoldenTextScale textScale = GoldenTextScale.normal,

@@ -17,8 +17,8 @@ const appShellGoldenCases = <GoldenCase>[
   GoldenCase('app_shell', 'default', .dark, .expanded),
   GoldenCase('app_shell', 'default', .light, .medium),
   GoldenCase('app_shell', 'default', .light, .landscape),
-  GoldenCase('app_shell', null, .light, .compact, .large),
-  GoldenCase('app_shell', null, .dark, .expanded, .large),
+  GoldenCase('app_shell', 'default', .light, .compact, .large),
+  GoldenCase('app_shell', 'default', .dark, .expanded, .large),
 ];
 
 void main() {
