@@ -50,7 +50,12 @@ Conventions confirmed, app (T-012):
 Docker (T-009, 2026-10-12): server image is scratch + dart /runtime/, cross-compiled via --platform=$BUILDPLATFORM; ignore rules in server/Dockerfile.dockerignore (applies only when -f server/Dockerfile with repo-root context: check T-010 Compose build block). License exception (glibc/MPL) holds only while the image is never pushed to a public registry: check T-011 for push steps. Scratch has no /tmp. Reviewed without docker builds (C: nearly full); rely on dev+QA runtime evidence.
 - backend-developer (T-009): handoff open questions get decided on main but README keeps pointing at the handoff; check docs for stale "open question" pointers after decisions land.
 
-Forward items to check in later tickets: INTERNET permission in main AndroidManifest (T-013), release signing not debug key (T-014+), allowBackup decision before collection DB.
+App networking (T-013, 2026-10-12): ApiClient in lib/core/data/network; only GET retried; per-attempt Timer enforces 20 s deadline; followRedirects false; log interceptor only in kDebugMode, logs uri.path only. Server must answer upstream_unavailable with 503 + Retry-After (T-022/T-023/T-025), not 500.
+- flutter-developer and qa-engineer (T-013): "sanity" tests with loose bounds (<=, isErr, lessThan) that pass on wrong behavior, e.g. int overflow in pow() backoff wrapping to 0. Check edge tests assert exact values; check `pow(...).toInt()` multiplications for 64-bit wrap.
+- Forward: T-068/T-069 app attestation: 401 refresh once, POST too, inside the 20 s deadline. T-028: JsonDecoder typedef clashes with dart:convert.
+- Backlog line to ticket id: `awk '/^### T-/{t=$0} NR==585{print t}' docs/backlog.md`.
+
+Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
 Process note: edit the handoff only with the Edit tool, never sed -i (shell writes are not allowed for the reviewer).
