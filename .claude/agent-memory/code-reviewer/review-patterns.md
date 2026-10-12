@@ -77,6 +77,13 @@ CI script checks (T-098, 2026-10-12, approved round 1):
 - Ubuntu 26.04 runners use the containerd image store: `docker image inspect` .Size is compressed size there; the smoke test measures `docker export` instead. ubuntu-latest moves from 2026-10-19.
 - Log grep for step output without timestamps: `gh run view <id> --log | grep -E "ok \(|FAIL" | sed -E 's/^.*Z //'`.
 
+Goldens (T-015, 2026-10-12, approved round 1):
+- Rendered only by app.yml workflow_dispatch input update_goldens (job goldens-update, runs test/goldens only); checks job compares and uploads golden-failures. Guard in app/test/flutter_test_config.dart; helper goldenTest in app/test/helpers/goldens.dart skips off Linux only.
+- Proof a golden ran on CI: CI "N passed" equals Windows passed + skipped. Proof PNGs are CI-rendered: commit after the render run, and the next push run's comparisons pass.
+- flutter-developer (T-015): unanchored .gitignore patterns (`failures/` would hide lib/**/failures/). Check every new ignore rule for over-matching.
+- New committed assets (fonts, images) also belong in docs/third-party-components.md (orchestrator-owned); developers record them only in the handoff.
+- Flutter source facts: flutter_platform.dart sets comparator and autoUpdateGoldenFiles before testExecutable; runAsync reports errors via FlutterError.reportError (test fails, no hang).
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
