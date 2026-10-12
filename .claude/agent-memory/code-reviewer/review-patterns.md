@@ -55,6 +55,11 @@ App networking (T-013, 2026-10-12): ApiClient in lib/core/data/network; only GET
 - Forward: T-068/T-069 app attestation: 401 refresh once, POST too, inside the 20 s deadline. T-028: JsonDecoder typedef clashes with dart:convert.
 - Backlog line to ticket id: `awk '/^### T-/{t=$0} NR==585{print t}' docs/backlog.md`.
 
+Compose/deploy (T-010, 2026-10-12): local stack in deploy/, built via deploy/compose.sh (sets GIT_SHA/APP_VERSION). Forward for T-071: port binding (local should be 127.0.0.1, R1-S1), memswap_limit, POSTGRES_PASSWORD_FILE, journald retention, Caddy request_body/timeouts/-Server.
+- qa-engineer (T-010): "env ignored" tests that pass a map to a function whose dependency reads Platform.environment (tautological). Dart HttpClient default findProxy = findProxyFromEnvironment (Platform.environment, no loopback bypass): proxy tests must be process tests.
+- backend-developer (T-010): docs again pointed at handoff open questions already decided on main; check README pointers against main's decisions.md (`git show main:docs/decisions.md`).
+- Merge-conflict check between ticket branches: `git merge-tree --write-tree --name-only <a> <b>` (read-only).
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
