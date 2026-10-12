@@ -267,7 +267,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-011 server.yml CI workflow
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: done
 - Depends on: T-007, T-008, T-009
 - UX spec: n/a
 - Linked files: .github/workflows/server.yml
@@ -279,9 +279,22 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   5. Given the workflow file, then `permissions` is read-only (`contents: read`) and every third-party action is pinned to a full commit SHA (proved by: manual).
   6. Given the tests, then none needs a secret or network access to BGG, eBay, or GameUPC, and the workflow defines no secrets (proved by: manual).
   7. Given a typical change, then the workflow finishes in 10 minutes or less [ASSUMPTION], with the duration recorded in the handoff (proved by: manual).
-  8. Given the image build, then the cross-compiler binaries that `dart compile exe` downloads for a foreign target and the target-platform dart image are cached between runs, and the run log shows the transferred build context is small (about 2 kB), proving server/Dockerfile.dockerignore applied to the real build (T-009 review R1-G3) (proved by: manual, run log of two consecutive runs).
+  8. Given the image build, then the cross-compiler binaries that `dart compile exe` downloads for a foreign target and the target-platform dart image are cached between runs, and a build on a fresh builder that has never seen the context (so nothing is skipped as already transferred) sends only the allowlisted files: the workflow fails if the transferred context is larger than the allowlisted files' size plus a small margin, far below the whole repo, proving server/Dockerfile.dockerignore applied to the real build (T-009 review R1-G3; reworded at T-011 sign-off: the earlier "about 2 kB" was a warm-builder figure, the full allowlisted context was about 87 kB) (proved by: manual, run log of two consecutive runs).
   9. Given the built images, then the workflow runs the checks listed in docs/handoffs/T-009.md "What CI (T-011) must verify": (a) the two-platform build from the repo root with `-f server/Dockerfile` and GIT_SHA and APP_VERSION build args succeeds; (b) the amd64 image with PORT and LOG_LEVEL returns 200 on GET /health within 5 s with version `<pubspec version>+<sha>`, and with no env exits 78; (c) the arm64 image passes the same /health smoke test under QEMU or on an arm64 runner; (d) `docker image inspect` shows user `65532:65532` on both platforms and each image is 100 MB or less; (e) a build without GIT_SHA fails (proved by: manual, run log).
   10. Given the image, then nothing is pushed to any registry, public or private, without the user's approval (docs/decisions.md 2026-10-12, glibc and MPL exception) (proved by: manual, read the workflow).
+
+### T-098 server.yml: health check mode and Compose file checks
+- Milestone: M1
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-010, T-011 (both done). Can run in parallel with app tickets.
+- UX spec: n/a
+- Linked files: .github/workflows/server.yml, server/tool/image_smoke_test.sh
+- Acceptance criteria:
+  1. Given the amd64 and arm64 smoke tests, when the container is running and /health returns 200, then `docker exec <container> /app/server --healthcheck` exits 0, and the step fails on any other exit code (T-011 review R1-G5, T-010 AC12) (proved by: manual, run log for both platforms).
+  2. Given a push that changes deploy/, then the workflow runs `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q` and fails if it exits non-zero (T-011 review R1-G5) (proved by: manual, a scratch branch with a broken Compose file fails, deleted afterward, and a green run on the real file).
+  3. Given the first server.yml run on Ubuntu 26 (`ubuntu-latest` moves from 2026-10-19, https://github.com/actions/runner-images/issues/14748), then the handoff records the run id, whether every step passed, and the image sizes reported by `docker image inspect`; if the size meaning changed (for example with the containerd image store), the smoke test wording and limit are updated or the runner is pinned to `ubuntu-24.04`, with a proposed decision (T-011 review R1-G7, T-011 open question 2) (proved by: manual, run log).
+  4. Given the changed workflow, then T-011 AC1 to AC10 still hold: read-only permissions, actions pinned by SHA, nothing pushed, and wall time 10 minutes or less [ASSUMPTION] (proved by: manual, run log).
 
 ### T-012 App skeleton: project, feature folders, navigation, themes, strings
 - Milestone: M1
