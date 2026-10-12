@@ -27,9 +27,17 @@ on:
 permissions:
   contents: read
 
+# Superseded runs on branches and pull requests are cancelled to save
+# minutes; runs on main always finish (T-011 review R1-G4).
 concurrency:
   group: server-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# bash adds -o pipefail, so a failing command inside a pipeline fails the step.
+# Job-level defaults replace these, so the dart job repeats the shell.
+defaults:
+  run:
+    shell: bash
 
 env:
   # Same version as the dart:3.13.5 image pinned in server/Dockerfile and
@@ -48,9 +56,12 @@ jobs:
         package: [server, packages/api_contract]
     defaults:
       run:
+        shell: bash
         working-directory: ${{ matrix.package }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # no step needs repository credentials
 
       - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
@@ -88,19 +99,12 @@ jobs:
       - name: Tests with coverage
         run: dart run coverage:test_with_coverage
 
+      # Fails below MIN_LINE_COVERAGE, and when any lib/ file with executable
+      # lines is missing from lcov.info: test_with_coverage reports only
+      # libraries the tests loaded (T-011 review R1-S3). The tool's header
+      # lists the exempt files.
       - name: Line coverage gate
-        run: |
-          awk -F'[:,]' -v min="$MIN_LINE_COVERAGE" -v pkg="${{ matrix.package }}" '
-            /^LF:/ { lf += $2 }
-            /^LH:/ { lh += $2 }
-            END {
-              if (lf == 0) { print "::error::no coverable lines found in coverage/lcov.info"; exit 1 }
-              pct = lh * 100 / lf
-              line = sprintf("%s line coverage: %d/%d = %.1f%% (minimum %d%%)", pkg, lh, lf, pct, min)
-              print line
-              print "- " line >> ENVIRON["GITHUB_STEP_SUMMARY"]
-              if (pct < min) { print "::error::" line; exit 1 }
-            }' coverage/lcov.info
+        run: dart run "$GITHUB_WORKSPACE/server/tool/coverage_gate.dart" . "$MIN_LINE_COVERAGE"
 
   image:
     name: image (linux/arm64, linux/amd64)
@@ -111,6 +115,8 @@ jobs:
       DOCKER_BUILD_RECORD_UPLOAD: false
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # no step needs repository credentials
 
       # Same values as server/tool/docker_build.sh computes locally.
       - name: Version
@@ -122,7 +128,13 @@ jobs:
           echo "app_version=$pubspec_version+$git_sha" >> "$GITHUB_OUTPUT"
           echo "Building $pubspec_version+$git_sha"
 
+      # BuildKit image pinned by digest (v0.34.0, Docker Hub, checked
+      # 2026-10-12) instead of the default floating buildx-stable-1 tag.
+      # `driver-opts: image=...` is documented in the setup-buildx-action
+      # README (https://github.com/docker/setup-buildx-action, "driver-opts").
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.34.0@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c
 
       # T-009 check (a): both platforms from the repo root with -f
       # server/Dockerfile, so server/Dockerfile.dockerignore applies (on a new
@@ -177,7 +189,9 @@ jobs:
 
       # T-009 checks (b) and (d) for amd64.
       - name: Smoke test linux/amd64
-        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-amd64 linux/amd64 "${{ steps.version.outputs.app_version }}"
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-amd64 linux/amd64 "$APP_VERSION"
 
       # T-009 check (c): run the arm64 image under QEMU. GitHub's arm64
       # runners are billed for private repositories, so this job stays on an
@@ -188,7 +202,9 @@ jobs:
           image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
 
       - name: Smoke test linux/arm64 (QEMU)
-        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-arm64 linux/arm64 "${{ steps.version.outputs.app_version }}"
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-arm64 linux/arm64 "$APP_VERSION"
 
       # T-009 check (e), plus T-009 R1-G3: the real build's transferred
       # context must hold only what server/Dockerfile.dockerignore lets in.
@@ -226,4 +242,5 @@ jobs:
               bytes = n * (unit == "kB" ? 1000 : unit == "MB" ? 1000000 : unit == "GB" ? 1000000000 : 1)
               if (bytes > limit) { printf "::error::build context is %s, over %d bytes (is server/Dockerfile.dockerignore applied?)\n", s, limit; exit 1 }
               printf "ok: build context %s (limit %d bytes)\n", s, limit
-            }'
+            }
+            END { if (NR == 0) { print "::error::no transferring context line in the build log"; exit 1 } }'
