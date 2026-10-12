@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_bgg_id",
+    "message": "The BGG id must be a positive integer."
+  }
+}

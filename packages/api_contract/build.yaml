@@ -1,0 +1,14 @@
+targets:
+  $default:
+    builders:
+      json_serializable:
+        options:
+          # Wrap every decoding failure (missing key, null, wrong type) in
+          # CheckedFromJsonException, so callers catch one typed exception.
+          checked: true
+          # Unknown keys are ignored, so the server can add fields within /v1.
+          disallow_unrecognized_keys: false
+          # Nested DTOs encode to plain maps, not objects.
+          explicit_to_json: true
+          # JSON keys keep the Dart field names (camelCase).
+          field_rename: none

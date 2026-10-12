@@ -189,7 +189,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-007 API contract package skeleton
 - Milestone: M1
 - Owner: backend-developer
-- Status: in-review
+- Status: done
 - Depends on: T-004, T-006
 - UX spec: n/a
 - Linked files: packages/api_contract/
