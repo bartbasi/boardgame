@@ -4,8 +4,11 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:api_contract/api_contract.dart';
+import 'package:board_game_collector/core/data/network/api_client.dart';
+import 'package:board_game_collector/core/data/network/api_config.dart';
 import 'package:board_game_collector/core/data/network/retry_policy.dart';
 import 'package:board_game_collector/core/domain/result.dart';
+import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -482,22 +485,98 @@ void main() {
     });
 
     test('connect timeouts plus retries stop at 20 s', () {
+      // Attempt 1: 0 to 10 s. Wait 250 ms. Attempt 2 starts at 10.25 s and
+      // is cut off by the deadline at 20 s.
       final adapter = FakeHttpAdapter([
         failWith(DioExceptionType.connectionTimeout, delay: _s(10)),
       ]);
-      final timed = _getHealth(adapter);
+      final timed = runFake(
+        () => fakeClient(
+          adapter,
+          random: FixedRandom(0.5),
+        ).get('/health', decode: _decodeHealth),
+      );
 
       expect(timed.result, const Err<HealthResponse>(TimeoutFailure()));
-      expect(timed.elapsed, lessThanOrEqualTo(_s(20)));
+      expect(timed.elapsed, _s(20));
+      expect(adapter.requests, hasLength(2));
+      expect(adapter.gaps, [_ms(10250)]);
+      expect(adapter.cancelled, [false, true]);
     });
 
-    test('slow 503s stop retrying before the limit', () {
+    test('slow 503s stop retrying when the next wait would pass 20 s', () {
+      // Waits are 0.9 of 500 ms, 1 s, 2 s. Attempt 3 ends at 19.35 s; the
+      // next wait (1.8 s) would pass the deadline, so the call ends there.
       final adapter = FakeHttpAdapter([respond(503, delay: _s(6))]);
-      final timed = _getHealth(adapter);
+      final timed = runFake(
+        () => fakeClient(
+          adapter,
+          random: FixedRandom(0.9),
+        ).get('/health', decode: _decodeHealth),
+      );
 
-      expect(timed.result.isErr, isTrue);
-      expect(timed.elapsed, lessThanOrEqualTo(_s(20)));
-      expect(adapter.requests.length, lessThan(4));
+      expect(
+        timed.result,
+        const Err<HealthResponse>(ServiceUnavailableFailure()),
+      );
+      expect(adapter.requests, hasLength(3));
+      expect(timed.elapsed, _ms(19350));
+    });
+
+    test('slow 503s with a short last wait time out at exactly 20 s', () {
+      // Waits are 250 ms, 500 ms, 1 s. Attempt 4 starts at 19.75 s and the
+      // deadline cuts it off at 20 s.
+      final adapter = FakeHttpAdapter([respond(503, delay: _s(6))]);
+      final timed = runFake(
+        () => fakeClient(
+          adapter,
+          random: FixedRandom(0.5),
+        ).get('/health', decode: _decodeHealth),
+      );
+
+      expect(timed.result, const Err<HealthResponse>(TimeoutFailure()));
+      expect(adapter.requests, hasLength(4));
+      expect(timed.elapsed, _s(20));
+      expect(adapter.cancelled.last, isTrue);
+    });
+
+    test('the deadline ignores the wall clock (review R1-G1)', () {
+      // The wall clock is frozen; only the monotonic stopwatch and timers
+      // move. A wall-clock deadline would never shrink and would allow a
+      // fourth attempt here.
+      final adapter = FakeHttpAdapter([respond(503, delay: _s(6))]);
+      final timed = runFake(() {
+        final monotonic = clock;
+        return withClock(
+          Clock.fixed(DateTime.utc(2000)),
+          () => fakeClient(
+            adapter,
+            random: FixedRandom(0.9),
+            newStopwatch: monotonic.stopwatch,
+          ).get('/health', decode: _decodeHealth),
+        );
+      });
+
+      expect(
+        timed.result,
+        const Err<HealthResponse>(ServiceUnavailableFailure()),
+      );
+      expect(adapter.requests, hasLength(3));
+      expect(timed.elapsed, _ms(19350));
+    });
+
+    test('the default stopwatch is a real monotonic Stopwatch', () {
+      final client = ApiClient(
+        config: ApiConfig.parse(testBaseUrl, allowInsecureHttp: false),
+        enableLogging: false,
+        dio: Dio()..httpClientAdapter = FakeHttpAdapter([hang()]),
+        policy: const RetryPolicy(totalTimeout: Duration(milliseconds: 50)),
+      );
+
+      return expectLater(
+        client.get('/health', decode: _decodeHealth),
+        completion(const Err<HealthResponse>(TimeoutFailure())),
+      );
     });
 
     test('a Retry-After that would pass the limit ends the call at once', () {
@@ -722,6 +801,28 @@ void main() {
       expect(timed.result, const Err<HealthResponse>(CancelledFailure()));
       expect(timed.elapsed, _s(2));
       expect(adapter.requests, hasLength(1));
+    });
+
+    test('one token reused across calls only affects calls that run when '
+        'it is cancelled (review R1-G2)', () {
+      final adapter = FakeHttpAdapter([respond(200, body: _healthOk)]);
+      final timed = runFake(() async {
+        final token = CancelToken();
+        final client = fakeClient(adapter);
+        for (var i = 0; i < 3; i++) {
+          final r = await client.get(
+            '/health',
+            decode: _decodeHealth,
+            cancelToken: token,
+          );
+          expect(r.isOk, isTrue);
+        }
+        token.cancel();
+        return client.get('/health', decode: _decodeHealth, cancelToken: token);
+      });
+
+      expect(timed.result, const Err<HealthResponse>(CancelledFailure()));
+      expect(adapter.requests, hasLength(3));
     });
 
     test('a live token does not change a successful call', () {

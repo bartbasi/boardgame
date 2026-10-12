@@ -12,7 +12,9 @@ import 'retry_policy.dart';
 
 /// Decodes a JSON object body into a value. Usually an api_contract
 /// `fromJson`, followed by mapping the DTO to a domain entity.
-typedef JsonDecoder<T> = T Function(Map<String, dynamic> json);
+///
+/// Named to avoid a clash with `JsonDecoder` from dart:convert.
+typedef JsonObjectDecoder<T> = T Function(Map<String, dynamic> json);
 
 /// The app's only HTTP client. It talks to our backend and nothing else.
 ///
@@ -20,12 +22,19 @@ typedef JsonDecoder<T> = T Function(Map<String, dynamic> json);
 /// error statuses, and bodies that cannot be decoded all become a
 /// [Failure]. GET requests are retried following [RetryPolicy]; other
 /// methods are sent exactly once.
+///
+/// Cancellation: pass one [CancelToken] per logical call (for example one
+/// per search query). The client listens to it only while that call runs.
 final class ApiClient {
   /// Creates a client for [config]. When [config] is an [Err], every call
   /// returns its failure and no request is sent.
   ///
   /// [enableLogging] adds a debug log of method, path, status, and time.
   /// Release builds pass false. Bodies and headers are never logged.
+  ///
+  /// [newStopwatch] measures each call against [RetryPolicy.totalTimeout].
+  /// It defaults to a monotonic [Stopwatch], so changes to the device clock
+  /// do not move the deadline; tests pass `clock.stopwatch` for fake time.
   ApiClient({
     required Result<ApiConfig> config,
     required bool enableLogging,
@@ -33,8 +42,10 @@ final class ApiClient {
     this.policy = const RetryPolicy(),
     Random? random,
     void Function(String message)? log,
+    Stopwatch Function()? newStopwatch,
   }) : _config = config,
        _random = random ?? Random(),
+       _newStopwatch = newStopwatch ?? Stopwatch.new,
        _dio = dio ?? Dio() {
     final baseUri = config.valueOrNull?.baseUri;
     _dio.options
@@ -53,6 +64,7 @@ final class ApiClient {
   final Result<ApiConfig> _config;
   final Dio _dio;
   final Random _random;
+  final Stopwatch Function() _newStopwatch;
 
   /// The retry and timeout settings.
   final RetryPolicy policy;
@@ -70,7 +82,7 @@ final class ApiClient {
   /// timeouts, 429, 502, 503, and 504.
   Future<Result<T>> get<T>(
     String path, {
-    required JsonDecoder<T> decode,
+    required JsonObjectDecoder<T> decode,
     Map<String, String>? queryParameters,
     CancelToken? cancelToken,
   }) => _send(
@@ -85,7 +97,7 @@ final class ApiClient {
   /// changes something on the server is not repeated.
   Future<Result<T>> post<T>(
     String path, {
-    required JsonDecoder<T> decode,
+    required JsonObjectDecoder<T> decode,
     Object? body,
     CancelToken? cancelToken,
   }) =>
@@ -94,7 +106,7 @@ final class ApiClient {
   Future<Result<T>> _send<T>(
     String method,
     String path, {
-    required JsonDecoder<T> decode,
+    required JsonObjectDecoder<T> decode,
     Map<String, String>? queryParameters,
     Object? body,
     CancelToken? cancelToken,
@@ -104,8 +116,9 @@ final class ApiClient {
     if (!path.startsWith('/') || path.startsWith('//')) {
       return const Err(UnexpectedFailure());
     }
+    final scope = _CallScope(policy.totalTimeout, _newStopwatch())
+      ..listenTo(cancelToken);
     try {
-      final deadline = clock.now().add(policy.totalTimeout);
       final retries = method == 'GET' ? policy.maxRetries : 0;
       for (var attempt = 0; ; attempt++) {
         final outcome = await _attempt(
@@ -113,8 +126,7 @@ final class ApiClient {
           path,
           queryParameters: queryParameters,
           body: body,
-          deadline: deadline,
-          cancelToken: cancelToken,
+          scope: scope,
         );
         final Failure failure;
         Duration? retryAfter;
@@ -123,6 +135,7 @@ final class ApiClient {
             if (status >= 200 && status < 300) {
               return _decode(text, decode);
             }
+            // Retry-After may be an HTTP date, which needs the wall clock.
             retryAfter = parseRetryAfter(retryAfterHeader, now: clock.now());
             failure = failureForStatus(
               status,
@@ -137,17 +150,19 @@ final class ApiClient {
           return Err(failure);
         }
         final wait = retryAfter ?? policy.backoff(attempt + 1, _random);
-        if (!clock.now().add(wait).isBefore(deadline)) return Err(failure);
-        final cancelled = await _wait(wait, cancelToken);
-        if (cancelled) return const Err(CancelledFailure());
+        if (wait >= scope.remaining) return Err(failure);
+        final interrupted = await scope.wait(wait);
+        if (interrupted != null) return Err(interrupted);
       }
     } on Object {
       // A last guard: nothing thrown below may reach the caller.
       return const Err(UnexpectedFailure());
+    } finally {
+      scope.close();
     }
   }
 
-  Result<T> _decode<T>(String? text, JsonDecoder<T> decode) {
+  Result<T> _decode<T>(String? text, JsonObjectDecoder<T> decode) {
     final json = decodeJsonObject(text);
     if (json == null) return const Err(UnexpectedFailure());
     try {
@@ -158,42 +173,27 @@ final class ApiClient {
     }
   }
 
-  /// One attempt, ended early when [deadline] passes (timeout) or the
-  /// caller cancels.
+  /// One attempt, ended early when the call's deadline passes (timeout) or
+  /// the caller cancels.
   Future<_Outcome> _attempt(
     String method,
     String path, {
     required Map<String, String>? queryParameters,
     required Object? body,
-    required DateTime deadline,
-    required CancelToken? cancelToken,
+    required _CallScope scope,
   }) {
-    final remaining = deadline.difference(clock.now());
-    if (remaining <= Duration.zero) {
+    if (scope.endedWith case final failure?) {
+      return Future.value(_Failed(failure));
+    }
+    if (scope.remaining <= Duration.zero) {
       return Future.value(const _Failed(TimeoutFailure()));
     }
     final result = Completer<_Outcome>();
-    void finish(_Outcome outcome) {
-      if (!result.isCompleted) result.complete(outcome);
-    }
-
     final attemptToken = CancelToken();
-    final timer = Timer(remaining, () {
-      finish(const _Failed(TimeoutFailure()));
+    scope.onEnd = (failure) {
+      if (!result.isCompleted) result.complete(_Failed(failure));
       attemptToken.cancel();
-    });
-    if (cancelToken != null) {
-      if (cancelToken.isCancelled) {
-        timer.cancel();
-        return Future.value(const _Failed(CancelledFailure()));
-      }
-      unawaited(
-        cancelToken.whenCancel.then((_) {
-          finish(const _Failed(CancelledFailure()));
-          attemptToken.cancel();
-        }),
-      );
-    }
+    };
     unawaited(
       _dio
           .request<String>(
@@ -204,37 +204,98 @@ final class ApiClient {
             cancelToken: attemptToken,
           )
           .then(
-            (response) => finish(
-              _Response(
-                status: response.statusCode ?? 0,
-                text: response.data,
-                retryAfterHeader: response.headers.value('retry-after'),
-              ),
-            ),
-            onError: (Object error) => finish(_Failed(failureForError(error))),
+            (response) {
+              if (result.isCompleted) return;
+              result.complete(
+                _Response(
+                  status: response.statusCode ?? 0,
+                  text: response.data,
+                  retryAfterHeader: response.headers.value('retry-after'),
+                ),
+              );
+            },
+            onError: (Object error) {
+              if (!result.isCompleted) {
+                result.complete(_Failed(failureForError(error)));
+              }
+            },
           ),
     );
-    return result.future.whenComplete(timer.cancel);
+    return result.future.whenComplete(() => scope.onEnd = null);
+  }
+}
+
+/// The state of one call: a monotonic stopwatch and one deadline timer for
+/// the whole call, and the caller's cancel token. Attempts and waits listen
+/// through [onEnd], which is cleared after each one, and [close] detaches
+/// the call from the caller's token so nothing outlives the call.
+final class _CallScope {
+  _CallScope(this._total, this._stopwatch) {
+    _stopwatch.start();
+    _deadline = Timer(_total, () => _end(const TimeoutFailure()));
   }
 
-  /// Waits [duration]; returns true if the caller cancelled meanwhile.
-  Future<bool> _wait(Duration duration, CancelToken? cancelToken) {
-    if (cancelToken == null) {
-      return Future<bool>.delayed(duration, () => false);
+  final Duration _total;
+  final Stopwatch _stopwatch;
+  late final Timer _deadline;
+  _TokenLink? _link;
+
+  /// Set once the call ends early: [TimeoutFailure] or [CancelledFailure].
+  Failure? endedWith;
+
+  /// Called once if the call ends early while an attempt or wait runs.
+  void Function(Failure failure)? onEnd;
+
+  /// Time left before the call's deadline.
+  Duration get remaining => _total - _stopwatch.elapsed;
+
+  void listenTo(CancelToken? token) {
+    if (token == null) return;
+    if (token.isCancelled) {
+      _end(const CancelledFailure());
+      return;
     }
-    if (cancelToken.isCancelled) return Future.value(true);
-    final done = Completer<bool>();
-    final timer = Timer(duration, () {
-      if (!done.isCompleted) done.complete(false);
-    });
+    final link = _link = _TokenLink(this);
+    // A Future listener cannot be removed; the link is cut in [close], so
+    // a long-lived token keeps only the empty link, not this call.
     unawaited(
-      cancelToken.whenCancel.then((_) {
-        timer.cancel();
-        if (!done.isCompleted) done.complete(true);
-      }),
+      token.whenCancel.then((_) => link.scope?._end(const CancelledFailure())),
     );
-    return done.future;
   }
+
+  void _end(Failure failure) {
+    if (endedWith != null) return;
+    endedWith = failure;
+    onEnd?.call(failure);
+  }
+
+  /// Waits [duration]. Returns the failure if the call ended meanwhile.
+  Future<Failure?> wait(Duration duration) {
+    if (endedWith case final failure?) return Future.value(failure);
+    final done = Completer<Failure?>();
+    final timer = Timer(duration, () {
+      if (!done.isCompleted) done.complete(null);
+    });
+    onEnd = (failure) {
+      timer.cancel();
+      if (!done.isCompleted) done.complete(failure);
+    };
+    return done.future.whenComplete(() => onEnd = null);
+  }
+
+  void close() {
+    _deadline.cancel();
+    _stopwatch.stop();
+    _link?.scope = null;
+    _link = null;
+    onEnd = null;
+  }
+}
+
+final class _TokenLink {
+  _TokenLink(this.scope);
+
+  _CallScope? scope;
 }
 
 sealed class _Outcome {

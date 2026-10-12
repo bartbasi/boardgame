@@ -106,6 +106,7 @@ ApiClient fakeClient(
   RetryPolicy policy = const RetryPolicy(),
   bool enableLogging = false,
   void Function(String)? log,
+  Stopwatch Function()? newStopwatch,
 }) {
   final dio = Dio()..httpClientAdapter = adapter;
   return ApiClient(
@@ -115,6 +116,8 @@ ApiClient fakeClient(
     random: random ?? Random(42),
     policy: policy,
     log: log,
+    // Fake time drives the call deadline (production uses Stopwatch).
+    newStopwatch: newStopwatch ?? clock.stopwatch,
   );
 }
 
