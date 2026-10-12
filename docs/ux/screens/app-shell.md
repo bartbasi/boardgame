@@ -10,7 +10,7 @@ Status: draft for user review (T-003). Tickets: T-012, T-015.
    - Compact (width under 600 dp): bottom NavigationBar.
    - Medium (600 to 839 dp) and expanded (840 dp and up): NavigationRail on the leading edge, 80 dp wide, labels always shown, destinations top-aligned.
    - Phone landscape (for example 844 x 390 dp) counts as expanded by width, so it uses the rail. Two-pane layouts need at least 600 dp of height as well, so phone landscape stays single pane.
-3. **Seed color:** `0xFF1F6B5C` (a deep green-teal, the color of game table felt). Both themes come from `ColorScheme.fromSeed(seedColor: ...)` with `Brightness.light` and `Brightness.dark`, Material 3, `useMaterial3: true`. Dynamic (wallpaper) color is off in v1 so goldens and brand stay stable [ASSUMPTION]. Developers must not hard-code any other color. If a generated pair fails 4.5:1 for text, change the role used, not the seed.
+3. **Seed color:** `0xFF1F6B5C` (a deep green-teal, the color of game table felt). Both themes come from `ColorScheme.fromSeed(seedColor: ...)` with `Brightness.light` and `Brightness.dark`, Material 3, `useMaterial3: true`. Dynamic (wallpaper) color is off in v1 so goldens and brand stay stable (confirmed by the user, PRD Q31, 2026-10-12). Developers must not hard-code any other color. If a generated pair fails 4.5:1 for text, change the role used, not the seed.
 4. **Theme choice:** follows the system by default; Settings lets the user force Light or Dark.
 5. **Window sizes in "Shared test definitions":** confirmed as written: compact 390 x 844 dp, medium 744 x 1133 dp, expanded 1280 x 800 dp, text scale 2.0. One addition is proposed: a fourth size named `landscape`, 844 x 390 dp (phone landscape), used only for the goldens that this spec names. The Material breakpoints used by the app are 600 dp and 840 dp of width, so 744 is medium and 1280 and 844 are expanded.
 6. **Type:** Material 3 type scale with the default Roboto/San Francisco system fonts. Bundled fonts for goldens are decided in T-015.
@@ -93,4 +93,4 @@ Total: 10 (8 in M1 from T-015, 2 in M2 from T-032). The other states are covered
 - Switching tabs keeps scroll position.
 - Nothing appears between launch and the scanner.
 - Offline banner appears only on network-dependent screens and never replaces content.
-- Open questions: seed color taste (user), the fourth `landscape` test size (user), hiding the bar when the keyboard is open.
+- Open questions: (seed color answered: PRD Q31, 2026-10-12, `0xFF1F6B5C`), the fourth `landscape` test size (user), hiding the bar when the keyboard is open.
