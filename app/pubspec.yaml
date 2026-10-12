@@ -10,7 +10,8 @@ environment:
   sdk: ^3.13.5
 
 # Licenses are checked before adding a package (MIT, BSD, or Apache 2.0 only).
-# The list with licenses lives in docs/handoffs/T-012.md.
+# The lists with licenses live in docs/handoffs/T-012.md and T-013.md.
+# api_contract is a path dependency (docs/decisions.md 2026-10-12, T-004).
 dependencies:
   api_contract:
     path: ../packages/api_contract
