@@ -138,7 +138,7 @@ final _partOfPattern = RegExp(
 /// `package:` URI against [path], or an empty string when the part names its
 /// library by name or the URI points outside lib/.
 String? partOwner(String path, String source) {
-  var rest = source.startsWith('﻿') ? source.substring(1) : source;
+  var rest = source.startsWith('\uFEFF') ? source.substring(1) : source;
   while (true) {
     rest = rest.trimLeft();
     if (rest.startsWith('//')) {
@@ -399,17 +399,30 @@ GateOutcome evaluateGate(
     // executable line, which is the same as an ignore-file marker (R3-G1).
     final allLinesIgnored = !ignoreFile && count > 0 && (found[path] ?? 0) == 0;
     if (allLinesIgnored && isDomainOrData(path)) {
+      // lcov lists a file whose lines the markers removed as 0/0 (seen on
+      // Actions, T-099 run 38316486811); a file that never had executable
+      // lines is absent from it (T-014 probe), so the marker is stray.
+      final coveredByMarkers = found.containsKey(path);
       if (allowlist.containsKey(path)) {
-        exempt[path] =
-            'coverage:ignore-start/end markers cover every line, '
-            'allowlisted: ${allowlist[path]}';
-      } else {
+        exempt[path] = coveredByMarkers
+            ? 'coverage:ignore-start/end markers cover every line, '
+                  'allowlisted: ${allowlist[path]}'
+            : 'no executable lines and coverage:ignore markers, '
+                  'allowlisted: ${allowlist[path]}';
+      } else if (coveredByMarkers) {
         errors.add(
           'coverage:ignore-start/end (or ignore-line) markers cover every '
           'executable line of a domain or data file: $path ($count marker '
           'line(s), 0/0 lines). Only generated files may be exempt '
           '(docs/decisions.md 2026-10-12); test it, or add it to '
           'ignoreFileAllowlist with a reviewed reason.',
+        );
+      } else {
+        errors.add(
+          'no executable lines remain in a domain or data file that has '
+          'coverage:ignore-start/end or ignore-line markers: $path ($count '
+          'marker line(s), not in the coverage report). Remove the markers '
+          'if the file has no code to test, or test the code they hide.',
         );
       }
       continue;

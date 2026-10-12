@@ -198,6 +198,55 @@ void main() {
       expect(gate.noExecutableLines, isEmpty);
     });
 
+    test('R1-G3: absent from lcov reads as a stray marker, 0/0 as cover', () {
+      // An interface with a stray ignore-line has no executable lines at
+      // all, so lcov leaves it out; the message must not claim the markers
+      // cover its lines.
+      final stray = evaluateGate(full, {
+        _core: _coreSrc,
+        _domain:
+            'abstract interface class Repo {\n'
+            '  int count(); // coverage:ignore-line\n'
+            '}\n',
+      });
+      expect(stray.passed, isFalse);
+      expect(
+        stray.errors.single,
+        startsWith(
+          'no executable lines remain in a domain or data file that has '
+          'coverage:ignore-start/end or ignore-line markers: $_domain',
+        ),
+      );
+      expect(stray.errors.single, contains('Remove the markers'));
+      expect(stray.errors.single, isNot(contains('cover every')));
+
+      final covered = evaluateGate('$full${_rec(_domain, 0, 0)}', {
+        _core: _coreSrc,
+        _domain: _rangeSrc,
+      });
+      expect(
+        covered.errors.single,
+        startsWith(
+          'coverage:ignore-start/end (or ignore-line) markers cover every '
+          'executable line of a domain or data file: $_domain',
+        ),
+      );
+
+      final allowed = evaluateGate(
+        full,
+        {_core: _coreSrc, _data: _rangeSrc},
+        allowlist: {_data: 'glue'},
+      );
+      expect(allowed.passed, isTrue);
+      expect(
+        allowed.report,
+        contains(
+          'no executable lines and coverage:ignore markers, allowlisted: '
+          'glue: $_data',
+        ),
+      );
+    });
+
     test('ignore-line on every line counts as the same thing', () {
       final gate = evaluateGate('$full${_rec(_domain, 0, 0)}', {
         _core: _coreSrc,
@@ -301,7 +350,7 @@ void main() {
       expect(
         partOwner(
           part,
-          '﻿// Copyright\n/* block\n comment */\n\n'
+          '\uFEFF// Copyright\n/* block\n comment */\n\n'
           "part of\n    'owner.dart';\n",
         ),
         owner,
