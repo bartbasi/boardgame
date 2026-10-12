@@ -32,6 +32,8 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
+  # tool/coverage_check.dart uses @visibleForTesting (BSD-3-Clause, T-099).
+  meta: ^1.18.3
   riverpod_generator: ^4.0.9
 
 flutter:
