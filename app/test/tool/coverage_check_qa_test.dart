@@ -92,16 +92,58 @@ void main() {
     );
   });
 
-  group('CLI exit codes', () {
+  group('CLI exit codes (hermetic fixture package)', () {
     late Directory dir;
-    setUp(() => dir = Directory.systemTemp.createTempSync('covcheck'));
+    final tool = File('tool/coverage_check.dart').absolute.path;
+    setUp(() {
+      dir = Directory.systemTemp.createTempSync('covcheck');
+      File('${dir.path}/pubspec.yaml').writeAsStringSync('name: fx\n');
+      File('${dir.path}/lib/core/a.dart')
+        ..createSync(recursive: true)
+        ..writeAsStringSync('int a() => 1;\n');
+      File('${dir.path}/$importsTestPath')
+        ..createSync(recursive: true)
+        ..writeAsStringSync(importsTestSource('fx', ['lib/core/a.dart']));
+    });
     tearDown(() => dir.deleteSync(recursive: true));
 
-    ProcessResult run(List<String> args) => Process.runSync('dart', [
-      'run',
-      'tool/coverage_check.dart',
-      ...args,
-    ], runInShell: true);
+    // Runs the tool inside the fixture package, never the real lib/.
+    ProcessResult run(List<String> args, {Map<String, String>? env}) =>
+        Process.runSync(
+          'dart',
+          [tool, ...args],
+          workingDirectory: dir.path,
+          runInShell: true,
+          environment: env,
+        );
+
+    test(
+      'a violating fixture file fails the CLI with ::error:: and summary',
+      () {
+        File('${dir.path}/lib/features/c/domain/u.dart')
+          ..createSync(recursive: true)
+          ..writeAsStringSync('// coverage:ignore-file\nint u() => 1;\n');
+        File('${dir.path}/$importsTestPath').writeAsStringSync(
+          importsTestSource('fx', [
+            'lib/core/a.dart',
+            'lib/features/c/domain/u.dart',
+          ]),
+        );
+        final info = File('${dir.path}/ok.info')
+          ..writeAsStringSync(_record('lib/core/a.dart', _hits(10, 10)));
+        final summary = File('${dir.path}/summary.md');
+        final r = run(
+          ['--lcov', info.path],
+          env: {'GITHUB_STEP_SUMMARY': summary.path},
+        );
+        expect(r.exitCode, 1);
+        final out = r.stdout as String;
+        expect(out, contains('::error::FAIL: coverage:ignore-file marker'));
+        expect(out, isNot(contains('no executable lines: lib/features/c')));
+        expect(summary.readAsStringSync(), contains('### App coverage gate'));
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('exit 0 on pass, 1 on fail, 2 on missing file and bad args', () {
       final pass = File('${dir.path}/pass.info')
