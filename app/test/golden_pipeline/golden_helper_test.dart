@@ -85,6 +85,80 @@ void main() {
     });
   });
 
+  group('R1-G1 goldens only directly in test/goldens', () {
+    test('goldenLocationError accepts test/goldens only', () {
+      expect(
+        goldenLocationError(Uri.file('/w/app/test/goldens/', windows: false)),
+        isNull,
+      );
+      expect(
+        goldenLocationError(Uri.parse('file:///C:/w/app/test/goldens/')),
+        isNull,
+      );
+      for (final path in [
+        'file:///w/app/test/',
+        'file:///w/app/test/golden_pipeline/',
+        'file:///w/app/test/goldens/settings/',
+        'file:///w/app/test/features/goldens/x/',
+      ]) {
+        expect(
+          goldenLocationError(Uri.parse(path)),
+          allOf(contains('app/test/goldens/'), contains('render job')),
+          reason: path,
+        );
+      }
+    });
+
+    test('currentTestFileDirectory unwraps the Linux-only comparator', () {
+      final local = LocalFileComparator(
+        Uri.parse('file:///w/app/test/goldens/a_golden_test.dart'),
+      );
+      final dir = Uri.parse('file:///w/app/test/goldens/');
+      expect(currentTestFileDirectory(local), dir);
+      expect(
+        currentTestFileDirectory(
+          LinuxOnlyGoldenComparator(local, isLinux: false),
+        ),
+        dir,
+      );
+      expect(currentTestFileDirectory(_RecordingComparator()), isNull);
+    });
+
+    test('this file is not in test/goldens', () {
+      expect(currentTestFileDirectory()!.path, endsWith('/golden_pipeline/'));
+    });
+
+    test('goldenTest throws when declared outside test/goldens', () {
+      expect(
+        () => goldenTest(
+          screen: 'app_shell',
+          state: 'default',
+          theme: GoldenTheme.light,
+          size: GoldenSize.compact,
+          build: SizedBox.new,
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (e) => e.message,
+            'message',
+            contains('golden_pipeline'),
+          ),
+        ),
+      );
+    });
+
+    test('GoldenCase.fileName matches goldenFileName', () {
+      expect(
+        const GoldenCase('app_shell', null, .dark, .expanded, .large).fileName,
+        'app_shell_text200_dark_expanded.png',
+      );
+      expect(
+        const GoldenCase('app_shell', 'default', .light, .compact).fileName,
+        'app_shell_default_light_compact.png',
+      );
+    });
+  });
+
   group('AC5 and AC6 goldenFileName', () {
     test('names the eight app shell goldens as the spec lists them', () {
       String name(

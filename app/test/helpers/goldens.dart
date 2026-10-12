@@ -195,6 +195,81 @@ void setGoldenWindow(
   );
 }
 
+/// One golden: a screen state in a theme, window size, and text scale.
+class GoldenCase {
+  const GoldenCase(
+    this.screen,
+    this.state,
+    this.theme,
+    this.size, [
+    this.textScale = GoldenTextScale.normal,
+  ]);
+
+  final String screen;
+  final String? state;
+  final GoldenTheme theme;
+  final GoldenSize size;
+  final GoldenTextScale textScale;
+
+  /// See [goldenFileName].
+  String get fileName => goldenFileName(
+    screen: screen,
+    state: state,
+    theme: theme,
+    size: size,
+    textScale: textScale,
+  );
+}
+
+/// The folder every golden test file and PNG lives in, relative to app/.
+/// Flat: the render job (app.yml goldens-update) runs only this folder, and
+/// its artifact is downloaded straight into it.
+const String goldenDirectory = 'test/goldens';
+
+/// Returns why golden tests may not be declared in the test file whose
+/// folder is [testFileDirectory], or null when it is [goldenDirectory]
+/// itself (not a subfolder).
+String? goldenLocationError(Uri testFileDirectory) {
+  final segments = testFileDirectory.pathSegments
+      .where((s) => s.isNotEmpty)
+      .toList();
+  final n = segments.length;
+  if (n >= 2 && segments[n - 2] == 'test' && segments[n - 1] == 'goldens') {
+    return null;
+  }
+  return 'Golden tests must live directly in app/$goldenDirectory/ (found '
+      'one in ${testFileDirectory.toFilePath()}). The app.yml render job '
+      'runs only that folder, so a golden anywhere else could never be '
+      'rendered.';
+}
+
+/// The folder of the running test file, read from the golden comparator
+/// flutter_test creates for it, or null when it is not known.
+Uri? currentTestFileDirectory([GoldenFileComparator? comparator]) {
+  final c = comparator ?? goldenFileComparator;
+  return switch (c) {
+    LinuxOnlyGoldenComparator(:final delegate) => currentTestFileDirectory(
+      delegate,
+    ),
+    LocalFileComparator(:final basedir) => basedir,
+    _ => null,
+  };
+}
+
+/// Declares one [goldenTest] per case in [cases].
+void goldenTests(List<GoldenCase> cases, {required Widget Function() build}) {
+  for (final c in cases) {
+    goldenTest(
+      screen: c.screen,
+      state: c.state,
+      theme: c.theme,
+      size: c.size,
+      textScale: c.textScale,
+      build: build,
+    );
+  }
+}
+
 final Key _goldenBoundary = UniqueKey();
 
 /// Declares one golden test that renders [build] full window and compares it
@@ -205,7 +280,10 @@ final Key _goldenBoundary = UniqueKey();
 /// ProviderScope, or a screen inside a themed MaterialApp). [arrange] runs
 /// after the first settle, for taps or scrolling before the capture.
 ///
-/// Skipped off Linux, with [goldenSkipReason] in the output.
+/// Skipped off Linux, with [goldenSkipReason] in the output. Throws a
+/// [StateError] on every platform when the calling test file is not directly
+/// in [goldenDirectory] (see [goldenLocationError]), so the test file fails
+/// to load.
 void goldenTest({
   required String screen,
   required String? state,
@@ -222,6 +300,11 @@ void goldenTest({
     size: size,
     textScale: textScale,
   );
+  final directory = currentTestFileDirectory();
+  final locationError = directory == null
+      ? null
+      : goldenLocationError(directory);
+  if (locationError != null) throw StateError(locationError);
   testWidgets(fileName, (tester) async {
     if (!Platform.isLinux) {
       markTestSkipped(goldenSkipReason);

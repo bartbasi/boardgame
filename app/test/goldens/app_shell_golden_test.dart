@@ -7,32 +7,23 @@ import '../helpers/goldens.dart';
 /// delivers (T-015 AC6). The two offline cases come with T-032.
 ///
 /// Render or update only on GitHub Actions, with the manual app.yml run
-/// (input update_goldens; see test/helpers/goldens.dart).
-void main() {
-  const cases = <(String?, GoldenTheme, GoldenSize, GoldenTextScale)>[
-    ('default', GoldenTheme.light, GoldenSize.compact, GoldenTextScale.normal),
-    ('default', GoldenTheme.dark, GoldenSize.compact, GoldenTextScale.normal),
-    ('default', GoldenTheme.light, GoldenSize.expanded, GoldenTextScale.normal),
-    ('default', GoldenTheme.dark, GoldenSize.expanded, GoldenTextScale.normal),
-    ('default', GoldenTheme.light, GoldenSize.medium, GoldenTextScale.normal),
-    (
-      'default',
-      GoldenTheme.light,
-      GoldenSize.landscape,
-      GoldenTextScale.normal,
-    ),
-    (null, GoldenTheme.light, GoldenSize.compact, GoldenTextScale.large),
-    (null, GoldenTheme.dark, GoldenSize.expanded, GoldenTextScale.large),
-  ];
+/// (input update_goldens; see test/helpers/goldens.dart). The list is also
+/// read by test/golden_pipeline/golden_files_test.dart, which fails on PNGs
+/// that no case declares.
+const appShellGoldenCases = <GoldenCase>[
+  GoldenCase('app_shell', 'default', .light, .compact),
+  GoldenCase('app_shell', 'default', .dark, .compact),
+  GoldenCase('app_shell', 'default', .light, .expanded),
+  GoldenCase('app_shell', 'default', .dark, .expanded),
+  GoldenCase('app_shell', 'default', .light, .medium),
+  GoldenCase('app_shell', 'default', .light, .landscape),
+  GoldenCase('app_shell', null, .light, .compact, .large),
+  GoldenCase('app_shell', null, .dark, .expanded, .large),
+];
 
-  for (final (state, theme, size, textScale) in cases) {
-    goldenTest(
-      screen: 'app_shell',
-      state: state,
-      theme: theme,
-      size: size,
-      textScale: textScale,
-      build: () => const ProviderScope(child: BoardGameCollectorApp()),
-    );
-  }
+void main() {
+  goldenTests(
+    appShellGoldenCases,
+    build: () => const ProviderScope(child: BoardGameCollectorApp()),
+  );
 }
