@@ -345,7 +345,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-014 app.yml CI workflow
 - Milestone: M1
 - Owner: flutter-developer
-- Status: todo
+- Status: done (PM sign-off 2026-10-12, round 3; pull_request trigger and main push iOS build verified at merge, see docs/handoffs/T-014.md)
 - Depends on: T-012
 - UX spec: n/a
 - Linked files: .github/workflows/app.yml
@@ -359,6 +359,23 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   7. Given the workflow file, then permissions are read-only and every third-party action is pinned to a full commit SHA (proved by: manual).
   8. Given a typical change, then the ubuntu jobs finish in 15 minutes or less [ASSUMPTION] (proved by: manual).
   9. Given the ubuntu job, then it regenerates every committed generated file: `flutter gen-l10n` and `dart run build_runner build --delete-conflicting-outputs` in app/ (Riverpod and gen-l10n output), and `dart run build_runner build --delete-conflicting-outputs` in packages/api_contract/ (freezed and json_serializable output), then runs `git diff --exit-code` and fails on any difference (docs/decisions.md 2026-10-12, T-007 and T-012). Given a scratch commit that changes a string in app_en.arb without regenerating, then the job fails; the branch is deleted afterward (proved by: manual, run log).
+
+### T-099 app.yml: coverage gate messages and edge cases (T-014 follow-up)
+- Milestone: M1
+- Owner: flutter-developer
+- Status: todo
+- Depends on: T-014
+- UX spec: n/a
+- Linked files: app/tool/coverage_check.dart, app/test/tool/, app/test/coverage_imports_test.dart, .github/workflows/app.yml
+- Can run in parallel with: T-015 and any backend ticket.
+- Acceptance criteria:
+  1. Given an lcov report at 100.0% (18/18 lines) and one rule failure (a `coverage:ignore-file` marker in a domain file), when the gate runs, then exactly one output line starts with `FAIL` (the rule failure), the numbers line does not start with `FAIL` and says the minimum was met and the gate failed on 1 rule, `annotations(report)` returns exactly one `::error::` line, and the exit code is 1 (T-014 review R3-S1, QA T-014-N1) (proved by: unit).
+  2. Given coverage below the minimum (for example 64.3%, 18/28 lines) and no rule failures, then the numbers line starts with `FAIL` and is the only `::error::` annotation, and the exit code is 1 (proved by: unit).
+  3. Given a file in lib/features/*/domain/ or lib/features/*/data/ whose every executable line sits between `// coverage:ignore-start` and `// coverage:ignore-end` (so it reports 0/0 lines), and it is not in `ignoreFileAllowlist`, then the gate fails with a message that names the file and the start/end markers, the same way a `coverage:ignore-file` marker fails. Given the same file in `ignoreFileAllowlist`, then it passes and the reason is printed. Given the same file in lib/core/, then it passes and is listed with its marker count (T-014 review R3-G1) (proved by: unit).
+  4. Given the path-only scope helper (`isInScope` today), then it is annotated `@visibleForTesting`, or removed with its tests moved to `evaluateGate`, and the CLI uses only the header-based scope rule; `flutter analyze --fatal-infos` stays clean (T-014 review R3-G2) (proved by: unit and manual, code read in review).
+  5. Given a hand-written file in lib/core/, domain, or data whose first directive is `part of`, then the generated imports test does not import it, `--write-imports` output compiles, and the gate report lists it as `part file: <path>` with its lines counted under its library. Given a test fixture with such a file, then `flutter test` compiles and the committed imports test stays up to date (T-014 review R2-G3) (proved by: unit).
+  6. Given a tag push (for example `v0.0.0-test`), then app.yml does not run; given a push to any branch that changes app/, packages/api_contract/, or .github/workflows/app.yml, then it still runs. Done by adding `branches: ['**']` (or an equivalent filter) to the push trigger (T-014 review R2-G4) (proved by: manual, run list for a scratch tag and a branch push, tag and branch deleted afterward).
+  7. Given the ticket branch, then app.yml is green on a push: checks, codegen, and android pass, ios skipped, and the gate prints PASS with its exemptions (proved by: manual, run log id in the handoff).
 
 ### T-015 Linux golden image pipeline
 - Milestone: M1

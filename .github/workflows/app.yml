@@ -1,0 +1,219 @@
+# App checks (T-014): format, analyze, tests with a coverage gate, generated
+# file freshness, and an Android debug build on every push and pull request
+# that touches the app. The iOS build (macOS runner) runs only on main and on
+# manual runs, because the repository is private and macOS minutes are paid
+# (docs/decisions.md 2026-10-11). T-015 adds golden tests here.
+name: app
+
+on:
+  push:
+    paths:
+      - app/**
+      - packages/api_contract/**
+      - .github/workflows/app.yml
+  pull_request:
+    paths:
+      - app/**
+      - packages/api_contract/**
+      - .github/workflows/app.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch cancels the older run; runs on main always
+# finish.
+concurrency:
+  group: app-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  # The one place the Flutter version is set (docs/decisions.md 2026-10-11).
+  FLUTTER_VERSION: 3.47.7
+  # Line coverage minimum for lib/core/ and lib/features/*/{domain,data}/.
+  COVERAGE_MIN: 80
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  checks:
+    name: Format, analyze, test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter
+        run: tool/ci/install_flutter.sh "$FLUTTER_VERSION"
+
+      - name: Cache pub packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-app-${{ runner.os }}-${{ runner.arch }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      # Generated files are committed (docs/decisions.md 2026-10-12), so no
+      # code generation runs here; the codegen job checks they are current.
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos
+
+      - name: Test
+        run: flutter test --coverage
+
+      # Runs even when a test failed (flutter test still writes lcov.info), so
+      # the coverage reasons show up next to the test failures.
+      - name: Coverage gate
+        if: ${{ !cancelled() && hashFiles('app/coverage/lcov.info') != '' }}
+        run: |
+          set -o pipefail
+          dart run tool/coverage_check.dart --lcov coverage/lcov.info --min "$COVERAGE_MIN" | tee coverage/summary.txt
+
+      - name: Upload coverage report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: |
+            app/coverage/lcov.info
+            app/coverage/summary.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  codegen:
+    name: Generated files are current
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter
+        run: app/tool/ci/install_flutter.sh "$FLUTTER_VERSION"
+
+      - name: Cache pub packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-codegen-${{ runner.os }}-${{ runner.arch }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('app/pubspec.lock', 'packages/api_contract/pubspec.lock') }}
+
+      - name: Resolve dependencies
+        run: |
+          (cd app && flutter pub get --enforce-lockfile)
+          (cd packages/api_contract && dart pub get --enforce-lockfile)
+
+      - name: Regenerate app files (gen-l10n, Riverpod, coverage imports test)
+        working-directory: app
+        run: |
+          flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
+          dart run tool/coverage_check.dart --write-imports
+
+      - name: Regenerate api_contract files (freezed, json_serializable)
+        working-directory: packages/api_contract
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Fail on stale or missing generated files
+        run: |
+          git diff --exit-code --stat || {
+            git diff
+            echo "::error::Generated files are out of date. Run flutter gen-l10n and dart run build_runner build --delete-conflicting-outputs in app/ and packages/api_contract/, then commit the result."
+            exit 1
+          }
+          untracked="$(git status --porcelain --untracked-files=all | grep '^??' || true)"
+          if [ -n "$untracked" ]; then
+            echo "$untracked"
+            echo "::error::Code generation created files that are not committed."
+            exit 1
+          fi
+
+  android:
+    name: Android debug build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            app/android/*.gradle*
+            app/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Install Flutter
+        run: tool/ci/install_flutter.sh "$FLUTTER_VERSION"
+
+      - name: Cache pub packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-app-${{ runner.os }}-${{ runner.arch }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+  ios:
+    name: iOS build (no codesign)
+    # Only pushes to main and manual runs; never other branches or pull
+    # requests (docs/decisions.md 2026-10-11).
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    # Wait for the Linux checks so a red run spends no macOS minutes.
+    needs: [checks, codegen]
+    runs-on: macos-26
+    timeout-minutes: 45
+    defaults:
+      run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter
+        run: tool/ci/install_flutter.sh "$FLUTTER_VERSION"
+
+      - name: Cache pub packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-app-${{ runner.os }}-${{ runner.arch }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      - name: Build iOS app without signing
+        run: flutter build ios --no-codesign
