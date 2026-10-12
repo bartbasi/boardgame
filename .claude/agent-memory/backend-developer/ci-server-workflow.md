@@ -23,7 +23,8 @@ Learned on T-098 (2026-10-12):
 - Ubuntu 26.04 runners (label `ubuntu-26.04` usable now; ubuntu-latest moves 2026-10-19 to 11-19) run Docker 29 with the containerd image store: `docker image inspect .Size` becomes the COMPRESSED size (5.1 MB vs 11.6 MB unpacked on 24.04's overlay2). Docker Desktop locally is containerd too. Measure unpacked size with `docker create` + `docker export -o file` + `wc -c` (same 11.85 MB on both). Compose is v5.1.3 there; `config -q` behaves the same.
 - To pre-test a runner image, push a scratch branch with `runs-on` swapped; the "Runner and Docker" step in server.yml prints ImageOS/ImageVersion and the storage driver.
 - `docker exec -e PORT=<unused> <c> /app/server --healthcheck` is a clean "nothing listening" case (exit 1, reason "connection failed") inside the real container, also under QEMU.
-- Compose `config -q` fails on unknown service keys (schema), not only YAML syntax; `--env-file /dev/null` proves the `${VAR:?}` guards.
+- Compose `config -q` fails on unknown service keys (schema), not only YAML syntax. Compose stops at the FIRST missing `${VAR:?}`, so `--env-file /dev/null` proves only one guard (review R1-S1); server.yml now removes each .env.example variable in turn and requires "required variable NAME is missing".
+- Reviewer expects CI temp files in `$RUNNER_TEMP`, `docker logs` dumped on any container check failure, and `--pull never` on docker create/run of local images.
 
 **Why:** these cost a round to find; later CI tickets (T-014 app.yml, T-017 licenses) will hit the same.
 **How to apply:** reuse the smoke script and the fresh-builder context check; keep arm64 on QEMU while private; prove gates with a scratch branch and delete it.
