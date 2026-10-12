@@ -286,7 +286,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-098 server.yml: health check mode and Compose file checks
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: done (PM approved 2026-10-12; AC3 verified after 2026-10-19 by the orchestrator, who records the first ubuntu-latest Ubuntu 26 run in docs/handoffs/T-098.md and docs/decisions.md)
 - Depends on: T-010, T-011 (both done). Can run in parallel with app tickets.
 - UX spec: n/a
 - Linked files: .github/workflows/server.yml, server/tool/image_smoke_test.sh
