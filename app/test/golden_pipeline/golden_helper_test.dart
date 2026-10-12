@@ -26,10 +26,14 @@ void main() {
       expect(goldenUpdateGuard(isLinux: true, updating: false), isNull);
     });
 
-    test('the message points to the Docker command', () {
-      expect(goldenUpdateRefusal, contains('app/tool/golden/goldens.sh'));
+    test('the message points to the CI golden run', () {
+      expect(goldenUpdateRefusal, contains(goldenUpdateCommand));
+      expect(goldenUpdateRefusal, contains('gh run download'));
       expect(goldenUpdateRefusal, contains('No PNG was written'));
-      expect(goldenDockerCommand, 'app/tool/golden/goldens.sh update');
+      expect(
+        goldenUpdateCommand,
+        'gh workflow run app.yml --ref <branch> -f update_goldens=true',
+      );
     });
   });
 

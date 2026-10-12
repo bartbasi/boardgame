@@ -7,20 +7,24 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'pump_app.dart';
 
-/// The documented way to render goldens (docs/decisions.md, T-015).
-const String goldenDockerCommand = 'app/tool/golden/goldens.sh update';
+/// The documented way to render goldens (docs/decisions.md 2026-10-12):
+/// the manual app.yml run on GitHub Actions, then download its artifact and
+/// commit the PNGs. Steps in docs/handoffs/T-015.md.
+const String goldenUpdateCommand =
+    'gh workflow run app.yml --ref <branch> -f update_goldens=true';
 
 /// Why `--update-goldens` is refused off Linux.
 const String goldenUpdateRefusal =
-    'Golden images are rendered only on Linux, so they match CI exactly '
-    '(docs/decisions.md). Do not run flutter test --update-goldens on '
-    'Windows or macOS. From the repository root, run '
-    '$goldenDockerCommand (needs Docker). No PNG was written.';
+    'Golden images are rendered only on GitHub Actions (Linux), so they '
+    'match CI exactly (docs/decisions.md). Do not run flutter test '
+    '--update-goldens on Windows or macOS. Run $goldenUpdateCommand, then '
+    'download the "goldens" artifact with gh run download and commit the '
+    'PNGs. No PNG was written.';
 
 /// Why golden tests are skipped off Linux.
 const String goldenSkipReason =
-    'Goldens are compared only on Linux. To check them on this machine, run '
-    'app/tool/golden/goldens.sh check from the repository root.';
+    'Goldens are compared only on Linux (the app.yml checks job on GitHub '
+    'Actions).';
 
 /// Returns the refusal message when golden files would be written on a
 /// platform other than Linux, otherwise null.

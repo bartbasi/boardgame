@@ -9,7 +9,7 @@ import 'helpers/goldens.dart';
 ///
 /// Golden images are rendered only on Linux (docs/decisions.md). When
 /// `flutter test --update-goldens` runs on Windows or macOS, no test runs:
-/// each file reports one failing test that points to the Docker command, so
+/// each file reports one failing test that points to the CI golden run, so
 /// no PNG can be written. Otherwise the comparator is wrapped so that a
 /// golden update off Linux still fails.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {

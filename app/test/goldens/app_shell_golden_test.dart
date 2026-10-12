@@ -6,7 +6,8 @@ import '../helpers/goldens.dart';
 /// Golden cases from docs/ux/screens/app-shell.md section 8 that T-015
 /// delivers (T-015 AC6). The two offline cases come with T-032.
 ///
-/// Render or update with app/tool/golden/goldens.sh update (Linux only).
+/// Render or update only on GitHub Actions, with the manual app.yml run
+/// (input update_goldens; see test/helpers/goldens.dart).
 void main() {
   const cases = <(String?, GoldenTheme, GoldenSize, GoldenTextScale)>[
     ('default', GoldenTheme.light, GoldenSize.compact, GoldenTextScale.normal),
