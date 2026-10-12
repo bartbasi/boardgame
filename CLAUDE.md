@@ -110,5 +110,5 @@ Commits are small and start with the ticket id: `T-012: validate EAN-8 checksum`
 ## Environment
 
 - Dev machine is Windows 11. There is no Mac: iOS builds and signing run on GitHub Actions macOS runners, and iOS testing happens through TestFlight on an iPhone.
-- Golden images are rendered only on Linux (CI, or the Docker command recorded in docs/decisions.md) so they match CI exactly. Never commit goldens rendered on Windows.
+- Golden images are rendered only on GitHub Actions (a manual app.yml run that uploads them as an artifact; see docs/decisions.md) so they match CI exactly. Never commit goldens rendered on Windows, and do not build local Flutter Docker images: the C: drive has little free space.
 - Hook commands run in Git Bash on Windows.

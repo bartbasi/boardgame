@@ -33,4 +33,5 @@ Repository license fields below were read with `gh api repos/<owner>/<repo>` on 
 | GitHub Actions: actions/checkout, actions/cache, actions/upload-artifact, actions/setup-java, dart-lang/setup-dart, docker/setup-buildx-action, docker/build-push-action, docker/setup-qemu-action | workflows, pinned by SHA | MIT, BSD-3-Clause, or Apache-2.0 as recorded in docs/handoffs/T-011.md and T-014.md | allowed |
 | BuildKit image (moby/buildkit v0.34.0, pinned by digest) | server.yml image builds | Apache-2.0 (moby/buildkit) | allowed |
 | QEMU binfmt image (tonistiigi/binfmt, pinned by digest) | server.yml arm64 checks | MIT for the repository (tonistiigi/binfmt); the QEMU binaries inside are GPL-2.0. Used only inside CI runners. | CI only |
+| Roboto 2.138 Regular, Medium, Bold (app/test/fonts/roboto/, committed) | golden tests only, never bundled in the app | Apache-2.0 (googlefonts/roboto-2 v2.138; LICENSE and README in that folder; each font's name table carries the notice) | CI only |
 | Android SDK, emulator, and system images | local development only | Android Software Development Kit License Agreement | CI only (local development) |
