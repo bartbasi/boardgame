@@ -1,0 +1,43 @@
+{
+  "@@locale": "en",
+
+  "navScan": "Scan",
+  "@navScan": {"description": "copy.md nav.scan. Navigation destination label."},
+  "navSearch": "Search",
+  "@navSearch": {"description": "copy.md nav.search. Navigation destination label."},
+  "navCollection": "Collection",
+  "@navCollection": {"description": "copy.md nav.collection. Navigation destination label."},
+  "navSettings": "Settings",
+  "@navSettings": {"description": "copy.md nav.settings. Navigation destination label."},
+  "navScanLabel": "Scan a barcode",
+  "@navScanLabel": {"description": "copy.md nav.scanLabel. Semantic label of the Scan destination."},
+  "navSearchLabel": "Search by title",
+  "@navSearchLabel": {"description": "copy.md nav.searchLabel. Semantic label of the Search destination."},
+  "navCollectionLabel": "Your collection",
+  "@navCollectionLabel": {"description": "copy.md nav.collectionLabel. Semantic label of the Collection destination."},
+  "navSettingsLabel": "Settings",
+  "@navSettingsLabel": {"description": "copy.md nav.settingsLabel. Semantic label of the Settings destination."},
+  "shellAppName": "Board Game Collector",
+  "@shellAppName": {"description": "copy.md shell.appName. Placeholder until PRD Q1 is answered."},
+  "shellSkipToContent": "Skip to content",
+  "@shellSkipToContent": {"description": "copy.md shell.skipToContent."},
+  "commonOfflineBanner": "You are offline. Showing saved data.",
+  "@commonOfflineBanner": {"description": "copy.md common.offlineBanner."},
+
+  "scannerTitle": "Scan a barcode",
+  "@scannerTitle": {"description": "copy.md scanner.title."},
+  "searchTitle": "Search",
+  "@searchTitle": {"description": "copy.md search.title."},
+  "collectionTitle": "Collection",
+  "@collectionTitle": {"description": "copy.md collection.title."},
+  "settingsTitle": "Settings",
+  "@settingsTitle": {"description": "copy.md settings.title."},
+
+  "devPlaceholderBody": "This screen is not built yet.",
+  "@devPlaceholderBody": {"description": "Skeleton only (T-012), not in copy.md. Removed when the destination screen is built."},
+  "devPlaceholderItem": "Placeholder item {number}",
+  "@devPlaceholderItem": {
+    "description": "Skeleton only (T-012), not in copy.md. Rows of the placeholder Collection list. Removed by T-039.",
+    "placeholders": {"number": {"type": "int"}}
+  }
+}
