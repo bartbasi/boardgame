@@ -5,7 +5,7 @@ metadata:
   type: project
 ---
 
-T-005 (2026-10-12) proposed shelf 1.4.2 + shelf_router 1.1.4, AOT on scratch. Status: proposal only until the user confirms and docs/decisions.md records it. Check decisions.md before relying on this.
+T-005 (2026-10-12) proposed shelf 1.4.2 + shelf_router 1.1.4, AOT on scratch. Confirmed by the user and recorded in docs/decisions.md (2026-10-12); T-008 built server/ on it.
 
 **Why:** equal memory to dart_frog; smaller all-Dart-team dependency tree; no CLI/codegen; tests can call the full Handler pipeline with real Request objects; dart_frog runtime unreleased since 2025-11-03 and its repo moved from VGV to dart-frog-dev with no maintainer statement. dart_frog `[param].dart` route names trip the `file_names` lint, and its generated server rebuilds nested pipelines per request.
 
