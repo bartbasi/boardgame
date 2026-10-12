@@ -44,6 +44,9 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -73,7 +76,9 @@ jobs:
         run: flutter test --coverage
 
       - name: Coverage gate
-        run: dart run tool/coverage_check.dart --lcov coverage/lcov.info --min "$COVERAGE_MIN" | tee coverage/summary.txt
+        run: |
+          set -o pipefail
+          dart run tool/coverage_check.dart --lcov coverage/lcov.info --min "$COVERAGE_MIN" | tee coverage/summary.txt
 
       - name: Upload coverage report
         if: ${{ !cancelled() }}
@@ -137,6 +142,9 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -174,6 +182,9 @@ jobs:
     timeout-minutes: 45
     defaults:
       run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
         working-directory: app
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
