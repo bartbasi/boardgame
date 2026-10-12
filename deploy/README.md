@@ -11,7 +11,7 @@ Docker Compose stack for the backend: Caddy (HTTPS) in front of the server, with
 
 ## Run locally
 
-Needs Docker with Compose v2.20.2 or later (health check `start_interval`) and free host ports 80 and 443. Commands run from the repo root in Git Bash or a Linux shell.
+Needs Docker Engine 25.0 or later and Compose v2.20.2 or later, both for the health check `start_interval` (Engine: https://docs.docker.com/reference/dockerfile/#healthcheck, "This option requires Docker Engine version 25.0 or later"; Compose: https://docs.docker.com/reference/compose-file/services/, checked 2026-10-12), and free ports 80 and 443 on 127.0.0.1. Commands run from the repo root in Git Bash or a Linux shell.
 
 ```sh
 cp deploy/.env.example deploy/.env        # then replace the placeholders
@@ -27,7 +27,7 @@ sh deploy/compose.sh down -v              # also deletes the database and Caddy'
 
 `compose.sh` sets `GIT_SHA` (short hash of HEAD) and `APP_VERSION` (`<server/pubspec.yaml version>+<GIT_SHA>`), the two build arguments server/Dockerfile requires, so `/health` reports the same version as `server/tool/docker_build.sh` would. Like that script, it refuses to build (`up`, `build`, `create`, `run`) while server/ or packages/api_contract/ has uncommitted changes; set `ALLOW_DIRTY=1` for a local experiment (version ends in `-dirty`). Plain `docker compose -f deploy/docker-compose.yml ps|logs|stop|down` also works; a build without the wrapper stops with the Dockerfile's "GIT_SHA is required" message.
 
-The server image is always built from source on `up` (`pull_policy: build`); Compose never pulls `boardgame-server:local` from a registry. The build context is the repo root with `server/Dockerfile`, so `server/Dockerfile.dockerignore` decides what leaves the machine (about 2 kB, no `.env`).
+The server image is always built from source on `up` (`pull_policy: build`); Compose never pulls `boardgame-server:local` from a registry. The build context is the repo root with `server/Dockerfile`, so `server/Dockerfile.dockerignore` decides what leaves the machine: only the two pubspecs and lockfiles, `server/bin/`, `server/lib/`, and `packages/api_contract/lib/`; never `.env` files, docs, app, or deploy. The build log's `transferring context` size depends on BuildKit's cache: about 92 kB on a cold cache (first build, fresh machine or CI runner) and about 2 kB when only a few files changed. Judge the context by its content, not its size: build a throwaway Dockerfile that does `COPY . /ctx` and lists /ctx, with a copy of the same ignore file next to it.
 
 ## Configuration
 
@@ -48,11 +48,11 @@ The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database y
 
 | Service | Image | Memory limit | Published ports | Networks |
 |---|---|---|---|---|
-| caddy | `caddy:2.11.7-alpine` | 128 MB | 80, 443 (TCP) | web |
+| caddy | `caddy:2.11.7-alpine` | 128 MB | 127.0.0.1:80, 127.0.0.1:443 (TCP) | web |
 | server | `boardgame-server:local` (server/Dockerfile) | 64 MB | none | web, db |
 | postgres | `postgres:18.6-alpine3.24` | 256 MB | none | db (internal) |
 
-- Only Caddy publishes ports. PostgreSQL is not published at all; use `sh deploy/compose.sh exec postgres psql -U <user> -d <db>`.
+- Only Caddy publishes ports, and only on 127.0.0.1, so other machines on the LAN cannot reach the local stack (it would otherwise be an unattested proxy to whatever keys deploy/.env holds). The production binding is decided in T-071. PostgreSQL is not published at all; use `sh deploy/compose.sh exec postgres psql -U <user> -d <db>`.
 - The `db` network is `internal`, so PostgreSQL has no route to the internet. The server is also on `web` for Caddy and, later, outbound calls to BGG, eBay, and GameUPC.
 - Both third-party images are pinned by tag and multi-platform index digest; both indexes contain linux/amd64 and linux/arm64/v8 (checked 2026-10-12 with `docker buildx imagetools inspect`). To upgrade, change tag and digest together.
 - Volumes: `pgdata` (PostgreSQL 18 keeps its data in `/var/lib/postgresql/18/docker`, and the image declares the volume at `/var/lib/postgresql`, https://hub.docker.com/_/postgres), `caddy_data` (certificates and local CA), `caddy_config`.
@@ -73,8 +73,9 @@ The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database y
 ### Hardening
 
 - server: read-only root file system, all capabilities dropped, `no-new-privileges`, user 65532 (from the image). It writes no files, so no tmpfs is mounted (T-010 AC13). If code ever needs a temporary file, add `tmpfs: [/tmp]` to the service.
-- caddy: all capabilities dropped except `NET_BIND_SERVICE`, `no-new-privileges`.
-- postgres: image defaults (its entrypoint changes file ownership and switches user, which needs capabilities).
+- caddy: read-only root file system with a 16 MB tmpfs at /tmp (it writes only to the /data and /config volumes), all capabilities dropped except `NET_BIND_SERVICE`, `no-new-privileges`.
+- postgres: `no-new-privileges` (its entrypoint drops root with gosu through setuid calls, not a setuid binary); default capabilities, because the entrypoint changes file ownership.
+- Process limits (`pids_limit`): postgres 200 (one process per connection, 100 by default, plus workers), server 100, caddy 100.
 
 ## Caddy
 
@@ -90,7 +91,7 @@ The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database y
 
 Every service uses the `json-file` driver with `max-size: 10m` and `max-file: 3`, so each container keeps at most 30 MB of logs (https://docs.docker.com/engine/logging/drivers/json-file/). Logs go to stdout only; the server writes no log files.
 
-The json-file driver rotates by size only and has no time-based option (same page). An idle server writes about 0.4 MB a day (health checks), so 30 MB can hold weeks of history, longer than the 7-day retention target [ASSUMPTION]. Logs are deleted when a container is removed (`down`, or a recreate on upgrade). A time-based rule is needed for production; options are in docs/handoffs/T-010.md and decided in T-071.
+The json-file driver rotates by size only and has no time-based option (same page). An idle server writes about 0.4 MB a day (health checks), so 30 MB can hold weeks of history, longer than the 7-day retention target [ASSUMPTION]. Logs are deleted when a container is removed (`down`, or a recreate on upgrade). So production uses a time-based rule instead: Docker's journald log driver with journald `MaxRetentionSec=7day` and `MaxFileSec=1day`, set up in T-071 (docs/decisions.md, 2026-10-12). Local Compose keeps json-file 10m x 3.
 
 ## Memory and disk
 
@@ -106,4 +107,4 @@ Image sizes on disk (Docker Desktop, containerd store, amd64): server about 17 M
 | Caddy 2.11.7 | Apache-2.0 (image label `org.opencontainers.image.licenses`) |
 | Alpine base packages in both images | mixed; includes GPL-2.0 (busybox, apk-tools), GPL-3.0 (bash, readline, gdbm in the postgres image), LGPL |
 
-Both images are used unmodified from Docker Hub's official images and run only on our machines; we do not redistribute them. The GPL packages are the open question in docs/handoffs/T-010.md.
+Both images are used unmodified from Docker Hub's official images and run only on our machines; we do not redistribute them. The user approved both images, GPL and LGPL packages included, on that condition: they run unmodified on our VM and local machines and are never redistributed (for example pushed to a public registry) without asking the user again (docs/decisions.md, 2026-10-12).

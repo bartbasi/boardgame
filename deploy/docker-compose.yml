@@ -55,7 +55,13 @@ services:
       start_period: 30s
       start_interval: 1s
     shm_size: 128mb
+    # The entrypoint drops root with gosu (setuid syscalls, not a setuid
+    # binary), so no-new-privileges does not get in its way.
+    security_opt: ["no-new-privileges:true"]
     mem_limit: 256m
+    # One process per connection (max_connections defaults to 100) plus
+    # background workers.
+    pids_limit: 200
     # The image stops with SIGINT (fast shutdown); give it time to finish a
     # checkpoint before SIGKILL.
     stop_grace_period: 30s
@@ -99,6 +105,8 @@ services:
       start_period: 10s
       start_interval: 1s
     mem_limit: 64m
+    # Dart VM threads, plus the health check process while it runs.
+    pids_limit: 100
     # The server drains in-flight requests for up to 10 s after SIGTERM;
     # Docker's default of 10 s would SIGKILL it first (T-008).
     stop_grace_period: 15s
@@ -109,10 +117,12 @@ services:
     # linux/arm64/v8), checked 2026-10-12 with
     # `docker buildx imagetools inspect caddy:2.11.7-alpine`.
     image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
-    # The only published ports. HTTP/3 (UDP 443) is off in the Caddyfile.
+    # The only published ports, on loopback only so the local stack is not
+    # reachable from the LAN (T-010 review R1-S1). The production binding is
+    # decided in T-071. HTTP/3 (UDP 443) is off in the Caddyfile.
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Certificates and the local CA (/data) and autosaved config (/config).
@@ -122,10 +132,16 @@ services:
       server:
         condition: service_started
     networks: [web]
+    # Caddy writes only to the /data and /config volumes; /tmp is a small
+    # tmpfs in case it needs scratch space.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
     cap_drop: [ALL]
     cap_add: [NET_BIND_SERVICE]
     security_opt: ["no-new-privileges:true"]
     mem_limit: 128m
+    pids_limit: 100
     logging: *logging
 
 networks:
