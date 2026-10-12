@@ -72,7 +72,7 @@ void main() {
     });
   });
 
-  test('missing PORT:the process exits non-zero before listening and prints '
+  test('missing PORT: the process exits non-zero before listening and prints '
       'one line naming the variable, not values (T-008 AC4)', () async {
     final result = await Process.run(
       Platform.resolvedExecutable,

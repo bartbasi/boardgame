@@ -35,6 +35,9 @@ Future<int> runHealthcheck({
   required void Function(String line) stderrLine,
   Duration timeout = healthcheckTimeout,
   DateTime Function() clock = DateTime.now,
+  // Test hook: performs the request and returns the status code.
+  Future<int> Function(HttpClient client, int port) getStatus =
+      _getHealthStatus,
 }) async {
   final logger = Logger(
     minLevel: LogLevel.error,
@@ -57,7 +60,7 @@ Future<int> runHealthcheck({
     ..connectionTimeout = timeout
     ..findProxy = (_) => 'DIRECT';
   try {
-    final status = await _getHealthStatus(client, port).timeout(timeout);
+    final status = await getStatus(client, port).timeout(timeout);
     if (status == HttpStatus.ok) return healthyExitCode;
     fail('unexpected status', {'status': status});
     return unhealthyExitCode;
@@ -69,6 +72,11 @@ Future<int> runHealthcheck({
     return unhealthyExitCode;
   } on HttpException {
     fail('invalid response');
+    return unhealthyExitCode;
+  } on Object catch (e) {
+    // Anything else still means unhealthy, with one JSON line and no stack
+    // trace. Only the type is logged; the message could hold anything.
+    fail('unexpected error', {'errorType': e.runtimeType.toString()});
     return unhealthyExitCode;
   } finally {
     client.close(force: true);

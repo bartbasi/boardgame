@@ -79,7 +79,7 @@ Docker sends SIGKILL 10 seconds after SIGTERM by default, which would cut the dr
 | Exit code | When |
 |---|---|
 | 0 | /health answered 200. Prints nothing. |
-| 1 | Any other status, timeout, connection refused, malformed response, or invalid config. Prints one JSON line on stderr with `msg: healthcheck failed` and a fixed `reason` (plus `status` or `timeoutMs`), never a body or config value. |
+| 1 | Any other status, timeout, connection refused, malformed response, invalid config, or any other error (logged by type only). Prints one JSON line on stderr with `msg: healthcheck failed` and a fixed `reason` (plus `status` or `timeoutMs`), never a body or config value. |
 | 64 | Any other command-line arguments (the server itself takes none). |
 
 It uses 127.0.0.1, not `localhost`, because the server listens on IPv4 and `localhost` can resolve to ::1. Docker keeps the output in `docker inspect` under `State.Health.Log`. Each check also produces one normal `request` line in the server's log.

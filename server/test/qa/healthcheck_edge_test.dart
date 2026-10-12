@@ -156,22 +156,46 @@ void main() {
       expect(code, 1);
     });
 
-    test('HTTP_PROXY in the environment is ignored', () async {
-      final server = await _stub((request) async {
-        request.response.statusCode = 200;
-        await request.response.close();
-      });
-      final err = <String>[];
-      final code = await runHealthcheck(
-        environment: {
-          ..._env(server.port),
-          'HTTP_PROXY': 'http://127.0.0.1:1',
-          'http_proxy': 'http://127.0.0.1:1',
-        },
-        stderrLine: err.add,
-      );
-      expect(code, 0);
-    });
+    // Rewritten by backend-developer in T-010 round 2 (review R1-S4): the
+    // original passed HTTP_PROXY only in the map given to runHealthcheck,
+    // which feeds Config.load, while HttpClient reads proxies from
+    // Platform.environment. A real process with HTTP_PROXY in its own
+    // environment is the only way to cover `findProxy = DIRECT`.
+    test(
+      'HTTP_PROXY in the process environment is ignored (real process)',
+      () async {
+        final server = await _stub((request) async {
+          request.response.statusCode = 200;
+          await request.response.close();
+        });
+        // A "proxy" that counts connections and answers nothing useful.
+        final proxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+        addTearDown(proxy.close);
+        var proxyHits = 0;
+        proxy.listen((socket) {
+          proxyHits++;
+          socket.destroy();
+        });
+        final proxyUrl = 'http://127.0.0.1:${proxy.port}';
+
+        final result = await Process.run(
+          Platform.resolvedExecutable,
+          ['bin/server.dart', '--healthcheck'],
+          environment: {
+            ..._env(server.port),
+            'HTTP_PROXY': proxyUrl,
+            'http_proxy': proxyUrl,
+            // An inherited no_proxy could hide a regression.
+            'NO_PROXY': '',
+            'no_proxy': '',
+          },
+        );
+
+        expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+        expect(proxyHits, 0);
+      },
+      timeout: const Timeout(Duration(minutes: 2)),
+    );
 
     test('ten health checks in a row against one server all exit 0', () async {
       final server = await _stub((request) async {

@@ -187,6 +187,24 @@ void main() {
       },
     );
 
+    test('any other error exits 1 with one line naming only its type '
+        '(T-010 review R1-G2)', () async {
+      final err = LogCapture();
+
+      final code = await runHealthcheck(
+        environment: _env(1),
+        stderrLine: err.call,
+        getStatus: (_, _) async => throw StateError('secret detail'),
+      );
+
+      expect(code, unhealthyExitCode);
+      final line = err.records.single;
+      expect(line['reason'], 'unexpected error');
+      expect(line['errorType'], 'StateError');
+      expect(err.lines.single, isNot(contains('secret')));
+      expect(line.containsKey('stack'), isFalse);
+    });
+
     test('the default timeout stays below the Compose timeout of 5 s', () {
       expect(healthcheckTimeout, const Duration(seconds: 3));
     });
