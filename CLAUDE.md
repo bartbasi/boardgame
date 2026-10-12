@@ -101,11 +101,11 @@ Commits are small and start with the ticket id: `T-012: validate EAN-8 checksum`
 
 ## Stack
 
-- App: latest stable Flutter and Dart 3, Material 3, Riverpod with code generation, Drift, dio, freezed and json_serializable, fl_chart, mobile_scanner. Minimum Android API 24 and iOS 15 [ASSUMPTION].
+- App: latest stable Flutter and Dart 3, Material 3, Riverpod with code generation, Drift, dio, freezed and json_serializable, fl_chart, mobile_scanner. Minimum Android API 24 and iOS 15.
 - App architecture: feature-first clean architecture (`lib/features/<feature>/{data,domain,presentation}`), pure Dart domain, repository interfaces in domain, sealed failure types instead of exceptions across layers.
 - Backend: Dart HTTP server with shelf and shelf_router, compiled with `dart compile exe` (decided in T-005), PostgreSQL, Docker Compose with Caddy, on an Oracle Cloud Always Free VM.
 - API contract: request and response DTOs in packages/api_contract/, used by the server and by the app's data layer.
-- CI: GitHub Actions [ASSUMPTION].
+- CI: GitHub Actions.
 
 ## Environment
 
