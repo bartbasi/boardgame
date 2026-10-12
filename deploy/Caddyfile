@@ -1,0 +1,27 @@
+# Local stack only (T-010). Production (real domain and certificates) is T-071.
+# Directive docs: https://caddyserver.com/docs/caddyfile/options and
+# https://caddyserver.com/docs/caddyfile/directives/reverse_proxy
+{
+	# The container cannot install the local CA into the host's trust store;
+	# skip the attempt (and its warnings). Use `curl -k` locally.
+	skip_install_trust
+
+	servers {
+		# Default is h1 h2 h3. HTTP/3 needs UDP 443, which is not published.
+		protocols h1 h2
+	}
+}
+
+# `localhost` gets a certificate from Caddy's own local CA.
+# No `log` directive, so Caddy writes no access logs (they would hold client
+# IP addresses and full URIs).
+localhost {
+	reverse_proxy server:8080 {
+		transport http {
+			# Idle upstream connections close after 30 s, before the server's
+			# own 65 s idle timeout (server/README.md), so Caddy never reuses
+			# a connection the server is closing. Caddy's default is 2m.
+			keepalive 30s
+		}
+	}
+}
