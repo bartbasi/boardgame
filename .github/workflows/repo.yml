@@ -1,5 +1,5 @@
 # Repository checks (T-016): secret scanning, no committed .env files,
-# and the prose style check. T-017 adds the dependency license check.
+# the prose style check, and the dependency license check (T-017).
 name: repo
 
 on:
@@ -72,3 +72,21 @@ jobs:
         run: node --test tool/prose-check.test.mjs
       - name: Prose check
         run: node tool/prose-check.mjs
+
+  licenses:
+    runs-on: ubuntu-latest
+    env:
+      LICENSE_CACHE_DIR: ${{ github.workspace }}/.license-cache
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .license-cache
+          key: licenses-${{ hashFiles('**/pubspec.lock') }}
+          restore-keys: licenses-
+      - name: License check unit tests
+        run: node --test tool/license-check.test.mjs
+      - name: Dependency license check
+        run: node tool/license-check.mjs
