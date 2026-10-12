@@ -95,11 +95,14 @@ docker run --rm --env-file server/.env -p 127.0.0.1:8080:8080 boardgame-server:l
 ## Checks
 
 ```sh
-dart analyze
+dart analyze --fatal-infos            # infos fail CI too
 dart format --output=none --set-exit-if-changed .
 dart test
 dart run coverage:test_with_coverage   # writes coverage/lcov.info
+dart run tool/coverage_gate.dart . 80  # the CI coverage gate
 ```
+
+The coverage gate (tool/coverage_gate.dart) fails below 80% line coverage and also when a file under lib/ is missing from lcov.info, because `test_with_coverage` reports only libraries that some test loaded. Exempt: generated files (`*.g.dart`, `*.freezed.dart`), files marked `// coverage:ignore-file`, and files with only directives (barrels). api_contract uses the same tool: `dart run ../../server/tool/coverage_gate.dart . 80`.
 
 The real-process SIGTERM test runs only on Linux and macOS. On Windows, run every check on Linux in the official Dart image (Docker, repo mounted read-only):
 
@@ -107,4 +110,4 @@ The real-process SIGTERM test runs only on Linux and macOS. On Windows, run ever
 sh server/tool/test_linux.sh    # from the repo root
 ```
 
-CI: `.github/workflows/server.yml` (T-011) runs on every push and pull request that touches server/, packages/api_contract/, deploy/, the root analysis_options.yaml, or the workflow. It runs the checks above for both packages on Dart 3.13.5 with an 80% line coverage gate, fails if the committed api_contract generated files are stale, builds the image for linux/arm64 and linux/amd64 without pushing it, smoke tests both (arm64 under QEMU), and checks that a build without GIT_SHA fails and that the build context holds only the allowlisted files.
+CI: `.github/workflows/server.yml` (T-011) runs on every push and pull request that touches server/, packages/api_contract/, deploy/, the root analysis_options.yaml, or the workflow. It runs the checks above for both packages on Dart 3.13.5 with the coverage gate, fails if the committed api_contract generated files are stale, builds the image for linux/arm64 and linux/amd64 without pushing it, smoke tests both (arm64 under QEMU), and checks that a build without GIT_SHA fails and that the build context holds only the allowlisted files.
