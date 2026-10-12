@@ -17,8 +17,11 @@
 #      the unpacked image is 100 MB or less.
 #   2. With PORT and LOG_LEVEL set, GET /health returns 200 with status "ok"
 #      and EXPECTED_VERSION within 5 seconds of `docker run`.
-#   3. `docker stop` (SIGTERM) makes it exit 0.
-#   4. With no environment, it exits 78.
+#   3. `docker exec <container> /app/server --healthcheck` exits 0 while the
+#      server is up, 1 when nothing listens on PORT, and an unknown argument
+#      exits 64 (T-098 AC1).
+#   4. `docker stop` (SIGTERM) makes it exit 0.
+#   5. With no environment, it exits 78.
 #
 # Needs docker, curl, and jq (all present on GitHub's ubuntu runners).
 # HOST_PORT (default 18080) is the local port mapped to the container.
@@ -87,7 +90,47 @@ version="$(jq -er '.version' "$WORK/body")" || fail "health body has no version"
   fail "health version is '$version', want '$EXPECTED_VERSION'"
 echo "ok ($PLATFORM): GET /health 200 in $elapsed ms, version $version"
 
-# 3. SIGTERM: clean exit.
+# 3. The Compose health check (`/app/server --healthcheck`, T-010 AC12,
+# T-098 AC1) inside the running container: exit 0 while the server answers;
+# exit 1 with reason "connection failed" when nothing listens on PORT (the
+# same container with PORT pointed at a port no process uses); exit 64 for
+# an unknown argument. Any other exit code fails the step. Each run is
+# limited to 30 s so a hang fails instead of stalling the job.
+set +e
+timeout 30 docker exec "$NAME" /app/server --healthcheck >"$WORK/hc.log" 2>&1
+hc_code=$?
+set -e
+[ "$hc_code" -eq 0 ] || {
+  cat "$WORK/hc.log" >&2
+  fail "--healthcheck with the server up exited $hc_code, want 0"
+}
+echo "ok ($PLATFORM): --healthcheck with the server up exited 0"
+
+set +e
+timeout 30 docker exec -e PORT=8099 "$NAME" /app/server --healthcheck >"$WORK/hc-down.log" 2>&1
+hc_down_code=$?
+set -e
+[ "$hc_down_code" -eq 1 ] || {
+  cat "$WORK/hc-down.log" >&2
+  fail "--healthcheck with nothing listening exited $hc_down_code, want 1"
+}
+reason="$(jq -er '.reason' "$WORK/hc-down.log")" ||
+  fail "--healthcheck output is not one JSON line with a reason: $(cat "$WORK/hc-down.log")"
+[ "$reason" = "connection failed" ] ||
+  fail "--healthcheck with nothing listening gave reason '$reason', want 'connection failed'"
+echo "ok ($PLATFORM): --healthcheck with nothing listening exited 1: $(cat "$WORK/hc-down.log")"
+
+set +e
+timeout 30 docker exec "$NAME" /app/server --no-such-flag >"$WORK/hc-usage.log" 2>&1
+usage_code=$?
+set -e
+[ "$usage_code" -eq 64 ] || {
+  cat "$WORK/hc-usage.log" >&2
+  fail "an unknown argument exited $usage_code, want 64"
+}
+echo "ok ($PLATFORM): an unknown argument exited 64"
+
+# 4. SIGTERM: clean exit.
 docker stop "$NAME" >/dev/null
 stop_code="$(docker inspect -f '{{.State.ExitCode}}' "$NAME")"
 [ "$stop_code" = "0" ] || {
@@ -97,7 +140,7 @@ stop_code="$(docker inspect -f '{{.State.ExitCode}}' "$NAME")"
 docker rm "$NAME" >/dev/null
 echo "ok ($PLATFORM): docker stop exited 0"
 
-# 4. No environment: config error, exit 78.
+# 5. No environment: config error, exit 78.
 # Named so the EXIT trap removes it, and limited to 30 s so a server that
 # wrongly starts without config fails the step instead of hanging the job
 # (timeout then exits 124).
