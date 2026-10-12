@@ -2,7 +2,15 @@
 # file freshness, and an Android debug build on every push and pull request
 # that touches the app. The iOS build (macOS runner) runs only on main and on
 # manual runs, because the repository is private and macOS minutes are paid
-# (docs/decisions.md 2026-10-11). T-015 adds golden tests here.
+# (docs/decisions.md 2026-10-11).
+#
+# Goldens (T-015, docs/decisions.md 2026-10-12): the checks job compares them
+# on ubuntu and uploads the diff images when one differs. They are rendered
+# only here, by a manual run with update_goldens set, which runs nothing but
+# the goldens-update job and uploads the PNGs as the "goldens" artifact:
+#   gh workflow run app.yml --ref <branch> -f update_goldens=true
+#   gh run download <run-id> --name goldens --dir app/test/goldens
+# then commit the PNGs.
 name: app
 
 on:
@@ -17,6 +25,11 @@ on:
       - packages/api_contract/**
       - .github/workflows/app.yml
   workflow_dispatch:
+    inputs:
+      update_goldens:
+        description: Render golden images and upload them as an artifact (runs only that job)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +37,7 @@ permissions:
 # A newer push to the same branch cancels the older run; runs on main always
 # finish.
 concurrency:
-  group: app-${{ github.ref }}
+  group: app-${{ github.ref }}${{ inputs.update_goldens && '-goldens' || '' }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
@@ -40,6 +53,7 @@ defaults:
 jobs:
   checks:
     name: Format, analyze, test
+    if: ${{ !inputs.update_goldens }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -74,8 +88,20 @@ jobs:
       - name: Analyze
         run: flutter analyze --fatal-infos
 
+      # Includes the golden comparisons (test/goldens/), which run only on
+      # Linux.
       - name: Test
         run: flutter test --coverage
+
+      # flutter_test writes the master, test, and diff images of a failed
+      # golden to a failures/ folder next to the test file (ignored by git).
+      - name: Upload golden failure images
+        if: ${{ failure() && hashFiles('app/test/**/failures/*.png') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: golden-failures
+          path: app/test/**/failures/*.png
+          retention-days: 14
 
       # Runs even when a test failed (flutter test still writes lcov.info), so
       # the coverage reasons show up next to the test failures.
@@ -98,6 +124,7 @@ jobs:
 
   codegen:
     name: Generated files are current
+    if: ${{ !inputs.update_goldens }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -146,6 +173,7 @@ jobs:
 
   android:
     name: Android debug build
+    if: ${{ !inputs.update_goldens }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
@@ -187,7 +215,7 @@ jobs:
     name: iOS build (no codesign)
     # Only pushes to main and manual runs; never other branches or pull
     # requests (docs/decisions.md 2026-10-11).
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && !inputs.update_goldens) || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     # Wait for the Linux checks so a red run spends no macOS minutes.
     needs: [checks, codegen]
     runs-on: macos-26
@@ -217,3 +245,48 @@ jobs:
 
       - name: Build iOS app without signing
         run: flutter build ios --no-codesign
+
+  goldens-update:
+    name: Render goldens
+    # Manual runs with update_goldens only. Same runner image and Flutter
+    # version as the checks job, so the PNGs match its comparisons.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_goldens }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        # Job defaults replace the workflow defaults, so the shell is repeated
+        # here; `shell: bash` gives -e and pipefail.
+        shell: bash
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Flutter
+        run: tool/ci/install_flutter.sh "$FLUTTER_VERSION"
+
+      - name: Cache pub packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-app-${{ runner.os }}-${{ runner.arch }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('app/pubspec.lock') }}
+
+      - name: Resolve dependencies
+        run: flutter pub get --enforce-lockfile
+
+      # Every golden test lives under test/goldens/ (test/helpers/goldens.dart).
+      - name: Render goldens
+        run: flutter test --update-goldens test/goldens
+
+      # The artifact keeps paths relative to app/test/goldens/, so
+      # `gh run download <id> --name goldens --dir app/test/goldens` puts the
+      # PNGs back in place.
+      - name: Upload goldens
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: goldens
+          path: app/test/goldens/**/*.png
+          if-no-files-found: error
+          retention-days: 14
