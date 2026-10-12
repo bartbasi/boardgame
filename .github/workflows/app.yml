@@ -77,7 +77,10 @@ jobs:
       - name: Test
         run: flutter test --coverage
 
+      # Runs even when a test failed (flutter test still writes lcov.info), so
+      # the coverage reasons show up next to the test failures.
       - name: Coverage gate
+        if: ${{ !cancelled() && hashFiles('app/coverage/lcov.info') != '' }}
         run: |
           set -o pipefail
           dart run tool/coverage_check.dart --lcov coverage/lcov.info --min "$COVERAGE_MIN" | tee coverage/summary.txt
