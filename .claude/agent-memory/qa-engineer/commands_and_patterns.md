@@ -52,3 +52,6 @@ CI workflow QA (from T-011):
 App coverage gate (T-014 r3):
 - Test the gate CLI hermetically: temp package (pubspec, lib/, generated imports test) + `Process.runSync('dart', [absToolPath, ...], workingDirectory: tmp, runInShell: true)`. Running it in app/ reads real lib/ and breaks when a scratch branch adds a violating file.
 - Pure-Dart tool functions (`evaluateGate`, `isGenerated`) are unit-testable with in-memory sources maps. Big heredocs with quotes fail in Bash; use Write.
+
+## CI-only tickets (T-098)
+- No Dart tests to write: verify from `gh run view <id> --json jobs --jq ...` and `gh run view <id> --log | grep "ok ("`; red proofs via `--log-failed`. Check `git ls-remote --heads origin` that scratch branches are gone.
