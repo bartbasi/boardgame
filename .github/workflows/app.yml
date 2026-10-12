@@ -17,6 +17,10 @@ name: app
 
 on:
   push:
+    # Branches only: without a branch filter a tag push also runs the
+    # workflow, and path filters are not evaluated for tags (T-099, T-014
+    # review R2-G4).
+    branches: ['**']
     paths:
       - app/**
       - packages/api_contract/**

@@ -19,6 +19,11 @@
 //   - a file in scope has executable lines but no test runs any of them;
 //   - a domain or data file has a `coverage:ignore-file` marker and is not in
 //     [ignoreFileAllowlist] (the decision exempts only generated files);
+//   - a domain or data file reports no executable lines because
+//     coverage:ignore-start/end (or ignore-line) markers cover all of them,
+//     and it is not in [ignoreFileAllowlist] (same rule as ignore-file);
+//   - a hand-written part file names its library by name instead of URI, so
+//     the imports test cannot load it;
 //   - total line coverage of the files in scope is below the minimum, or
 //     nothing in scope has executable lines.
 //
@@ -30,9 +35,20 @@
 //     with no ignore-file marker (for example an abstract interface).
 // Files with coverage:ignore-start, ignore-end, or ignore-line markers are
 // listed with a count, since those lines never reach the report.
+// Hand-written part files (first directive `part of`) are listed as part
+// files. The imports test imports their library instead of them (importing a
+// part does not compile); their lines are counted under the part's own path,
+// as lcov reports them.
+//
+// The last line is the verdict. It starts with FAIL only when the numbers
+// fail (below the minimum, untested files, or nothing in scope); when only a
+// rule fails it says the minimum was met, so every FAIL line, and so every
+// ::error:: annotation, names a real problem.
 //
 // Exit codes: 0 pass, 1 gate failed, 2 bad arguments or a missing lcov file.
 import 'dart:io';
+
+import 'package:meta/meta.dart';
 
 /// Where the generated imports test lives, relative to app/.
 const importsTestPath = 'test/coverage_imports_test.dart';
@@ -52,8 +68,10 @@ bool isInLayer(String path) {
 bool isDomainOrData(String path) =>
     RegExp(r'^lib/features/[^/]+/(domain|data)/').hasMatch(normalizePath(path));
 
-/// Path-only scope: in a layer and not named like a generated file. The gate
-/// itself uses [isGenerated], which also needs the header.
+/// Path-only scope: in a layer and not named like a generated file. Tests
+/// only: the gate uses [scopeFiles] and [isGenerated], which also need the
+/// header, so a renamed hand-written file cannot hide (T-014 R2-M2, R3-G2).
+@visibleForTesting
 bool isInScope(String path) {
   final p = normalizePath(path);
   if (p.endsWith('.g.dart') || p.endsWith('.freezed.dart')) return false;
@@ -108,6 +126,43 @@ int ignoreMarkerCount(String source) => source
           line.contains(ignoreLinePattern),
     )
     .length;
+
+final _partOfPattern = RegExp(
+  r'''^part\s+of\s+(?:'([^']*)'|"([^"]*)"|([\w$.]+))\s*;''',
+);
+
+/// The library of a hand-written part file, or null when [source] is not a
+/// part file (its first directive, after comments, is not `part of`).
+///
+/// Returns the library's `lib/...` path, resolved from a relative or
+/// `package:` URI against [path], or an empty string when the part names its
+/// library by name or the URI points outside lib/.
+String? partOwner(String path, String source) {
+  var rest = source.startsWith('\uFEFF') ? source.substring(1) : source;
+  while (true) {
+    rest = rest.trimLeft();
+    if (rest.startsWith('//')) {
+      final end = rest.indexOf('\n');
+      rest = end < 0 ? '' : rest.substring(end + 1);
+    } else if (rest.startsWith('/*')) {
+      final end = rest.indexOf('*/');
+      rest = end < 0 ? '' : rest.substring(end + 2);
+    } else {
+      break;
+    }
+  }
+  final match = _partOfPattern.firstMatch(rest);
+  if (match == null) return null;
+  final uri = match.group(1) ?? match.group(2);
+  if (uri == null) return ''; // `part of some.library;`
+  if (uri.startsWith('package:')) {
+    final slash = uri.indexOf('/');
+    return slash < 0 ? '' : 'lib/${uri.substring(slash + 1)}';
+  }
+  if (uri.contains(':')) return '';
+  final resolved = Uri(path: normalizePath(path)).resolve(uri).path;
+  return resolved.startsWith('lib/') ? resolved : '';
+}
 
 /// Covered and total executable lines for one file.
 class FileCoverage {
@@ -170,14 +225,31 @@ class CoverageResult {
 
 /// Applies the coverage numbers to an lcov report. Without [generated], files
 /// are scoped by path ([isInScope]); with it, every file in a layer counts
-/// unless it is in [generated] (checked by header, see [isGenerated]).
+/// unless it is in [generated] (checked by header, see [isGenerated]). Tests
+/// only: the gate calls [coverageOf] with the header-based set.
+@visibleForTesting
 CoverageResult checkCoverage(
   String lcov, {
   double minPercent = 80,
   Set<String>? generated,
-}) {
-  bool keep(String p) =>
-      generated == null ? isInScope(p) : isInLayer(p) && !generated.contains(p);
+}) => generated == null
+    ? _coverage(lcov, minPercent, isInScope)
+    : coverageOf(lcov, minPercent: minPercent, generated: generated);
+
+/// The coverage numbers of every file in a layer that is not in [generated]
+/// (the header-based set from [isGenerated]).
+CoverageResult coverageOf(
+  String lcov, {
+  required double minPercent,
+  required Set<String> generated,
+}) =>
+    _coverage(lcov, minPercent, (p) => isInLayer(p) && !generated.contains(p));
+
+CoverageResult _coverage(
+  String lcov,
+  double minPercent,
+  bool Function(String path) keep,
+) {
   final files = parseLcov(lcov).where((f) => keep(f.path)).toList()
     ..sort((a, b) => a.path.compareTo(b.path));
   return CoverageResult(files, minPercent);
@@ -206,6 +278,23 @@ List<String> scopeFiles(Map<String, String> sources) => [
 /// Every file in scope under [libDir], as sorted `lib/...` paths.
 List<String> filesInScope(Directory libDir) => scopeFiles(layerSources(libDir));
 
+/// The files the imports test must import so that every file in scope loads:
+/// each file in scope, except that a hand-written part file is replaced by
+/// its library (a part cannot be imported). Parts whose library cannot be
+/// resolved are left out; the gate reports them. Sorted, no duplicates.
+List<String> importTargets(Map<String, String> sources) {
+  final targets = <String>{};
+  for (final path in scopeFiles(sources)) {
+    final owner = partOwner(path, sources[path]!);
+    if (owner == null) {
+      targets.add(path);
+    } else if (owner.isNotEmpty) {
+      targets.add(owner);
+    }
+  }
+  return targets.toList()..sort();
+}
+
 /// Files in scope under [libDir] that the report does not mention and that
 /// have no ignore-file marker. With an up-to-date imports test these are the
 /// files with no executable lines.
@@ -226,6 +315,7 @@ class GateOutcome {
     required this.exempt,
     required this.markers,
     required this.errors,
+    this.parts = const {},
   });
 
   final CoverageResult result;
@@ -243,7 +333,21 @@ class GateOutcome {
   /// Failures beyond the coverage numbers.
   final List<String> errors;
 
+  /// Hand-written part files in scope and their library (`''` when it cannot
+  /// be resolved, see [partOwner]).
+  final Map<String, String> parts;
+
   bool get passed => result.passed && errors.isEmpty;
+
+  /// This outcome with one more rule failure.
+  GateOutcome withError(String error) => GateOutcome(
+    result: result,
+    noExecutableLines: noExecutableLines,
+    exempt: exempt,
+    markers: markers,
+    errors: [...errors, error],
+    parts: parts,
+  );
 
   String get report => formatReport(
     result,
@@ -251,6 +355,7 @@ class GateOutcome {
     exempt: exempt,
     markers: markers,
     errors: errors,
+    parts: parts,
   );
 }
 
@@ -266,24 +371,64 @@ GateOutcome evaluateGate(
     for (final MapEntry(key: path, value: source) in sources.entries)
       if (isGenerated(path, source)) path,
   };
-  final result = checkCoverage(
-    lcov,
-    minPercent: minPercent,
-    generated: generated,
-  );
-  final reported = result.files.map((f) => f.path).toSet();
+  final result = coverageOf(lcov, minPercent: minPercent, generated: generated);
+  final found = {for (final f in result.files) f.path: f.found};
   final exempt = <String, String>{
     for (final path in generated) path: 'generated (GENERATED CODE header)',
   };
   final noLines = <String>[];
   final errors = <String>[];
   final markers = <String, int>{};
+  final parts = <String, String>{};
   for (final path in scopeFiles(sources)) {
     final source = sources[path]!;
+    final owner = partOwner(path, source);
+    if (owner != null) {
+      parts[path] = owner;
+      if (owner.isEmpty) {
+        errors.add(
+          'part file $path names its library by name or outside lib/, so the '
+          "imports test cannot load it. Use `part of '<file>.dart';`.",
+        );
+      }
+    }
     final count = ignoreMarkerCount(source);
     if (count > 0) markers[path] = count;
-    if (reported.contains(path)) continue;
-    if (!hasIgnoreFile(source)) {
+    final ignoreFile = hasIgnoreFile(source);
+    // 0/0 in lcov, or absent from it, with markers: the markers removed every
+    // executable line, which is the same as an ignore-file marker (R3-G1).
+    final allLinesIgnored = !ignoreFile && count > 0 && (found[path] ?? 0) == 0;
+    if (allLinesIgnored && isDomainOrData(path)) {
+      // lcov lists a file whose lines the markers removed as 0/0 (seen on
+      // Actions, T-099 run 38316486811); a file that never had executable
+      // lines is absent from it (T-014 probe), so the marker is stray.
+      final coveredByMarkers = found.containsKey(path);
+      if (allowlist.containsKey(path)) {
+        exempt[path] = coveredByMarkers
+            ? 'coverage:ignore-start/end markers cover every line, '
+                  'allowlisted: ${allowlist[path]}'
+            : 'no executable lines and coverage:ignore markers, '
+                  'allowlisted: ${allowlist[path]}';
+      } else if (coveredByMarkers) {
+        errors.add(
+          'coverage:ignore-start/end (or ignore-line) markers cover every '
+          'executable line of a domain or data file: $path ($count marker '
+          'line(s), 0/0 lines). Only generated files may be exempt '
+          '(docs/decisions.md 2026-10-12); test it, or add it to '
+          'ignoreFileAllowlist with a reviewed reason.',
+        );
+      } else {
+        errors.add(
+          'no executable lines remain in a domain or data file that has '
+          'coverage:ignore-start/end or ignore-line markers: $path ($count '
+          'marker line(s), not in the coverage report). Remove the markers '
+          'if the file has no code to test, or test the code they hide.',
+        );
+      }
+      continue;
+    }
+    if (found.containsKey(path)) continue;
+    if (!ignoreFile) {
       noLines.add(path);
     } else if (!isDomainOrData(path)) {
       exempt[path] = 'coverage:ignore-file marker';
@@ -307,6 +452,7 @@ GateOutcome evaluateGate(
     ),
     markers: markers,
     errors: errors,
+    parts: parts,
   );
 }
 
@@ -314,7 +460,8 @@ GateOutcome evaluateGate(
 String? packageName(String pubspec) =>
     RegExp(r'^name:\s*(\S+)', multiLine: true).firstMatch(pubspec)?.group(1);
 
-/// Source of the generated test that imports every file in [files].
+/// Source of the generated test that imports every file in [files] (see
+/// [importTargets]).
 String importsTestSource(String package, List<String> files) {
   final b = StringBuffer()
     ..writeln(
@@ -356,6 +503,7 @@ String formatReport(
   Map<String, String> exempt = const {},
   Map<String, int> markers = const {},
   List<String> errors = const [],
+  Map<String, String> parts = const {},
 }) {
   final b = StringBuffer()
     ..writeln('Line coverage, lib/core/ and lib/features/*/{domain,data}/:');
@@ -383,26 +531,52 @@ String formatReport(
       b.writeln('  $count marker line(s): $path');
     }
   }
+  if (parts.isNotEmpty) {
+    b.writeln(
+      'Part files (the imports test loads their library; lines counted '
+      'under the part path):',
+    );
+    for (final MapEntry(key: path, value: owner) in parts.entries) {
+      b.writeln(
+        '  part file: $path (part of '
+        '${owner.isEmpty ? 'an unresolved library' : owner})',
+      );
+    }
+  }
   for (final path in result.untested) {
     b.writeln('FAIL: no test runs any line of $path');
   }
   for (final error in errors) {
     b.writeln('FAIL: $error');
   }
+  b.writeln(verdictLine(result, errors.length));
+  return b.toString();
+}
+
+/// The last report line. It starts with `FAIL` only when the numbers fail
+/// (nothing in scope, below the minimum, or untested files), so a rule
+/// failure alone does not also read, and annotate, as a coverage failure
+/// (T-014 review R3-S1, QA T-014-N1).
+String verdictLine(CoverageResult result, int ruleFailures) {
+  final rules = ruleFailures == 1 ? '1 rule' : '$ruleFailures rules';
   final percent = result.percent;
   if (percent == null) {
-    b.writeln('FAIL: no executable lines in scope.');
-  } else {
-    final passed = result.passed && errors.isEmpty;
-    final untested = result.untested.length;
-    b.writeln(
-      '${passed ? 'PASS' : 'FAIL'}: ${percent.toStringAsFixed(1)}% '
-      '(${result.hit}/${result.found} lines), '
-      'minimum ${result.minPercent.toStringAsFixed(0)}%'
-      '${untested == 0 ? '' : ', $untested untested file(s)'}.',
-    );
+    return 'FAIL: no executable lines in scope'
+        '${ruleFailures == 0 ? '' : '; gate also failed on $rules above'}.';
   }
-  return b.toString();
+  final numbers =
+      '${percent.toStringAsFixed(1)}% (${result.hit}/${result.found} lines), '
+      'minimum ${result.minPercent.toStringAsFixed(0)}%';
+  if (!result.passed) {
+    final untested = result.untested.length;
+    return 'FAIL: $numbers'
+        '${untested == 0 ? '' : ', $untested untested file(s)'}'
+        '${ruleFailures == 0 ? '' : '; gate also failed on $rules above'}.';
+  }
+  if (ruleFailures > 0) {
+    return 'Coverage $numbers met; gate failed on $rules above.';
+  }
+  return 'PASS: $numbers.';
 }
 
 /// `::error::` annotations for every failure line in [report].
@@ -426,7 +600,7 @@ String? syncImportsTest({required bool write, String root = '.'}) {
   if (name == null) return 'No package name in $root/pubspec.yaml.';
   final expected = importsTestSource(
     name,
-    filesInScope(Directory('$root/lib')),
+    importTargets(layerSources(Directory('$root/lib'))),
   );
   final file = File('$root/$importsTestPath');
   if (write) {
@@ -486,15 +660,7 @@ void main(List<String> args) {
     layerSources(Directory('lib')),
     minPercent: minPercent,
   );
-  final outcome = importsError == null
-      ? gate
-      : GateOutcome(
-          result: gate.result,
-          noExecutableLines: gate.noExecutableLines,
-          exempt: gate.exempt,
-          markers: gate.markers,
-          errors: [...gate.errors, importsError],
-        );
+  final outcome = importsError == null ? gate : gate.withError(importsError);
   final report = outcome.report;
   stdout
     ..write(report)
