@@ -18,7 +18,9 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - Dispose `tester.ensureSemantics()` handles with try/finally, NOT addTearDown: flutter_test (3.47.7) checks for live handles before tear-downs run, so addTearDown fails every test.
 - Rail layout removes the leading MediaQuery padding from content (rail's SafeArea already uses it); tests use `tester.view.padding = FakeViewPadding(...)`.
 - T-013 (2026-10-12) added `lib/core/domain/` (Result with Ok/Err, sealed Failure) and `lib/core/data/network/` (ApiClient, ApiConfig, RetryPolicy, failure mapper, log interceptor, `apiClientProvider`). Repositories call `ApiClient.get(path, decode: Dto.fromJson)`, which returns `Result<T>` and never throws. The purity test now also checks lib/core/domain. api_contract is a path dependency.
-- Timing tests use `runFake` from `test/helpers/fake_http.dart` (fakeAsync plus package:clock) with `FakeHttpAdapter`, `respond`, `failWith`, `hang`, `FixedRandom`. Production code must use `clock.now()`, not DateTime.now(), for fake time to apply.
+- Timing tests use `runFake` from `test/helpers/fake_http.dart` (fakeAsync plus package:clock) with `FakeHttpAdapter`, `respond`, `failWith`, `hang`, `FixedRandom`. Production code must use `clock.now()`, not DateTime.now(), for fake time to apply; for durations and deadlines use a monotonic Stopwatch injected as a factory (tests pass `clock.stopwatch`), per T-013 review R1-G1.
+- Domain purity (since T-013 round 2) is an allowlist of own-package paths: domain may import only `features/<f>/domain/` and `core/domain/`.
+- Reviewer expects exact assertions (failure type, request count, elapsed) in timing tests, using `FixedRandom`, not loose bounds.
 - Gotcha: anything with a Completer (for example a dio CancelToken) must be created INSIDE the fakeAsync callback; one created outside completes on the real microtask queue and never fires in fake time.
 - App tests read api_contract JSON fixtures via `contractFixture('error/not_found.json')` (path ../packages/api_contract/test/fixtures). Note `variants/error_extra_field.json` has code not_found.
 
