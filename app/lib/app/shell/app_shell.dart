@@ -100,7 +100,17 @@ class AppShell extends StatelessWidget {
             ],
           ),
           const VerticalDivider(width: 1, thickness: 1),
-          Expanded(child: content),
+          Expanded(
+            // The rail already keeps clear of the leading inset (cutout,
+            // system bar), so the content must not pad that side again.
+            // The other edges keep their insets.
+            child: MediaQuery.removePadding(
+              context: context,
+              removeLeft: Directionality.of(context) == TextDirection.ltr,
+              removeRight: Directionality.of(context) == TextDirection.rtl,
+              child: content,
+            ),
+          ),
         ],
       ),
     );

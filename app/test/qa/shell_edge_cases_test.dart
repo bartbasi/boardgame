@@ -11,19 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import '../architecture/domain_purity.dart';
 import '../helpers/pump_app.dart';
 
-Future<void> _tap(WidgetTester tester, String label) async {
-  final bar = find.descendant(
-    of: find.byType(NavigationBar),
-    matching: find.text(label),
-  );
-  final rail = find.descendant(
-    of: find.byType(NavigationRail),
-    matching: find.text(label),
-  );
-  await tester.tap(bar.evaluate().isNotEmpty ? bar : rail);
-  await tester.pumpAndSettle();
-}
-
 ColorScheme _scheme(WidgetTester tester) =>
     Theme.of(tester.element(find.byType(Scaffold).first)).colorScheme;
 
@@ -40,7 +27,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 4'));
       await tester.pumpAndSettle();
       expect(find.byType(CollectionItemPlaceholderScreen), findsOneWidget);
@@ -62,7 +49,7 @@ void main() {
     testWidgets('the selected destination is kept on rotation', (tester) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Settings');
+      await tapDestination(tester, 'Settings');
 
       setTestWindow(tester, size: WindowSizes.landscape);
       await tester.pumpAndSettle();
@@ -76,7 +63,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.drag(find.byType(Scrollable).last, const Offset(0, -500));
       await tester.pumpAndSettle();
       final before = tester
@@ -109,7 +96,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 2'));
       await tester.pumpAndSettle();
 
@@ -158,7 +145,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 1'));
       await tester.pumpAndSettle();
 
@@ -175,16 +162,16 @@ void main() {
         'pushed item', (tester) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 1'));
       await tester.pumpAndSettle();
-      await _tap(tester, 'Settings');
+      await tapDestination(tester, 'Settings');
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(ScanScreen), findsOneWidget);
 
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       expect(find.byType(CollectionItemPlaceholderScreen), findsOneWidget);
     });
 
@@ -193,7 +180,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tap(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 1'));
       await tester.pumpAndSettle();
 
@@ -218,7 +205,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(tester.takeException(), isNull);
           for (final label in ['Search', 'Collection', 'Settings', 'Scan']) {
-            await _tap(tester, label);
+            await tapDestination(tester, label);
             expect(tester.takeException(), isNull, reason: label);
           }
         });
@@ -237,7 +224,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await _tap(tester, 'Settings');
+      await tapDestination(tester, 'Settings');
       expect(find.byType(SettingsScreen), findsOneWidget);
     });
   });

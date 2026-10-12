@@ -21,20 +21,6 @@ const List<String> _semanticLabels = [
   'Settings',
 ];
 
-/// Taps the destination with the visible [label] in the bar or rail.
-Future<void> _tapDestination(WidgetTester tester, String label) async {
-  final inBar = find.descendant(
-    of: find.byType(NavigationBar),
-    matching: find.text(label),
-  );
-  final inRail = find.descendant(
-    of: find.byType(NavigationRail),
-    matching: find.text(label),
-  );
-  await tester.tap(inBar.evaluate().isNotEmpty ? inBar : inRail);
-  await tester.pumpAndSettle();
-}
-
 /// Left edge of each finder's first match, to check order along an axis.
 List<double> _xs(WidgetTester tester, List<Finder> finders) => [
   for (final f in finders) tester.getCenter(f).dx,
@@ -131,7 +117,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tapDestination(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
 
       final list = find.byType(Scrollable).last;
       await tester.drag(list, const Offset(0, -600));
@@ -143,10 +129,10 @@ void main() {
       expect(before, greaterThan(0));
       expect(find.text('Placeholder item 1'), findsNothing);
 
-      await _tapDestination(tester, 'Settings');
+      await tapDestination(tester, 'Settings');
       expect(find.byType(SettingsScreen), findsOneWidget);
 
-      await _tapDestination(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       final after = tester
           .state<ScrollableState>(find.byType(Scrollable).last)
           .position
@@ -160,16 +146,16 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tapDestination(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 2'));
       await tester.pumpAndSettle();
       expect(find.byType(CollectionItemPlaceholderScreen), findsOneWidget);
       // The bar stays visible on pushed screens.
       expect(find.byType(NavigationBar), findsOneWidget);
 
-      await _tapDestination(tester, 'Scan');
+      await tapDestination(tester, 'Scan');
       expect(find.byType(ScanScreen), findsOneWidget);
-      await _tapDestination(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       expect(find.byType(CollectionItemPlaceholderScreen), findsOneWidget);
     });
 
@@ -182,12 +168,12 @@ void main() {
         (tester) async {
           await pumpApp(tester, size: entry.value);
           await tester.pumpAndSettle();
-          await _tapDestination(tester, 'Collection');
+          await tapDestination(tester, 'Collection');
           await tester.tap(find.text('Placeholder item 3'));
           await tester.pumpAndSettle();
           expect(find.byType(CollectionItemPlaceholderScreen), findsOneWidget);
 
-          await _tapDestination(tester, 'Collection');
+          await tapDestination(tester, 'Collection');
 
           expect(find.byType(CollectionItemPlaceholderScreen), findsNothing);
           expect(find.byType(CollectionScreen), findsOneWidget);
@@ -200,7 +186,7 @@ void main() {
     testWidgets('pops inside the destination first', (tester) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tapDestination(tester, 'Collection');
+      await tapDestination(tester, 'Collection');
       await tester.tap(find.text('Placeholder item 1'));
       await tester.pumpAndSettle();
 
@@ -215,7 +201,7 @@ void main() {
     testWidgets('at a destination root goes to Scan', (tester) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      await _tapDestination(tester, 'Search');
+      await tapDestination(tester, 'Search');
       expect(find.byType(SearchScreen), findsOneWidget);
 
       final handled = await tester.binding.handlePopRoute();
@@ -225,6 +211,48 @@ void main() {
       expect(find.byType(ScanScreen), findsOneWidget);
       final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(bar.selectedIndex, 0);
+    });
+  });
+
+  group('Safe areas with the rail (app-shell.md section 2)', () {
+    testWidgets('a landscape cutout pads the rail once, not the content', (
+      tester,
+    ) async {
+      setTestWindow(tester, size: WindowSizes.landscape);
+      tester.view.padding = const FakeViewPadding(left: 48, right: 30);
+      await pumpApp(tester, size: WindowSizes.landscape);
+      await tester.pumpAndSettle();
+
+      // The rail keeps its destinations clear of the leading cutout.
+      final scanIcon = find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.byIcon(Icons.qr_code_scanner),
+      );
+      expect(tester.getTopLeft(scanIcon).dx, greaterThanOrEqualTo(48));
+
+      // The content no longer sees the leading inset, but keeps the trailing.
+      final padding = MediaQuery.paddingOf(
+        tester.element(find.byType(ScanScreen)),
+      );
+      expect(padding.left, 0);
+      expect(padding.right, 30);
+      final viewPadding = MediaQuery.viewPaddingOf(
+        tester.element(find.byType(ScanScreen)),
+      );
+      expect(viewPadding.left, 0);
+    });
+
+    testWidgets('the compact bar layout keeps the side insets', (tester) async {
+      setTestWindow(tester);
+      tester.view.padding = const FakeViewPadding(left: 20, right: 20);
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+
+      final padding = MediaQuery.paddingOf(
+        tester.element(find.byType(ScanScreen)),
+      );
+      expect(padding.left, 20);
+      expect(padding.right, 20);
     });
   });
 
@@ -242,10 +270,10 @@ void main() {
         expect(tester.takeException(), isNull);
 
         for (final label in _labels) {
-          await _tapDestination(tester, label);
+          await tapDestination(tester, label);
           expect(tester.takeException(), isNull, reason: label);
         }
-        await _tapDestination(tester, 'Collection');
+        await tapDestination(tester, 'Collection');
         await tester.tap(find.text('Placeholder item 1'));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
@@ -263,39 +291,44 @@ void main() {
           'labels and guidelines pass (${brightness.name}, ${entry.key})',
           (tester) async {
             final semantics = tester.ensureSemantics();
-            await pumpApp(tester, size: entry.value, brightness: brightness);
-            await tester.pumpAndSettle();
+            // flutter_test checks for live handles before tear-downs run, so
+            // addTearDown is too late; finally disposes even when an expect fails.
+            try {
+              await pumpApp(tester, size: entry.value, brightness: brightness);
+              await tester.pumpAndSettle();
 
-            for (var i = 0; i < _semanticLabels.length; i++) {
-              final node = find.semantics.byPredicate(
-                (node) =>
-                    node.label.contains(_semanticLabels[i]) &&
-                    node.label.contains('Tab ${i + 1} of 4'),
-                describeMatch: (_) => _semanticLabels[i],
+              for (var i = 0; i < _semanticLabels.length; i++) {
+                final node = find.semantics.byPredicate(
+                  (node) =>
+                      node.label.contains(_semanticLabels[i]) &&
+                      node.label.contains('Tab ${i + 1} of 4'),
+                  describeMatch: (_) => _semanticLabels[i],
+                );
+                expect(node, findsOne, reason: _semanticLabels[i]);
+                expect(
+                  node
+                      .evaluate()
+                      .single
+                      .getSemanticsData()
+                      .flagsCollection
+                      .isSelected,
+                  i == 0 ? Tristate.isTrue : Tristate.isFalse,
+                );
+              }
+
+              await expectLater(
+                tester,
+                meetsGuideline(androidTapTargetGuideline),
               );
-              expect(node, findsOne, reason: _semanticLabels[i]);
-              expect(
-                node
-                    .evaluate()
-                    .single
-                    .getSemanticsData()
-                    .flagsCollection
-                    .isSelected,
-                i == 0 ? Tristate.isTrue : Tristate.isFalse,
+              await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
+              await expectLater(
+                tester,
+                meetsGuideline(labeledTapTargetGuideline),
               );
+              await expectLater(tester, meetsGuideline(textContrastGuideline));
+            } finally {
+              semantics.dispose();
             }
-
-            await expectLater(
-              tester,
-              meetsGuideline(androidTapTargetGuideline),
-            );
-            await expectLater(tester, meetsGuideline(iOSTapTargetGuideline));
-            await expectLater(
-              tester,
-              meetsGuideline(labeledTapTargetGuideline),
-            );
-            await expectLater(tester, meetsGuideline(textContrastGuideline));
-            semantics.dispose();
           },
         );
       }

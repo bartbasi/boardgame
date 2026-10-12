@@ -57,3 +57,18 @@ Future<void> pumpApp(
   );
   await tester.pumpWidget(const ProviderScope(child: BoardGameCollectorApp()));
 }
+
+/// Taps the destination with the visible [label] in the NavigationBar or
+/// NavigationRail, whichever is shown, and settles.
+Future<void> tapDestination(WidgetTester tester, String label) async {
+  final inBar = find.descendant(
+    of: find.byType(NavigationBar),
+    matching: find.text(label),
+  );
+  final inRail = find.descendant(
+    of: find.byType(NavigationRail),
+    matching: find.text(label),
+  );
+  await tester.tap(inBar.evaluate().isNotEmpty ? inBar : inRail);
+  await tester.pumpAndSettle();
+}
