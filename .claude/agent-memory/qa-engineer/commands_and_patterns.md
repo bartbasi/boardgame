@@ -30,3 +30,8 @@ Server and more (from T-008):
 - Server test harness: server/test/support/harness.dart (TestApp, LogCapture, freePort); runServer takes an injected signal stream, so shutdown tests run in-process on real sockets.
 - Docker Desktop's WSL engine can fail to start (seen 2026-10-12); report the Linux run as NOT RUN, never claim it.
 - Bash tool: big heredocs with quotes can hang or fail to parse; use the Write tool for test files. Never put a bare `python3 -` in a command (waits on stdin).
+
+Docker (from T-009):
+- Dockerfile QA: `sh server/tool/docker_build.sh --platform linux/arm64,linux/amd64 --load -t <tag>` works (containerd store, arm64 cross-compiled, no QEMU to build). Run arm64 with `--platform linux/arm64` (QEMU). Use `MSYS_NO_PATHCONV=1`.
+- Host C: can be at 100% full while Docker's own disk has space; builds still worked. Cleanup: `docker image rm`, `docker image rm --force --platform linux/arm64 dart:3.13.5`, then prune cache records by id (`docker buildx du --verbose`, filter by Created at; ~60 MB shared records stay).
+- Build context check: throwaway `Ctx.Dockerfile` + copy named `Ctx.Dockerfile.dockerignore` in scratchpad, `-f` it with repo root context, `find /ctx`.
