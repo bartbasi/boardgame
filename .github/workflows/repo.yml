@@ -31,6 +31,7 @@ jobs:
           fi
 
       - name: Install gitleaks (MIT)
+        if: ${{ !cancelled() }}  # report leaks even when the .env check failed
         run: |
           file="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           curl -sSfL -o "$file" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${file}"
@@ -39,6 +40,7 @@ jobs:
           sudo mv gitleaks /usr/local/bin/
 
       - name: Scan new commits
+        if: ${{ !cancelled() }}  # report leaks even when the .env check failed
         env:
           EVENT: ${{ github.event_name }}
           BEFORE: ${{ github.event.before }}
