@@ -150,7 +150,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-004 Decide: Dart pub workspace or path dependencies
 - Milestone: M1
 - Owner: orchestrator
-- Status: in-progress
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/decisions.md, root pubspec.yaml (only if a workspace is chosen)
@@ -163,7 +163,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-005 Decide: shelf or dart_frog for the backend
 - Milestone: M1
 - Owner: backend-developer (writes the proposal; the orchestrator records the decision after the user confirms)
-- Status: in-progress
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/handoffs/T-005.md, docs/decisions.md
@@ -176,7 +176,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-006 Root tooling: shared strict lints, editor config, README outline
 - Milestone: M1
 - Owner: orchestrator
-- Status: in-progress
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: analysis_options.yaml (root), .editorconfig, README.md
@@ -189,7 +189,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-007 API contract package skeleton
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: in-review
 - Depends on: T-004, T-006
 - UX spec: n/a
 - Linked files: packages/api_contract/
@@ -276,7 +276,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-012 App skeleton: project, feature folders, navigation, themes, strings
 - Milestone: M1
 - Owner: flutter-developer
-- Status: todo
+- Status: in-review
 - Depends on: T-004, T-006
 - UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` (PRD Q31, confirmed 2026-10-12); dynamic color off.
 - Linked files: app/
@@ -440,6 +440,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given GET /health, then this limiter does not apply (proved by: endpoint).
   6. Given the limiter, then IP addresses are held only in memory, never written to logs or the database, and each entry is removed once its window passes (proved by: unit with log capture; the tracked count is 0 after expiry).
   7. Given 200,000 distinct IPs within one minute, then the number of tracked IPs never exceeds the configured maximum, default 100,000 [ASSUMPTION], with the oldest entries evicted first (proved by: unit).
+- Design note (T-005, docs/decisions.md 2026-10-12): this ticket designs the rule that X-Forwarded-For is trusted only when the direct peer is Caddy's address on the Compose network (AC4). The handoff states how that address is configured and tested.
 
 ### T-021 Server: BGG XML API client and shared request queue
 - Milestone: M2
@@ -963,6 +964,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Status: todo
 - Depends on: PRD Q26 (per-install key) and the orchestrator's protection design decision
 - Goal: Verify App Attest from iOS installs (APPLE-11 to APPLE-13) in the chosen design. Proposed: verify when a session starts, then issue a short-lived signed server token for later /v1 requests [ASSUMPTION]. Must land before any public deployment.
+- Design note (T-005, docs/decisions.md 2026-10-12): the "attest once per session, then a short-lived server token" design is settled in this ticket together with PRD Q26. T-067 follows the same design.
 
 ### T-067 Server: Play Integrity verification
 - Milestone: M5 (moves earlier if a deployment happens before M5, PRD Q8)

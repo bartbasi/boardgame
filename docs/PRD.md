@@ -65,7 +65,7 @@ Ticket ids refer to docs/backlog.md. Tasks only you can do (applications, accoun
 
 ### M1 Foundations (T-004 to T-017)
 
-Repository tooling and strict lints, a decision on a Dart pub workspace, CI on GitHub Actions in the private repository bartbasi/boardgame (confirmed, docs/decisions.md 2026-10-11; iOS builds on macOS runners only on main and manual runs) (app.yml, server.yml, repo.yml with secret scanning, a prose style check, and dependency license checks), the Linux golden image pipeline, the app skeleton (navigation, light and dark themes, feature folders, Result and Failure types, HTTP client with retries), the backend skeleton (GET /health, fail-fast config, minimal structured logs), a multi-arch Dockerfile, local Docker Compose with PostgreSQL and Caddy, a shelf or dart_frog decision [ASSUMPTION: Dart backend], and the api_contract package skeleton.
+Repository tooling and strict lints, a decision on a Dart pub workspace, CI on GitHub Actions in the private repository bartbasi/boardgame (confirmed, docs/decisions.md 2026-10-11; iOS builds on macOS runners only on main and manual runs) (app.yml, server.yml, repo.yml with secret scanning, a prose style check, and dependency license checks), the Linux golden image pipeline, the app skeleton (navigation, light and dark themes, feature folders, Result and Failure types, HTTP client with retries), the backend skeleton (GET /health, fail-fast config, minimal structured logs), a multi-arch Dockerfile, local Docker Compose with PostgreSQL and Caddy, the backend framework decision (shelf with shelf_router, confirmed, docs/decisions.md 2026-10-12), and the api_contract package skeleton.
 
 Done when: CI is green on main for app, server, and repo checks; the app runs on an Android emulator and the iOS build compiles in CI; https://localhost/health answers through local Compose; a golden rendered with the Linux command passes in CI.
 
@@ -252,7 +252,7 @@ The research ids (B1 to B11) refer to the "Blocking risks" table in docs/api-res
 
 Confirmed by you on 2026-10-11 (docs/decisions.md), so no longer assumptions: CI on GitHub Actions; Android API 24 and iOS 15 minimums; snapshots for games looked up in the last 90 days.
 
-Still open from the brief: a Dart backend on dart_frog or shelf (T-005).
+Confirmed by you on 2026-10-12 (docs/decisions.md): the Dart backend uses shelf with shelf_router, AOT compiled and run from a scratch Docker image (T-005).
 
 Changed by research: the brief's BGG spacing of one request every 2 seconds becomes 5 seconds [ASSUMPTION] (BGG-20, BGG-21), as the brief allows.
 
@@ -326,7 +326,7 @@ Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, and Q
 **Answered** (kept for reference; source: docs/decisions.md)
 
 - Q2, answered 2026-10-11. The GitHub repository bartbasi/boardgame is private. iOS builds on macOS runners run only on main and on manual runs (T-014).
-- Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework is still decided in T-005.
+- Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework was decided in T-005 on 2026-10-12: shelf with shelf_router.
 - Q4 (U9, T-003 OQ4), answered 2026-10-11. Google ML Kit is approved on Android through mobile_scanner, with its usage metrics disclosed in the privacy policy and the Google Play Data safety form (MLKIT-01 to MLKIT-08; T-078, T-079). iOS uses Apple's scanner.
 - Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) yourself (T-087, in progress). As of 2026-10-12 it is not yet submitted; it is still planned. Part (b), GameUPC, stays open as Q10b above.
 - Q23 (U2), answered 2026-10-11. PM researched fallback game data sources in parallel, in case BGG refuses (T-097, done). Result: no fallback keeps the product as specified (B11). Follow-up questions are Q33 to Q37.
