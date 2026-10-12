@@ -63,7 +63,7 @@ Compose/deploy (T-010, 2026-10-12): local stack in deploy/, built via deploy/com
 CI workflows (T-011 server.yml, T-014 app.yml, T-016 repo.yml; 2026-10-12):
 - Default `run` shell without `shell:` is `bash -e` (no pipefail). T-014 convention: `defaults.run.shell: bash`, repeated in job defaults. Check every workflow for pipelines and awk without an END/NR==0 guard.
 - Values from repo files or step outputs go through `env:`, not `${{ }}` inside `run:` (T-016 convention). backend-developer slipped on this in T-011.
-- Dart coverage (coverage 1.15.1) counts only loaded libraries. Server gate works because tests import the barrel. Check new lib files are exported or imported.
+- Dart coverage (coverage 1.15.1) counts only loaded libraries. Since T-011 round 2, server/tool/coverage_gate.dart (used by both packages) fails on lib files missing from lcov; exemptions: *.g.dart/*.freezed.dart, `// coverage:ignore-file`, directive-only. test_with_coverage passes --check-ignore, so the marker removes a file from the percentage too. On every ticket: `git diff main...HEAD | grep -n "coverage:ignore"` and question each marker (files with no executable lines, e.g. abstract interfaces, also never appear in lcov).
 - Trial merge of two branches without checkout: `git merge-tree --write-tree --name-only --no-messages A B`.
 - Run logs: `gh run view <id> --log | grep -E "line coverage|transferring context|ok \("`.
 
