@@ -39,7 +39,7 @@ NAME="boardgame-smoke-$$"
 WORK="$(mktemp -d)"
 
 cleanup() {
-  docker rm -f "$NAME" >/dev/null 2>&1 || true
+  docker rm -f "$NAME" "$NAME-noenv" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -98,8 +98,11 @@ docker rm "$NAME" >/dev/null
 echo "ok ($PLATFORM): docker stop exited 0"
 
 # 4. No environment: config error, exit 78.
+# Named so the EXIT trap removes it, and limited to 30 s so a server that
+# wrongly starts without config fails the step instead of hanging the job
+# (timeout then exits 124).
 set +e
-docker run --rm --platform "$PLATFORM" "$IMAGE" >"$WORK/noenv.log" 2>&1
+timeout 30 docker run --rm --name "$NAME-noenv" --platform "$PLATFORM" "$IMAGE" >"$WORK/noenv.log" 2>&1
 noenv_code=$?
 set -e
 [ "$noenv_code" -eq 78 ] || {
