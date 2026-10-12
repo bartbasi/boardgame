@@ -42,6 +42,8 @@ All values come from `deploy/.env` (Compose reads `.env` from the project folder
 
 The three `POSTGRES_*` values only take effect when the `pgdata` volume is empty (https://hub.docker.com/_/postgres). Changing them later does nothing until `down -v`.
 
+CI (`.github/workflows/server.yml`, job `compose config`, T-098) runs `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q` on every change under deploy/ and fails if it exits non-zero, so every required variable must have a placeholder in `deploy/.env.example`. It then removes each variable from a copy of `deploy/.env.example`, one at a time, and requires Compose to stop with "required variable <name> is missing", so every variable in the example must also have a `${VAR:?...}` guard in docker-compose.yml. Run the first command locally before committing a change to either file.
+
 The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database yet; when it does (T-017 onward), its connection settings are added to server/.env.example, `Config.load`, and this file together.
 
 ## Services
