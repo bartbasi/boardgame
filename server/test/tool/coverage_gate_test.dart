@@ -30,15 +30,58 @@ void main() {
   });
 
   group('which lib files must appear in lcov', () {
-    test('generated files are exempt', () {
-      expect(isGenerated('lib/src/x.g.dart'), isTrue);
-      expect(isGenerated('lib/src/x.freezed.dart'), isTrue);
-      expect(isGenerated('lib/src/x.dart'), isFalse);
+    const header = '$generatedHeader\n\npart of \'x.dart\';\nint g() => 1;\n';
+
+    test('generated files need the name and the header (R2-G1)', () {
+      expect(isGenerated('lib/src/x.g.dart', header), isTrue);
+      expect(isGenerated('lib/src/x.freezed.dart', header), isTrue);
+      expect(isGenerated('lib/src/x.dart', header), isFalse);
+      expect(isGenerated('lib/src/x.g.dart', 'int g() => 1;'), isFalse);
+      expect(
+        isGenerated(
+          'lib/src/x.g.dart',
+          '// a\n// b\n// c\n// d\n// e\n$header',
+        ),
+        isFalse,
+        reason: 'the header must be in the first five lines',
+      );
+      expect(
+        isGenerated('lib/src/x.g.dart', header.replaceAll('\n', '\r\n')),
+        isTrue,
+      );
     });
 
     test('a coverage:ignore-file marker is exempt', () {
       expect(hasIgnoreFile('// coverage:ignore-file\nint f() => 1;'), isTrue);
+      expect(hasIgnoreFile('int f() => 1; // coverage:ignore-file'), isTrue);
+      expect(hasIgnoreFile('//coverage:ignore-file \r\nint f() => 1;'), isTrue);
       expect(hasIgnoreFile('int f() => 1;'), isFalse);
+    });
+
+    test('a doc comment that mentions the marker is not exempt (R2-S2)', () {
+      const source = '''
+/// Do not add // coverage:ignore-file here.
+int f() => 1;
+''';
+      expect(hasIgnoreFile(source), isFalse);
+      expect(exemptionReason('lib/f.dart', source), isNull);
+      expect(missingFromLcov({'lib/f.dart': source}, {}), ['lib/f.dart']);
+    });
+
+    test('exemptionReason names the reason for each kind', () {
+      expect(
+        exemptionReason('lib/a.dart', '// coverage:ignore-file\nint a() => 1;'),
+        'coverage:ignore-file marker',
+      );
+      expect(
+        exemptionReason('lib/a.g.dart', header),
+        'generated (GENERATED CODE header)',
+      );
+      expect(
+        exemptionReason('lib/a.dart', "export 'b.dart';"),
+        'imports/exports only',
+      );
+      expect(exemptionReason('lib/a.dart', 'int a() => 1;'), isNull);
     });
 
     test('a barrel with only directives and comments is exempt', () {
@@ -67,13 +110,18 @@ part 'x.g.dart';
           'lib/covered.dart': 'int a() => 1;',
           'lib/untested.dart': 'int b() => 2;',
           'lib/src/z_untested.dart': 'int c() => 3;',
-          'lib/gen.g.dart': 'int d() => 4;',
+          'lib/gen.g.dart': header,
+          'lib/fake.g.dart': 'int d() => 4;',
           'lib/barrel.dart': "export 'covered.dart';",
           'lib/ignored.dart': '// coverage:ignore-file\nint e() => 5;',
         },
         {'lib/covered.dart'},
       );
-      expect(missing, ['lib/src/z_untested.dart', 'lib/untested.dart']);
+      expect(missing, [
+        'lib/fake.g.dart',
+        'lib/src/z_untested.dart',
+        'lib/untested.dart',
+      ]);
     });
   });
 
@@ -126,6 +174,43 @@ part 'x.g.dart';
       write('coverage/lcov.info', lcovFor('lib/a.dart', 10, 10));
       final out = StringBuffer();
       expect(runGate('${dir.path}/./lib/..', 80, out), 0, reason: '$out');
+    });
+
+    test('lists every exempt file with its reason (R2-S1)', () {
+      write('lib/a.dart', 'int a() => 1;');
+      write('lib/pkg.dart', "library;\nexport 'a.dart';\n");
+      write('lib/v.dart', '// coverage:ignore-file\nconst v = 1;\n');
+      write('lib/a.g.dart', '$generatedHeader\npart of \'a.dart\';\n');
+      write('coverage/lcov.info', lcovFor('lib/a.dart', 10, 10));
+      final out = StringBuffer();
+      expect(runGate(dir.path, 80, out), 0, reason: '$out');
+      final text = out.toString();
+      expect(text, contains('exempt from the lcov presence check: 3'));
+      expect(
+        text,
+        contains('  lib/a.g.dart: generated (GENERATED CODE header)'),
+      );
+      expect(text, contains('  lib/pkg.dart: imports/exports only'));
+      expect(text, contains('  lib/v.dart: coverage:ignore-file marker'));
+    });
+
+    test('the step summary shows the failure reason (R2-G2)', () {
+      write('lib/a.dart', 'int a() => 1;');
+      write('lib/b.dart', 'int b() => 2;');
+      write('lib/pkg.dart', "export 'a.dart';\n");
+      write('coverage/lcov.info', lcovFor('lib/a.dart', 10, 10));
+      final out = StringBuffer();
+      expect(runGate(dir.path, 80, out), 1);
+      final summary = stepSummary('server', out.toString());
+      expect(summary, contains('### Coverage gate: server'));
+      expect(summary, contains('line coverage: 10/10 = 100.0%'));
+      expect(
+        summary,
+        contains('FAIL: 1 lib file(s) are not in the coverage report'),
+      );
+      expect(summary, contains('lib/b.dart'));
+      expect(summary, contains('  lib/pkg.dart: imports/exports only'));
+      expect(summary, isNot(contains('::error::')));
     });
 
     test('fails when lcov.info is missing', () {

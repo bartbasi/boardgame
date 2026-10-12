@@ -12,9 +12,12 @@
 //     only libraries the tests loaded, so a file no test imports would
 //     otherwise not count at all (T-011 review R1-S3).
 //
-// Files that may be missing, because they have no executable lines:
-//   - generated files (*.g.dart, *.freezed.dart);
-//   - files marked `// coverage:ignore-file` (the coverage package skips them);
+// Files that may be missing (each run prints them all with the reason, and
+// writes them to the GitHub step summary):
+//   - files marked `// coverage:ignore-file`, matched per line with the
+//     coverage package's own pattern (the package skips them too);
+//   - generated files: named *.g.dart or *.freezed.dart and starting with the
+//     `// GENERATED CODE - DO NOT MODIFY BY HAND` header;
 //   - files with only library, import, export, and part directives (barrels).
 import 'dart:io';
 
@@ -55,13 +58,31 @@ LcovSummary parseLcov(String lcov, String packageRoot) {
   return LcovSummary(found, hit, files);
 }
 
-/// Whether [path] is a generated file that never needs to appear in lcov.
-bool isGenerated(String path) =>
-    path.endsWith('.g.dart') || path.endsWith('.freezed.dart');
+/// The header build_runner (json_serializable, freezed) writes at the top of
+/// every generated file.
+const generatedHeader = '// GENERATED CODE - DO NOT MODIFY BY HAND';
 
-/// Whether [source] opts out of coverage with `// coverage:ignore-file`.
+/// Whether [path] is a generated file: named `*.g.dart` or `*.freezed.dart`
+/// AND carrying [generatedHeader] in its first five lines, so renaming a
+/// hand-written file is not enough (T-011 review R2-G1).
+bool isGenerated(String path, String source) =>
+    (path.endsWith('.g.dart') || path.endsWith('.freezed.dart')) &&
+    source
+        .split('\n')
+        .take(5)
+        .any((line) => line.trim().startsWith(generatedHeader));
+
+/// The per-line pattern the coverage package uses for `coverage:ignore-file`
+/// (coverage 1.15.1, lib/src/util.dart line 65, `final ignoreFile`), applied
+/// the same way: a file is ignored when any line contains a match. The `$`
+/// means the marker must end its line (only letters, digits, and spaces may
+/// follow), so prose that merely mentions the marker does not count.
+final ignoreFilePattern = RegExp(r'//\s*coverage:ignore-file[\w\d\s]*$');
+
+/// Whether [source] opts out of coverage exactly as the coverage package sees
+/// it (T-011 review R2-S2).
 bool hasIgnoreFile(String source) =>
-    RegExp(r'//\s*coverage:ignore-file').hasMatch(source);
+    source.split('\n').any((line) => line.contains(ignoreFilePattern));
 
 /// Whether [source] has nothing but comments and library, import, export,
 /// and part directives, so it has no executable lines.
@@ -76,6 +97,23 @@ bool isDirectiveOnly(String source) {
   return withoutDirectives.trim().isEmpty;
 }
 
+/// Why the file at [path] may be absent from lcov, or null if it must appear.
+String? exemptionReason(String path, String source) {
+  if (hasIgnoreFile(source)) return 'coverage:ignore-file marker';
+  if (isGenerated(path, source)) return 'generated (GENERATED CODE header)';
+  if (isDirectiveOnly(source)) return 'imports/exports only';
+  return null;
+}
+
+/// Every exempt file in [libSources] (relative path to source) with its
+/// reason, sorted by path.
+Map<String, String> exemptions(Map<String, String> libSources) {
+  final paths = libSources.keys.toList()..sort();
+  return {
+    for (final path in paths) path: ?exemptionReason(path, libSources[path]!),
+  };
+}
+
 /// The files in [libSources] (relative path to source) that must appear in
 /// lcov but do not, sorted.
 List<String> missingFromLcov(
@@ -84,10 +122,7 @@ List<String> missingFromLcov(
 ) {
   final missing = <String>[
     for (final MapEntry(key: path, value: source) in libSources.entries)
-      if (!covered.contains(path) &&
-          !isGenerated(path) &&
-          !hasIgnoreFile(source) &&
-          !isDirectiveOnly(source))
+      if (!covered.contains(path) && exemptionReason(path, source) == null)
         path,
   ]..sort();
   return missing;
@@ -119,6 +154,7 @@ int runGate(String packageDir, int minPercent, StringSink out) {
           _relative(entity.path, root): entity.readAsStringSync(),
   };
   final missing = missingFromLcov(libSources, summary.files);
+  final exempt = exemptions(libSources);
 
   final line =
       'line coverage: ${summary.linesHit}/${summary.linesFound} = '
@@ -138,11 +174,33 @@ int runGate(String packageDir, int minPercent, StringSink out) {
     code = 1;
   } else {
     out.writeln(
-      'every lib file with executable lines is in the coverage report '
-      '(${libSources.length} files under lib/)',
+      'every lib file that is not exempt is in the coverage report '
+      '(${libSources.length} files under lib/, ${exempt.length} exempt)',
     );
   }
+  // Exemptions are listed every time so a new one shows up in review
+  // (T-011 review R2-S1).
+  out.writeln('exempt from the lcov presence check: ${exempt.length}');
+  for (final MapEntry(key: path, value: reason) in exempt.entries) {
+    out.writeln('  $path: $reason');
+  }
   return code;
+}
+
+/// Markdown for the GitHub step summary: the whole gate output, with
+/// `::error::` turned into a visible FAIL (T-011 review R2-G2).
+String stepSummary(String packageDir, String output) {
+  final buffer = StringBuffer('### Coverage gate: $packageDir\n\n```\n');
+  for (final line in output.split('\n')) {
+    if (line.isEmpty) continue;
+    buffer.writeln(
+      line.startsWith('::error::')
+          ? 'FAIL: ${line.substring('::error::'.length)}'
+          : line,
+    );
+  }
+  buffer.writeln('```');
+  return buffer.toString();
 }
 
 void main(List<String> args) {
@@ -160,7 +218,7 @@ void main(List<String> args) {
   final summaryPath = Platform.environment['GITHUB_STEP_SUMMARY'];
   if (summaryPath != null && summaryPath.isNotEmpty) {
     File(summaryPath).writeAsStringSync(
-      '- ${args[0]}: ${out.toString().split('\n').first}\n',
+      stepSummary(args[0], out.toString()),
       mode: FileMode.append,
     );
   }
