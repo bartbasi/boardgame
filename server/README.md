@@ -85,9 +85,11 @@ docker run --rm --env-file server/.env -p 127.0.0.1:8080:8080 boardgame-server:l
 ```
 
 - The build stage runs on the build machine's own platform and cross-compiles with `dart compile exe --target-os=linux --target-arch=arm64|x64` (Dart 3.8 and later, https://dart.dev/tools/dart-compile), so building arm64 needs no CPU emulation. Cross-compiling downloads extra Dart SDK binaries during the build, so the build needs network access.
-- `GIT_SHA` is required (7 to 40 lowercase hex characters); the build fails with a clear message without it. The version is `<pubspec version>+<GIT_SHA>`, and the pubspec version must not have its own `+build` part.
-- The image has no shell and no curl, so a container health check cannot run a command inside it. T-010 has to solve that (see docs/handoffs/T-009.md, open questions).
-- Base image: `dart:3.13.5` pinned by its multi-platform index digest in the Dockerfile's `DART_IMAGE` argument. To upgrade, change the tag and digest together (`docker buildx imagetools inspect dart:<version>` prints the digest) and update `IMAGE` in tool/test_linux.sh.
+- `GIT_SHA` is required (7 to 40 lowercase hex characters); the build fails with a clear message without it. The version is `<pubspec version>+<GIT_SHA>`, and the pubspec version must not have its own `+build` part. The script also passes it as `APP_VERSION`, which the build checks against the pubspec and stores in the `org.opencontainers.image.version` label.
+- Uncommitted changes: the script stops if server/ or packages/api_contract/ has uncommitted changes, because the image would carry a commit hash that does not match its code. For a local experiment, run it with `ALLOW_DIRTY=1`; the version then ends in `-dirty` (for example `0.1.0+abc1234-dirty`). Never deploy a `-dirty` image.
+- Health checks: the image has no shell and no curl. T-010 adds a `--healthcheck` mode to the executable (`/app/server --healthcheck`) for the Compose health check (docs/decisions.md, 2026-10-12).
+- Licenses: the image contains glibc (LGPL) and the Mozilla CA bundle (MPL) under a license exception for running on our own VM only. Publishing it to any public registry needs the user's approval (docs/decisions.md, 2026-10-12).
+- Base image: `dart:3.13.5` pinned by its multi-platform index digest in the Dockerfile's `DART_IMAGE` argument. To upgrade, change the tag and digest together (`docker buildx imagetools inspect dart:<version>` prints the digest) and update `IMAGE` in tool/test_linux.sh, which pins the same digest.
 
 ## Checks
 
