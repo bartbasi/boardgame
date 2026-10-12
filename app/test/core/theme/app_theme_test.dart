@@ -17,7 +17,7 @@ void main() {
     });
 
     test('light theme is Material 3 from the seed, light brightness', () {
-      final theme = AppTheme.light();
+      final theme = AppTheme.light;
       expect(theme.useMaterial3, isTrue);
       expect(theme.brightness, Brightness.light);
       expect(
@@ -27,7 +27,7 @@ void main() {
     });
 
     test('dark theme is Material 3 from the same seed, dark brightness', () {
-      final theme = AppTheme.dark();
+      final theme = AppTheme.dark;
       expect(theme.useMaterial3, isTrue);
       expect(theme.brightness, Brightness.dark);
       expect(
@@ -39,9 +39,30 @@ void main() {
       );
     });
 
+    testWidgets('MaterialApp gets the same ThemeData after a rebuild', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      final before = tester.widget<MaterialApp>(find.byType(MaterialApp));
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ScanScreen)),
+      );
+      container
+          .read(themeModeControllerProvider.notifier)
+          .select(ThemeMode.dark);
+      await tester.pumpAndSettle();
+      final after = tester.widget<MaterialApp>(find.byType(MaterialApp));
+
+      expect(identical(before.theme, after.theme), isTrue);
+      expect(identical(before.darkTheme, after.darkTheme), isTrue);
+      expect(identical(after.theme, AppTheme.light), isTrue);
+    });
+
     test('navigation bar always shows labels', () {
       expect(
-        AppTheme.light().navigationBarTheme.labelBehavior,
+        AppTheme.light.navigationBarTheme.labelBehavior,
         NavigationDestinationLabelBehavior.alwaysShow,
       );
     });
@@ -56,7 +77,7 @@ void main() {
 
       final theme = _themeOfScanScreen(tester);
       expect(theme.brightness, Brightness.dark);
-      expect(theme.colorScheme, AppTheme.dark().colorScheme);
+      expect(theme.colorScheme, AppTheme.dark.colorScheme);
     });
 
     testWidgets('light system theme gives the light seeded scheme', (
@@ -67,7 +88,7 @@ void main() {
 
       final theme = _themeOfScanScreen(tester);
       expect(theme.brightness, Brightness.light);
-      expect(theme.colorScheme, AppTheme.light().colorScheme);
+      expect(theme.colorScheme, AppTheme.light.colorScheme);
     });
 
     testWidgets('changing the system theme at runtime switches the scheme', (
@@ -80,10 +101,7 @@ void main() {
       tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
       await tester.pumpAndSettle();
 
-      expect(
-        _themeOfScanScreen(tester).colorScheme,
-        AppTheme.dark().colorScheme,
-      );
+      expect(_themeOfScanScreen(tester).colorScheme, AppTheme.dark.colorScheme);
     });
 
     testWidgets('MaterialApp uses only the seeded themes (no dynamic color)', (
@@ -94,8 +112,8 @@ void main() {
 
       final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
       expect(app.themeMode, ThemeMode.system);
-      expect(app.theme!.colorScheme, AppTheme.light().colorScheme);
-      expect(app.darkTheme!.colorScheme, AppTheme.dark().colorScheme);
+      expect(app.theme!.colorScheme, AppTheme.light.colorScheme);
+      expect(app.darkTheme!.colorScheme, AppTheme.dark.colorScheme);
       expect(app.highContrastTheme, isNull);
       expect(app.highContrastDarkTheme, isNull);
     });

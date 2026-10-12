@@ -9,11 +9,12 @@ abstract final class AppTheme {
   /// Brand seed color: a deep green-teal.
   static const Color seedColor = Color(0xFF1F6B5C);
 
-  /// The light theme.
-  static ThemeData light() => _build(Brightness.light);
+  /// The light theme. Built once and reused, so root rebuilds do not
+  /// regenerate the color scheme.
+  static final ThemeData light = _build(Brightness.light);
 
-  /// The dark theme.
-  static ThemeData dark() => _build(Brightness.dark);
+  /// The dark theme. Built once and reused.
+  static final ThemeData dark = _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
     final colorScheme = ColorScheme.fromSeed(
