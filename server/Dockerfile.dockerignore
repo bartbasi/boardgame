@@ -31,8 +31,10 @@ app
 docs
 # Build output and tool state.
 **/.dart_tool
-**/build
-**/coverage
+server/build
+server/coverage
+packages/api_contract/build
+packages/api_contract/coverage
 **/*.exe
 **/*.dill
 **/*.aot
