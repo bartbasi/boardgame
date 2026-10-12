@@ -361,7 +361,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-016 repo.yml: secret scanning and prose style check
 - Milestone: M1
 - Owner: orchestrator
-- Status: todo
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: .github/workflows/repo.yml, the prose check script (location chosen by the orchestrator)
