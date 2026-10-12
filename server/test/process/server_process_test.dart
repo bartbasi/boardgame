@@ -21,6 +21,57 @@ Future<Process> _startServer(Map<String, String> environment) => Process.start(
 );
 
 void main() {
+  group('bin/server.dart --healthcheck (T-010 AC12)', () {
+    Future<ProcessResult> healthcheck(int port) => Process.run(
+      Platform.resolvedExecutable,
+      ['bin/server.dart', '--healthcheck'],
+      environment: {'PORT': '$port', 'LOG_LEVEL': 'info'},
+    );
+
+    test('exits 0 with no output when /health answers 200', () async {
+      final signals = StreamController<ProcessSignal>();
+      final listening = Completer<HttpServer>();
+      final serverExit = runServer(
+        environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'},
+        shutdownSignals: signals.stream,
+        stdoutLine: (_) {},
+        stderrLine: (_) {},
+        address: InternetAddress.loopbackIPv4,
+        onListening: listening.complete,
+      );
+      final port = (await listening.future).port;
+
+      final result = await healthcheck(port);
+
+      signals.add(ProcessSignal.sigterm);
+      await serverExit;
+      expect(result.exitCode, 0, reason: 'stderr: ${result.stderr}');
+      expect((result.stdout as String).trim(), isEmpty);
+      expect((result.stderr as String).trim(), isEmpty);
+    });
+
+    test('exits 1 with one JSON line when nothing listens', () async {
+      final result = await healthcheck(await freePort());
+
+      expect(result.exitCode, 1);
+      expect((result.stdout as String).trim(), isEmpty);
+      final record =
+          jsonDecode((result.stderr as String).trim()) as Map<String, dynamic>;
+      expect(record['msg'], 'healthcheck failed');
+      expect(record['reason'], 'connection failed');
+    });
+
+    test('an unknown argument exits 64', () async {
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'bin/server.dart',
+        '--bogus',
+      ]);
+
+      expect(result.exitCode, usageErrorExitCode);
+      expect((result.stderr as String), isNot(contains('--bogus')));
+    });
+  });
+
   test('missing PORT: the process exits non-zero before listening and prints '
       'one line naming the variable, not values (T-008 AC4)', () async {
     final result = await Process.run(

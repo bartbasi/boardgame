@@ -2,6 +2,10 @@
 library;
 
 export 'src/app.dart' show buildApp;
+export 'src/cli.dart'
+    show Command, healthcheckFlag, parseCommand, runMain, usageErrorExitCode;
+export 'src/healthcheck.dart'
+    show healthcheckTimeout, healthyExitCode, runHealthcheck, unhealthyExitCode;
 export 'src/config/config.dart' show Config, ConfigException;
 export 'src/http/middleware.dart'
     show loggableMethod, otherMethod, unmatchedRoute;

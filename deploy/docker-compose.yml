@@ -1,0 +1,156 @@
+# Local stack (T-010): Caddy (HTTPS on 80 and 443) -> server -> PostgreSQL.
+#
+# Run it through the wrapper, which sets the server image's build arguments:
+#
+#   cp deploy/.env.example deploy/.env      # then replace the placeholders
+#   sh deploy/compose.sh up -d --wait
+#   curl -k https://localhost/health
+#   sh deploy/compose.sh down               # keeps the volumes (data)
+#
+# deploy/README.md explains every setting below and how each was checked.
+# Production (domain, real certificates, restart policy, backups) is T-071
+# and T-072, not this file's job yet.
+
+name: boardgame
+
+# Docker log rotation for every service: at most 3 files of 10 MB each
+# (docs/decisions.md 2026-10-12, T-008). The json-file driver rotates by size
+# only; deploy/README.md "Logs" covers the 7-day retention target.
+# https://docs.docker.com/engine/logging/drivers/json-file/
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    # PostgreSQL 18.6 on Alpine 3.24, multi-platform index digest (has
+    # linux/amd64 and linux/arm64/v8), checked 2026-10-12 with
+    # `docker buildx imagetools inspect postgres:18.6-alpine3.24`.
+    image: postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+    # Credentials come only from deploy/.env; Compose stops with this message
+    # if one is missing or empty.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/.env (copy deploy/.env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env (copy deploy/.env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in deploy/.env (copy deploy/.env.example)}
+    volumes:
+      # PostgreSQL 18 images keep data in /var/lib/postgresql/18/docker and
+      # declare the volume at /var/lib/postgresql (https://hub.docker.com/_/postgres).
+      - pgdata:/var/lib/postgresql
+    # No published port: only the server reaches PostgreSQL, over the
+    # internal `db` network. Use `sh deploy/compose.sh exec postgres psql ...`.
+    networks: [db]
+    healthcheck:
+      # TCP on 127.0.0.1, not the Unix socket: while the image initializes a
+      # new data directory it runs a temporary server with
+      # listen_addresses='' (docker-entrypoint.sh line 297), which would pass
+      # a socket check too early. Exit 0 means accepting connections
+      # (https://www.postgresql.org/docs/current/app-pg-isready.html).
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "5432", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}", "-t", "3"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 1s
+    shm_size: 128mb
+    # The entrypoint drops root with gosu (setuid syscalls, not a setuid
+    # binary), so no-new-privileges does not get in its way.
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 256m
+    # One process per connection (max_connections defaults to 100) plus
+    # background workers.
+    pids_limit: 200
+    # The image stops with SIGINT (fast shutdown); give it time to finish a
+    # checkpoint before SIGKILL.
+    stop_grace_period: 30s
+    logging: *logging
+
+  server:
+    image: boardgame-server:local
+    # Always build from source on `up`, never pull this name from a registry.
+    pull_policy: build
+    build:
+      # Repo root as context with server/Dockerfile, so
+      # server/Dockerfile.dockerignore decides what is sent (T-009, T-010 AC11).
+      context: ..
+      dockerfile: server/Dockerfile
+      args:
+        # Set by deploy/compose.sh. Empty values make the Dockerfile stop with
+        # a message naming GIT_SHA.
+        GIT_SHA: ${GIT_SHA:-}
+        APP_VERSION: ${APP_VERSION:-}
+    environment:
+      PORT: "8080"
+      LOG_LEVEL: ${LOG_LEVEL:?set LOG_LEVEL in deploy/.env (copy deploy/.env.example)}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # `web` for Caddy (and, later, outbound calls to BGG, eBay, GameUPC);
+    # `db` for PostgreSQL. No published port: only Caddy reaches it.
+    networks: [web, db]
+    # The server writes no files (T-010 AC13), so the root file system is
+    # read-only and no tmpfs is mounted.
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      # In-binary probe: GET http://127.0.0.1:$PORT/health, exit 0 on 200,
+      # 1 otherwise, within 3 s (docs/decisions.md 2026-10-12, T-010 AC12).
+      test: ["CMD", "/app/server", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+      start_interval: 1s
+    mem_limit: 64m
+    # Dart VM threads, plus the health check process while it runs.
+    pids_limit: 100
+    # The server drains in-flight requests for up to 10 s after SIGTERM;
+    # Docker's default of 10 s would SIGKILL it first (T-008).
+    stop_grace_period: 15s
+    logging: *logging
+
+  caddy:
+    # Caddy 2.11.7 on Alpine, multi-platform index digest (has linux/amd64 and
+    # linux/arm64/v8), checked 2026-10-12 with
+    # `docker buildx imagetools inspect caddy:2.11.7-alpine`.
+    image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    # The only published ports, on loopback only so the local stack is not
+    # reachable from the LAN (T-010 review R1-S1). The production binding is
+    # decided in T-071. HTTP/3 (UDP 443) is off in the Caddyfile.
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificates and the local CA (/data) and autosaved config (/config).
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      server:
+        condition: service_started
+    networks: [web]
+    # Caddy writes only to the /data and /config volumes; /tmp is a small
+    # tmpfs in case it needs scratch space.
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 128m
+    pids_limit: 100
+    logging: *logging
+
+networks:
+  web: {}
+  # No route out of this network: PostgreSQL cannot reach the internet.
+  db:
+    internal: true
+
+volumes:
+  pgdata: {}
+  caddy_data: {}
+  caddy_config: {}

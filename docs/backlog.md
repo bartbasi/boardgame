@@ -243,7 +243,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-010 Local Docker Compose with PostgreSQL and Caddy
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: done
 - Depends on: T-009
 - UX spec: n/a
 - Linked files: deploy/ (local Compose file, Caddyfile, .env.example)
@@ -258,7 +258,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
   8. Given the server service, then Compose sets `stop_grace_period: 15s` so the server's 10 s drain finishes before Docker sends SIGKILL, and `docker compose stop` during an idle period shows the server exits 0 with a `shutdown complete` log line (T-008 handoff, proposed decision 6) (proved by: manual).
   9. Given the server service, then Docker log rotation is set to `max-size: 10m` and `max-file: 3`, logs go to stdout only, and the handoff states whether a time-based rule is also needed to meet the 7-day retention target [ASSUMPTION], with the option checked against official Docker docs (T-008 handoff, proposed decision 3) (proved by: manual, read the Compose file and `docker inspect`).
   10. Given Caddy's reverse proxy to the server, then its upstream keep-alive is shorter than the server's 65 s idle timeout, with the Caddy setting confirmed in Caddy's official docs (T-008 handoff, proposed decision 6) (proved by: manual).
-  11. Given the server service's build, then Compose uses the repo root as the build context and `server/Dockerfile` as the Dockerfile, so server/Dockerfile.dockerignore applies; the handoff records the transferred context size from the build log (about 2 kB expected) as proof that no .env or repo files were sent (T-009 review R1-G4) (proved by: manual, read the Compose file and build log).
+  11. Given the server service's build, then Compose uses the repo root as the build context and `server/Dockerfile` as the Dockerfile, so server/Dockerfile.dockerignore applies; the handoff lists the files in the build context (for example with `COPY . /ctx` and the same ignore file) and shows that only the allowlisted server and packages/api_contract sources are sent, with no .env, docs, app, or deploy files. The size is not the test: a fresh builder sends about 90 kB, a warm cache about 2 kB (T-009 review R1-G4, T-010 QA bug T-010-B1) (proved by: manual, read the Compose file and the context file list).
   12. Given the server's health check (AC6), then it runs `/app/server --healthcheck`, a server mode that calls /health on localhost and exits 0 on 200 and 1 otherwise (docs/decisions.md 2026-10-12, no busybox, no shell), with unit or endpoint tests for both exit codes (proved by: unit or endpoint, plus manual `docker inspect` health status).
   13. Given the scratch image has no /tmp, then if the server writes any temporary file, Compose mounts a writable tmpfs for it; otherwise the handoff states that no temp files are used (T-009 review R1-G4) (proved by: manual, read the Compose file and grep server/).
 
@@ -279,7 +279,8 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   5. Given the workflow file, then `permissions` is read-only (`contents: read`) and every third-party action is pinned to a full commit SHA (proved by: manual).
   6. Given the tests, then none needs a secret or network access to BGG, eBay, or GameUPC, and the workflow defines no secrets (proved by: manual).
   7. Given a typical change, then the workflow finishes in 10 minutes or less [ASSUMPTION], with the duration recorded in the handoff (proved by: manual).
-  8. Given the image build, then the cross-compiler binaries that `dart compile exe` downloads for a foreign target and the target-platform dart image are cached between runs, and the run log shows the transferred build context is small (about 2 kB), proving server/Dockerfile.dockerignore applied to the real build (T-009 review R1-G3) (proved by: manual, run log of two consecutive runs).
+  8. Given the image build, then the cross-compiler binaries that `dart compile exe` downloads for a foreign target and the target-platform dart image are cached between runs, and the run log shows that the build context holds only the allowlisted server and packages/api_contract source files (no .env, docs, app, or deploy files), proving server/Dockerfile.dockerignore applied to the real build. The byte count is not the test: a fresh runner sends about 90 kB, a warm cache about 2 kB (T-009 review R1-G3, T-010 QA bug T-010-B1) (proved by: manual, run log of two consecutive runs).
+- Carried from T-010 (add as criteria here if T-011 is not yet merged when T-010 merges, otherwise in a follow-up ticket): CI runs `docker compose -f deploy/docker-compose.yml config -q` with placeholder values from deploy/.env.example and expects exit 0, and runs `/app/server --healthcheck` inside the running amd64 image and expects exit 0 (and exit 1 with no server listening).
   9. Given the built images, then the workflow runs the checks listed in docs/handoffs/T-009.md "What CI (T-011) must verify": (a) the two-platform build from the repo root with `-f server/Dockerfile` and GIT_SHA and APP_VERSION build args succeeds; (b) the amd64 image with PORT and LOG_LEVEL returns 200 on GET /health within 5 s with version `<pubspec version>+<sha>`, and with no env exits 78; (c) the arm64 image passes the same /health smoke test under QEMU or on an arm64 runner; (d) `docker image inspect` shows user `65532:65532` on both platforms and each image is 100 MB or less; (e) a build without GIT_SHA fails (proved by: manual, run log).
   10. Given the image, then nothing is pushed to any registry, public or private, without the user's approval (docs/decisions.md 2026-10-12, glibc and MPL exception) (proved by: manual, read the workflow).
 
@@ -439,6 +440,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given PostgreSQL is reachable, then GET /health returns 200 with database "ok"; given it is down, then GET /health returns 503 with database "unavailable" within 2 s, the server keeps running, and it recovers when the database comes back (proved by: endpoint and integration).
   7. Given server.yml, then CI runs these tests against a PostgreSQL service container, and no test for this ticket mocks the database driver (proved by: manual, workflow and run log).
   8. Given the schema, then no table has a column for a user id, device id, IP address, or user agent (proved by: manual, reviewer and PM read the migrations).
+- Carried from T-010: decide the database collation (for example PostgreSQL's builtin provider, `POSTGRES_INITDB_ARGS="--locale-provider=builtin --builtin-locale=C.UTF-8"`, checked against the official PostgreSQL and image docs) and record it in docs/decisions.md before T-071's first database start, because it only takes effect on an empty volume (docs/decisions.md 2026-10-12). Also re-measure PostgreSQL memory under real queries against the 256 MB limit.
 
 ### T-020 Server: per-IP rate limiting on /v1
 - Milestone: M2
@@ -1032,6 +1034,14 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Status: todo
 - Goal: A written, reviewed runbook and production Compose and Caddy config for an Ampere A1 VM (linux/arm64) within 2 OCPUs and 12 GB in total (OCI-02), created in the home region (OCI-05), and sized or upgraded per PRD Q20 so Oracle does not reclaim it as idle (OCI-07). Running it needs the user's approval.
 - Carried from T-009: the first step on the real VM is `docker run` of the arm64 image plus `curl /health`, before any other setup, because the arm64 binary has only run under QEMU with 4 KB pages. Record the VM kernel's memory page size (`getconf PAGESIZE`). Whether the Oracle Ampere A1 images use 4 KB or 64 KB pages, and whether the Dart AOT runtime supports 64 KB pages, is [UNVERIFIED] and not yet in docs/api-research.md.
+- Carried from T-010 (docs/handoffs/T-010.md review R1-S1, R1-G4, R1-G6, R1-G7, and the log retention note), each checked against official Docker, Caddy, PostgreSQL, or systemd docs:
+  - Publish Caddy's 80 and 443 on public interfaces only in the VM's production Compose; the local file stays on 127.0.0.1.
+  - Set `memswap_limit` equal to `mem_limit` for every service, and re-measure PostgreSQL against its 256 MB limit (default 128 MB shared_buffers) with real queries.
+  - Pass the database password with `POSTGRES_PASSWORD_FILE` and a Compose secret, so it does not show in `docker inspect`.
+  - Caddy: remove the `Server` response header, set a `request_body` size limit, and set explicit server timeouts.
+  - Log retention: Docker's journald driver with journald `MaxRetentionSec=7day` and `MaxFileSec=1day` (docs/decisions.md 2026-10-12).
+  - Apply the database collation decided in T-019 before the first database start on the VM.
+  - The arm64 page size check above (`getconf PAGESIZE`) also applies to the postgres and caddy images.
 
 ### T-072 Deploy: daily backups and tested restore
 - Milestone: M5

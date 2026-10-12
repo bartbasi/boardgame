@@ -2,4 +2,5 @@
 - [Docker and Dart AOT notes](docker_dart_aot_notes.md) — T-009 cross-compile multi-arch pattern, sizes/RSS, scoped Docker cleanup, guard quirks
 - [api_contract codegen](api-contract-codegen.md): freezed 4 + json_serializable checked mode, committed generated files, unknown enum values, coverage
 - [Server skeleton patterns](server-skeleton-patterns.md): T-008 shutdown drain via connectionsInfo, route template slot, Linux test script, signals
+- [Compose stack notes](compose-stack-notes.md): T-010 pinned images, PG18 volume path, pg_isready TCP, Caddy keepalive, log retention gap, memory
 - [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path
