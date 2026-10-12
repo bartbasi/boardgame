@@ -2,7 +2,7 @@
 
 `tool/license-check.mjs` (run by repo.yml) checks the license of every Dart and Flutter package in every tracked `pubspec.lock`. This list covers what that check cannot see: container images, SDKs, native libraries pulled in by plugins, bundled fonts, and CI tools. Update it in the same commit that adds or changes such a component.
 
-Status values: **allowed** (MIT, BSD, or Apache 2.0), **approved** (the user approved an exception, see the decision), **pending** (needs the user's approval before it ships).
+Status values: **allowed** (MIT, BSD, or Apache 2.0), **approved** (the user approved an exception, see the decision), **pending** (needs the user's approval before it ships), **CI only** (runs inside CI or on a developer machine, is never shipped or deployed, and is not a dependency of the app or server).
 
 Repository license fields below were read with `gh api repos/<owner>/<repo>` on 2026-10-12, unless another source is named.
 
@@ -32,5 +32,5 @@ Repository license fields below were read with `gh api repos/<owner>/<repo>` on 
 | Node.js on GitHub runners | repo.yml prose and license checks | MIT [ASSUMPTION: preinstalled runner tool, not pinned] | allowed |
 | GitHub Actions: actions/checkout, actions/cache, actions/upload-artifact, actions/setup-java, dart-lang/setup-dart, docker/setup-buildx-action, docker/build-push-action, docker/setup-qemu-action | workflows, pinned by SHA | MIT, BSD-3-Clause, or Apache-2.0 as recorded in docs/handoffs/T-011.md and T-014.md | allowed |
 | BuildKit image (moby/buildkit v0.34.0, pinned by digest) | server.yml image builds | Apache-2.0 (moby/buildkit) | allowed |
-| QEMU binfmt image (tonistiigi/binfmt, pinned by digest) | server.yml arm64 checks | MIT for the repository (tonistiigi/binfmt); the QEMU binaries inside are GPL-2.0. Used only inside CI runners. | allowed for CI use; not shipped |
-| Android SDK, emulator, and system images | local development only | Android Software Development Kit License Agreement | not shipped; local tool |
+| QEMU binfmt image (tonistiigi/binfmt, pinned by digest) | server.yml arm64 checks | MIT for the repository (tonistiigi/binfmt); the QEMU binaries inside are GPL-2.0. Used only inside CI runners. | CI only |
+| Android SDK, emulator, and system images | local development only | Android Software Development Kit License Agreement | CI only (local development) |

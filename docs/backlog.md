@@ -399,7 +399,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-017 repo.yml: dependency license check
 - Milestone: M1
 - Owner: orchestrator
-- Status: todo
+- Status: done
 - Depends on: T-004, T-007, T-008, T-012
 - UX spec: n/a
 - Linked files: .github/workflows/repo.yml, license allowlist and third-party components list (locations chosen by the orchestrator)
