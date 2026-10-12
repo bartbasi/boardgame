@@ -2,3 +2,7 @@
 - Docker check from Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo" -w /repo/packages/api_contract dart:stable sh -c '...'`.
 - api_contract decoding: json_serializable checked mode; null/missing required -> CheckedFromJsonException with key; unknown enum -> ErrorCode.unknown.
 - Git Bash /tmp is not visible to Windows python; do file edits with bash tools.
+- Commands (server): PATH=/c/dev/flutter/bin/cache/dart-sdk/bin; in server/: `dart analyze`, `dart format --output=none --set-exit-if-changed .`, `dart test`, `dart run coverage:test_with_coverage` (lcov at coverage/lcov.info). Linux: `sh server/tool/test_linux.sh` from repo root.
+- Server test harness: server/test/support/harness.dart (TestApp, LogCapture, freePort); runServer takes an injected signal stream, so shutdown tests run in-process on real sockets.
+- Docker Desktop's WSL engine can fail to start (seen 2026-10-12); report the Linux run as NOT RUN, never claim it.
+- Bash tool: big heredocs with quotes can hang or fail to parse; use the Write tool for test files. Never put a bare `python3 -` in a command (waits on stdin).
