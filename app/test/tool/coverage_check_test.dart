@@ -146,13 +146,125 @@ void main() {
       expect(missing, ['lib/core/b.dart', 'lib/features/x/domain/repo.dart']);
       expect(
         formatReport(result, missing),
-        contains('warning: no test loads lib/core/b.dart'),
+        contains('no executable lines: lib/core/b.dart'),
       );
     });
 
     test('returns nothing when the folder is missing', () {
       final result = checkCoverage('');
       expect(unloadedFiles(Directory('${temp.path}/nope'), result), isEmpty);
+    });
+  });
+
+  group('round 2: strict gate', () {
+    late Directory temp;
+
+    setUp(() => temp = Directory.systemTemp.createTempSync('coverage_strict'));
+    tearDown(() => temp.deleteSync(recursive: true));
+
+    void writeFiles(List<String> paths) {
+      File('${temp.path}/pubspec.yaml').writeAsStringSync('name: demo_app\n');
+      for (final path in paths) {
+        File('${temp.path}/$path').createSync(recursive: true);
+      }
+    }
+
+    test('normalizePath cuts at the first /lib/ (T-014-B1)', () {
+      expect(
+        normalizePath('/home/runner/app/lib/features/x/data/lib/y.dart'),
+        'lib/features/x/data/lib/y.dart',
+      );
+    });
+
+    test('a file in scope with executable lines but no hits fails', () {
+      final result = checkCoverage(
+        _record('lib/core/a.dart', {for (var i = 1; i <= 20; i++) i: 1}) +
+            _record('lib/features/x/data/untested.dart', {1: 0, 2: 0}),
+      );
+      expect(result.percent, closeTo(90.9, 0.1));
+      expect(result.untested, ['lib/features/x/data/untested.dart']);
+      expect(result.passed, isFalse);
+      final report = formatReport(result, const []);
+      expect(
+        report,
+        contains(
+          'FAIL: no test runs any line of '
+          'lib/features/x/data/untested.dart',
+        ),
+      );
+      expect(report, contains('1 untested file(s)'));
+    });
+
+    test('a file with no executable lines missing from lcov passes', () {
+      // An interface-only file is absent from lcov.info even when the
+      // imports test loads it (checked with a probe file, T-014 round 1).
+      writeFiles(['lib/core/a.dart', 'lib/features/x/domain/repo.dart']);
+      final result = checkCoverage(_record('lib/core/a.dart', {1: 1}));
+      final unloaded = unloadedFiles(Directory('${temp.path}/lib'), result);
+      expect(unloaded, ['lib/features/x/domain/repo.dart']);
+      expect(result.passed, isTrue);
+      expect(
+        formatReport(result, unloaded),
+        contains('no executable lines: lib/features/x/domain/repo.dart'),
+      );
+    });
+
+    test('filesInScope ignores folders above lib, even ones named lib', () {
+      final nested = Directory('${temp.path}/lib/app')
+        ..createSync(recursive: true);
+      File('${nested.path}/lib/core/a.dart').createSync(recursive: true);
+      File('${nested.path}/lib/features/x/presentation/s.dart')
+          .createSync(recursive: true);
+      expect(filesInScope(Directory('${nested.path}/lib')), [
+        'lib/core/a.dart',
+      ]);
+    });
+
+    test('packageName reads the pubspec name', () {
+      expect(
+        packageName('# c\nname: board_game_collector\n'),
+        'board_game_collector',
+      );
+      expect(packageName('description: x\n'), isNull);
+    });
+
+    test('importsTestSource imports every file and has one test', () {
+      final source = importsTestSource('demo_app', [
+        'lib/core/a.dart',
+        'lib/features/x/data/b.dart',
+      ]);
+      expect(source, contains("import 'package:demo_app/core/a.dart';"));
+      expect(
+        source,
+        contains("import 'package:demo_app/features/x/data/b.dart';"),
+      );
+      expect(source, contains('// ignore_for_file: unused_import'));
+      expect(source, contains("test('every file in the coverage gate loads'"));
+      expect(sameSource(source.replaceAll('\n', '\r\n'), source), isTrue);
+    });
+
+    test('syncImportsTest fails when a new file in scope is not imported', () {
+      writeFiles(['lib/core/a.dart']);
+      expect(syncImportsTest(write: false, root: temp.path), contains('FAIL'));
+      expect(syncImportsTest(write: true, root: temp.path), isNull);
+      expect(syncImportsTest(write: false, root: temp.path), isNull);
+      File('${temp.path}/lib/features/x/data/new.dart')
+          .createSync(recursive: true);
+      expect(
+        syncImportsTest(write: false, root: temp.path),
+        contains('--write-imports'),
+      );
+    });
+
+    test('syncImportsTest reports a missing package name', () {
+      expect(
+        syncImportsTest(write: false, root: temp.path),
+        contains('No package name'),
+      );
+    });
+
+    test('the committed imports test is up to date', () {
+      expect(syncImportsTest(write: false), isNull);
     });
   });
 }
