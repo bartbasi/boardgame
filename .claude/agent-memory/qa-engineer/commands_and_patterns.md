@@ -35,3 +35,8 @@ Docker (from T-009):
 - Dockerfile QA: `sh server/tool/docker_build.sh --platform linux/arm64,linux/amd64 --load -t <tag>` works (containerd store, arm64 cross-compiled, no QEMU to build). Run arm64 with `--platform linux/arm64` (QEMU). Use `MSYS_NO_PATHCONV=1`.
 - Host C: can be at 100% full while Docker's own disk has space; builds still worked. Cleanup: `docker image rm`, `docker image rm --force --platform linux/arm64 dart:3.13.5`, then prune cache records by id (`docker buildx du --verbose`, filter by Created at; ~60 MB shared records stay).
 - Build context check: throwaway `Ctx.Dockerfile` + copy named `Ctx.Dockerfile.dockerignore` in scratchpad, `-f` it with repo root context, `find /ctx`.
+
+CI workflow QA (from T-011):
+- Verify runs with `gh run view <id> -R bartbasi/boardgame --json jobs --jq ...` and `--log | grep`. Step names show as UNKNOWN STEP in log output; use --json jobs for per-step conclusions.
+- Verify action SHAs: `gh api repos/<owner>/<repo>/git/matching-refs/tags/v --paginate --jq '.[]|select(.object.sha=="<sha>")|.ref'`.
+- Build context size differs warm (1.84kB) vs fresh builder (86.86kB); judge by the fresh number.
