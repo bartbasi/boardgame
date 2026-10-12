@@ -25,19 +25,21 @@ class RouteSlot {
   }
 }
 
-/// Registers routes on a shelf_router [Router] under a fixed [prefix] and
-/// records each route's template for logging.
+/// Registers routes on a shelf_router [Router] and records each route's
+/// template for logging.
 ///
 /// Handlers take only the [Request]; read path parameters with
 /// `request.params['name']` (shelf_router's extension).
 class Routes {
-  /// Creates a registrar that adds routes under [prefix] (for example `/v1`).
-  Routes(this._router, {this.prefix = ''});
+  /// Creates a registrar for [_router], which is mounted at [mountPath]
+  /// (for example `/v1`; empty for the root router).
+  Routes(this._router, {this.mountPath = ''});
 
   final Router _router;
 
-  /// Path prefix for every route, for example `/v1`. Empty for the root.
-  final String prefix;
+  /// Where the router is mounted, for example `/v1`. Routes are registered
+  /// relative to it; the logged template includes it.
+  final String mountPath;
 
   static final _param = RegExp(r'<([A-Za-z_][A-Za-z0-9_]*)(\|[^>]*)?>');
 
@@ -51,9 +53,8 @@ class Routes {
 
   /// Adds a route for [verb].
   void add(String verb, String path, Handler handler) {
-    final fullPath = '$prefix$path';
-    final template = templateOf(fullPath);
-    _router.add(verb, fullPath, (Request request) {
+    final template = templateOf('$mountPath$path');
+    _router.add(verb, path, (Request request) {
       RouteSlot.of(request)?.template = template;
       return handler(request);
     });
