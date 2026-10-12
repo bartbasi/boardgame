@@ -47,6 +47,9 @@ Conventions confirmed, app (T-012):
 - Domain purity enforced by app/test/architecture/domain_purity.dart (allowlist; adding a package is a reviewed change).
 - Strings test maps copy.md dotted keys to camelCase arb keys; `dev*` keys are skeleton-only.
 
+Docker (T-009, 2026-10-12): server image is scratch + dart /runtime/, cross-compiled via --platform=$BUILDPLATFORM; ignore rules in server/Dockerfile.dockerignore (applies only when -f server/Dockerfile with repo-root context: check T-010 Compose build block). License exception (glibc/MPL) holds only while the image is never pushed to a public registry: check T-011 for push steps. Scratch has no /tmp. Reviewed without docker builds (C: nearly full); rely on dev+QA runtime evidence.
+- backend-developer (T-009): handoff open questions get decided on main but README keeps pointing at the handoff; check docs for stale "open question" pointers after decisions land.
+
 Forward items to check in later tickets: INTERNET permission in main AndroidManifest (T-013), release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
