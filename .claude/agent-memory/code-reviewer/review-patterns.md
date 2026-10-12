@@ -67,6 +67,8 @@ CI workflows (T-011 server.yml, T-014 app.yml, T-016 repo.yml; 2026-10-12):
 - Trial merge of two branches without checkout: `git merge-tree --write-tree --name-only --no-messages A B`.
 - Run logs: `gh run view <id> --log | grep -E "line coverage|transferring context|ok \("`.
 - App gate (T-014, app/tool/coverage_check.dart): generated imports test loads every in-scope file; files absent from lcov are inferred "no executable lines". flutter test --coverage ALSO honors coverage:ignore-file (flutter_tools coverage_collector checkIgnoredLines: true; coverage hitmap.dart:225 skips the file), so absence != no lines. flutter-developer (T-014) exempted generated files by name only; server gate needs name + GENERATED CODE header. Check both gates stay aligned (exemptions listed with reason, ::error::, step summary).
+- T-014 round 3 (approved): app gate copies server's isGenerated/ignoreFilePattern; ignore-file FAILS in domain/data unless in ignoreFileAllowlist, exempt+listed in lib/core. Open: verdict line says "FAIL: 100.0%" when only a rule fails (R3-S1); 0/0 files via ignore-start/end pass in domain/data (R3-G1). Recheck when domain/data code lands.
+- Gate tools: any report line starting with FAIL becomes an ::error:: annotation, so check that every FAIL line is a real reason.
 - Pin check: `gh api repos/<r>/git/ref/tags/<tag> --jq '.object.type+" "+.object.sha'` (type must be commit, else follow the tag object).
 
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
