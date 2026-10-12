@@ -1,4 +1,5 @@
 - [Backend framework choice](backend_framework_choice.md) — T-005 proposed shelf + shelf_router over dart_frog; confirmed by the user 2026-10-12; switch triggers
 - [Docker and Dart AOT notes](docker_dart_aot_notes.md) — measured ~8 MB idle RSS, scratch image RSS trick, Windows/worktree-guard tooling quirks
 - [api_contract codegen](api-contract-codegen.md): freezed 4 + json_serializable checked mode, committed generated files, unknown enum values, coverage
+- [Server skeleton patterns](server-skeleton-patterns.md): T-008 shutdown drain via connectionsInfo, route template slot, Linux test script, signals
 - [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path

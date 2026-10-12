@@ -16,8 +16,12 @@ Server conventions confirmed (T-008):
 - Order: requestLog > errorBoundary > root router > /v1 mount behind buildApp(v1Middleware). Guards go in v1Middleware.
 - Logger.error uses describeError; it does NOT redact URL paths or ArgumentError values (R2-S1 carry-over). Check this on T-020, T-066, and the first /v1 data endpoint.
 - Compose must set stop_grace_period 15s (T-010 check); Caddy upstream keep-alive < 65 s.
+- backend-developer (T-008): privacy tests drive the handler in-process only; shelf_io's own error printer (stderr, plain text, includes path?query) is reachable via bad X-Forwarded-Host/Proto because dart:io builds requestedUri with Uri.parse. Check real-socket paths and anything that escapes the pipeline.
+- backend-developer (T-008): errorBoundary logs error.toString(); watch later tickets for FormatException/dio text carrying input, queries, or keys.
+- Forward: T-010 must set Compose stop_grace_period above the 10 s drain (docker default SIGKILL at 10 s). T-066/T-020: /v1 middleware must also cover unmatched /v1 paths.
 
 Conventions confirmed in review:
+- server (T-008): shelf + shelf_router; pipeline requestLog (outer) > errorBoundary > router; Routes registrar records route templates; config exit 78, bind exit 1; server reads only Platform.environment (bin/server.dart).
 - api_contract generated *.freezed.dart / *.g.dart are committed; root analysis_options excludes them, so analyze says nothing about generated code.
 - Decoding errors surface as CheckedFromJsonException (json_serializable `checked: true`), re-exported by api_contract.
 - QA commits may also touch docs/handoffs and QA memory, not only test paths; that is accepted.
@@ -29,6 +33,8 @@ Commands:
 - Ownership: `for c in $(git log --format=%h main..HEAD); do git show --stat --format= $c; done`
 - `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list. Sum: awk -F: '/^LF:/{lf+=$2} /^LH:/{lh+=$2} END{print lh"/"lf}' coverage/lcov.info (SF paths contain C:, so do not split SF on ':').
 - shelf source to verify adapter behavior: "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev/shelf-1.4.2/lib/shelf_io.dart".
+- Server Linux run: `sh server/tool/test_linux.sh` from repo root (Docker, read-only mount). Library source to check: dart-sdk lib/_http/http_impl.dart, pub cache shelf-*/lib/shelf_io.dart.
+- `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list.
 
 Recurring problems, app (first seen T-012, 2026-10-12):
 - flutter-developer: tests guard rules with line-by-line regexes (strings_test hard-coded check) that miss dart-format-wrapped code. Check multi-line forms.
