@@ -66,6 +66,8 @@ CI workflows (T-011 server.yml, T-014 app.yml, T-016 repo.yml; 2026-10-12):
 - Dart coverage (coverage 1.15.1) counts only loaded libraries. Since T-011 round 2, server/tool/coverage_gate.dart (used by both packages) fails on lib files missing from lcov; exemptions: *.g.dart/*.freezed.dart, `// coverage:ignore-file`, directive-only. test_with_coverage passes --check-ignore, so the marker removes a file from the percentage too. On every ticket: `git diff main...HEAD | grep -n "coverage:ignore"` and question each marker (files with no executable lines, e.g. abstract interfaces, also never appear in lcov).
 - Trial merge of two branches without checkout: `git merge-tree --write-tree --name-only --no-messages A B`.
 - Run logs: `gh run view <id> --log | grep -E "line coverage|transferring context|ok \("`.
+- App gate (T-014, app/tool/coverage_check.dart): generated imports test loads every in-scope file; files absent from lcov are inferred "no executable lines". flutter test --coverage ALSO honors coverage:ignore-file (flutter_tools coverage_collector checkIgnoredLines: true; coverage hitmap.dart:225 skips the file), so absence != no lines. flutter-developer (T-014) exempted generated files by name only; server gate needs name + GENERATED CODE header. Check both gates stay aligned (exemptions listed with reason, ::error::, step summary).
+- Pin check: `gh api repos/<r>/git/ref/tags/<tag> --jq '.object.type+" "+.object.sha'` (type must be commit, else follow the tag object).
 
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
