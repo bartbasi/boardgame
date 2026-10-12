@@ -15,6 +15,8 @@ Patterns set up in the first backlog (T-001, 2026-10-11):
 - Work only the user can do (partner applications, accounts, emails) is a backlog ticket with owner "user" in a "User tasks" section, with a manual "answer recorded by PM" criterion.
 - When adding ids in a later round, never renumber. Append new Q and T ids and cross-reference duplicates (for example "Q4 (U9, T-003 OQ4)").
 - Answered questions move to an "Answered" list in PRD section 12 with the date and the same id. If a decision answers only part of a question, split it and keep the open part under a suffixed id (for example Q10b). Never drop an open part silently.
+- Review items carried to later tickets: a "- Carried forward from T-xxx ..." bullet after the criteria when it is a constraint or conditional (stubs, server status rules); a new appended numbered criterion only when it is a concrete testable change (T-013 R1-G4 became T-028 AC7).
+- At sign-off, manual device evidence from an earlier round still counts if later rounds did not touch what it proves; say so in the verdict line.
 - When a confirmed [ASSUMPTION] loses its marker, cite the docs/decisions.md entry in its place.
 
 Lesson from round 2 (2026-10-11): the PRD's 48-hour stale threshold was a PM guess, and UX built it into copy and specs before research showed eBay limits listings to 6 hours (EBAY-20). Mark numbers that depend on partner terms as "pending research", and check the research before UX specs rely on them.
