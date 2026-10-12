@@ -17,6 +17,8 @@ T-010 (2026-10-12) built deploy/ with postgres:18.6-alpine3.24 and caddy:2.11.7-
 - json-file logging has no time-based retention; 7-day target needs journald MaxRetentionSec (open question to user, T-071).
 - Measured idle (amd64, docker stats): postgres ~26 MiB, caddy ~12 MiB, server ~4.4 MiB (cgroup), total ~43 MiB. pgdata ~66 MB fresh.
 - Official postgres/caddy images contain GPL OS packages (busybox, bash...); approval asked as open question in T-010 handoff.
+- Dart HttpClient honors HTTP_PROXY from Platform.environment with no loopback bypass (proved in T-010 round 2: removing `findProxy = DIRECT` made a real-process test fail). Proxy tests must set env on Process.run, not pass a map to our code.
+- Round 2 (reviewer asks): local Caddy ports bound to 127.0.0.1; cold build context is ~92 kB, warm ~2 kB; Caddy runs read_only with tmpfs /tmp; start_interval needs Engine 25.0+.
 - `docker compose stop server` idle: exit 0 with `shutdown complete` (stop_grace_period 15s).
 
 Related: [[docker-dart-aot-notes]], [[server-skeleton-patterns]], [[worktree-shell-limits]]
