@@ -47,19 +47,27 @@ void main() {
     expect(report.split('\n').where((l) => l.startsWith('FAIL')), hasLength(1));
   });
 
-  test('a range in a presentation file with no lcov entry is not a rule', () {
-    final out = evaluateGate(_lcov, {
+  // Rewritten by flutter-developer in T-099 round 2 (review R1-S2): the
+  // presentation version could never fail, because presentation files are
+  // never in scope. A lib/core file is in scope, so this fails if the rule
+  // stops being limited to domain and data.
+  test('a lib/core file fully covered by a range (0/0) is not a rule', () {
+    const path = 'lib/core/r.dart';
+    final out = evaluateGate('${_lcov}SF:$path\nend_of_record\n', {
       ...base,
-      'lib/features/x/presentation/p.dart': _range,
+      path: _range,
     }, allowlist: const {});
     expect(out.errors, isEmpty);
+    expect(out.passed, isTrue);
+    expect(out.markers, {path: 2});
+    expect(out.report, contains('2 marker line(s): $path'));
   });
 
   test('a part file with a BOM and a leading doc comment is detected', () {
     expect(
       partOwner(
         'lib/core/o_part.dart',
-        "﻿/// doc\n// c\n/* b */ part of 'o.dart';",
+        "\uFEFF/// doc\n// c\n/* b */ part of 'o.dart';",
       ),
       'lib/core/o.dart',
     );
