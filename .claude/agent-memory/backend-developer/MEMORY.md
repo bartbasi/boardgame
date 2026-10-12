@@ -1,0 +1,2 @@
+- [api_contract codegen](api-contract-codegen.md): freezed 4 + json_serializable checked mode, committed generated files, unknown enum values, coverage
+- [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path
