@@ -14,7 +14,7 @@
 #
 # Checks, in order:
 #   1. The image architecture matches PLATFORM, the user is 65532:65532, and
-#      the unpacked image is 100 MB or less.
+#      the unpacked file system (`docker export` size) is 100 MB or less.
 #   2. With PORT and LOG_LEVEL set, GET /health returns 200 with status "ok"
 #      and EXPECTED_VERSION within 5 seconds of `docker run`.
 #   3. `docker exec <container> /app/server --healthcheck` exits 0 while the
@@ -42,7 +42,7 @@ NAME="boardgame-smoke-$$"
 WORK="$(mktemp -d)"
 
 cleanup() {
-  docker rm -f "$NAME" "$NAME-noenv" >/dev/null 2>&1 || true
+  docker rm -f "$NAME" "$NAME-noenv" "$NAME-fs" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -61,9 +61,22 @@ arch="$(docker image inspect -f '{{.Os}}/{{.Architecture}}' "$IMAGE")"
 [ "$arch" = "$PLATFORM" ] || fail "image platform is $arch"
 user="$(docker image inspect -f '{{.Config.User}}' "$IMAGE")"
 [ "$user" = "65532:65532" ] || fail "image user is '$user', want 65532:65532"
-size="$(docker image inspect -f '{{.Size}}' "$IMAGE")"
-[ "$size" -le "$MAX_BYTES" ] || fail "image size is $size bytes, limit $MAX_BYTES"
-echo "ok ($PLATFORM): platform $arch, user $user, size $size bytes (limit $MAX_BYTES)"
+# The limit applies to the unpacked file system, measured as the size of
+# `docker export` of a created (never started) container: a tar of every
+# file, so it means the same on every Docker image store. `docker image
+# inspect` .Size does not: the classic overlay2 store reports the unpacked
+# size, the containerd image store (the default on Ubuntu 26.04 runners,
+# Docker 29) reports the compressed content size, about half (T-098 AC3).
+# It is printed for the record only.
+store_size="$(docker image inspect -f '{{.Size}}' "$IMAGE")"
+docker create --name "$NAME-fs" --platform "$PLATFORM" "$IMAGE" >/dev/null
+docker export -o "$WORK/rootfs.tar" "$NAME-fs"
+docker rm "$NAME-fs" >/dev/null
+unpacked="$(wc -c <"$WORK/rootfs.tar" | tr -d '[:space:]')"
+rm -f "$WORK/rootfs.tar"
+[ "$unpacked" -le "$MAX_BYTES" ] ||
+  fail "unpacked file system is $unpacked bytes, limit $MAX_BYTES"
+echo "ok ($PLATFORM): platform $arch, user $user, unpacked file system $unpacked bytes (limit $MAX_BYTES); docker image inspect .Size $store_size bytes"
 
 # 2. GET /health within 5 s.
 start="$(now_ms)"
