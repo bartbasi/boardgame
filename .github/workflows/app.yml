@@ -9,8 +9,10 @@
 # only here, by a manual run with update_goldens set, which runs nothing but
 # the goldens-update job and uploads the PNGs as the "goldens" artifact:
 #   gh workflow run app.yml --ref <branch> -f update_goldens=true
+#   rm -f app/test/goldens/*.png
 #   gh run download <run-id> --name goldens --dir app/test/goldens
-# then commit the PNGs.
+# then commit the PNGs (gh run download refuses to overwrite files, and the
+# delete also drops PNGs of removed cases).
 name: app
 
 on:
@@ -280,7 +282,8 @@ jobs:
       - name: Render goldens
         run: flutter test --update-goldens test/goldens
 
-      # The artifact keeps paths relative to app/test/goldens/, so
+      # The artifact keeps paths relative to app/test/goldens/, so after
+      # `rm -f app/test/goldens/*.png`,
       # `gh run download <id> --name goldens --dir app/test/goldens` puts the
       # PNGs back in place.
       - name: Upload goldens
