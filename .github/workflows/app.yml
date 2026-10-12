@@ -185,6 +185,8 @@ jobs:
     # Only pushes to main and manual runs; never other branches or pull
     # requests (docs/decisions.md 2026-10-11).
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    # Wait for the Linux checks so a red run spends no macOS minutes.
+    needs: [checks, codegen]
     runs-on: macos-26
     timeout-minutes: 45
     defaults:

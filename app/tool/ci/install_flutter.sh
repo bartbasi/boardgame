@@ -25,7 +25,7 @@ case "$(uname -m)" in
   *) echo "Unsupported CPU: $(uname -m)" >&2; exit 1 ;;
 esac
 
-index="$(curl -sSfL --retry 3 "$base/releases_${os}.json")"
+index="$(curl --proto '=https' -sSfL --retry 3 "$base/releases_${os}.json")"
 entry="$(echo "$index" | jq -c --arg v "$version" --arg a "$arch" \
   '[.releases[] | select(.version == $v and .channel == "stable" and .dart_sdk_arch == $a)] | first // empty')"
 if [ -z "$entry" ]; then
@@ -38,7 +38,7 @@ file="$dest/$(basename "$archive")"
 
 echo "Downloading $base/$archive"
 mkdir -p "$dest"
-curl -sSfL --retry 3 -o "$file" "$base/$archive"
+curl --proto '=https' -sSfL --retry 3 -o "$file" "$base/$archive"
 if command -v sha256sum > /dev/null; then
   echo "$sha256  $file" | sha256sum -c -
 else
