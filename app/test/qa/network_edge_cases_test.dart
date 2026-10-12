@@ -155,7 +155,7 @@ void main() {
       }
     });
     test('the maximum random value (just under 1) stays under the cap', () {
-      const policy = const RetryPolicy();
+      const policy = RetryPolicy();
       final r = FixedRandom(0.9999999999999999);
       for (var n = 1; n <= 6; n++) {
         expect(policy.backoff(n, r), lessThan(policy.maxBackoff));
