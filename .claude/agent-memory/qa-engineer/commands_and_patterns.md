@@ -44,3 +44,8 @@ CI workflow QA (from T-014):
 - Verify runs with `gh run view <id> --repo bartbasi/boardgame --json jobs --jq ...` and `--log > file`; confirm action tags with `gh api repos/<r>/git/ref/tags/<tag>`.
 - In flutter_test, `Platform.resolvedExecutable` is flutter_tester, not dart: spawning it with `run` hangs forever (kill with `taskkill //F //IM flutter_tester.exe`). Use `Process.runSync('dart', ..., runInShell: true)` on Windows.
 - `flutter test` has no `-n`; use `--plain-name`. Job-level `defaults.run` replaces workflow-level, losing `shell: bash` (pipefail); check every job.
+
+CI workflow QA (from T-011):
+- Verify runs with `gh run view <id> -R bartbasi/boardgame --json jobs --jq ...` and `--log | grep`. Step names show as UNKNOWN STEP in log output; use --json jobs for per-step conclusions.
+- Verify action SHAs: `gh api repos/<owner>/<repo>/git/matching-refs/tags/v --paginate --jq '.[]|select(.object.sha=="<sha>")|.ref'`.
+- Build context size differs warm (1.84kB) vs fresh builder (86.86kB); judge by the fresh number.

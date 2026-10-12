@@ -3,4 +3,5 @@
 - [api_contract codegen](api-contract-codegen.md): freezed 4 + json_serializable checked mode, committed generated files, unknown enum values, coverage
 - [Server skeleton patterns](server-skeleton-patterns.md): T-008 shutdown drain via connectionsInfo, route template slot, Linux test script, signals
 - [Compose stack notes](compose-stack-notes.md): T-010 pinned images, PG18 volume path, pg_isready TCP, Caddy keepalive, log retention gap, memory
+- [CI server workflow](ci-server-workflow.md): T-011 context size is incremental, gha cache behavior, QEMU not arm64 runners, minutes
 - [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path

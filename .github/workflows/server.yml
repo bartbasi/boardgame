@@ -1,0 +1,246 @@
+# Server and API contract checks (T-011): format, analyze, tests with an 80%
+# line coverage gate, stale generated code in packages/api_contract, and the
+# server image for linux/arm64 and linux/amd64 with the T-009 image checks.
+#
+# Nothing is pushed anywhere: there is no registry login, no `push: true`, and
+# the token is read-only. Publishing the image needs the user's approval
+# (docs/decisions.md, 2026-10-12, glibc and MPL exception). No secrets are used;
+# no test calls BGG, eBay, or GameUPC.
+name: server
+
+on:
+  push:
+    paths:
+      - server/**
+      - packages/api_contract/**
+      - deploy/**
+      - analysis_options.yaml
+      - .github/workflows/server.yml
+  pull_request:
+    paths:
+      - server/**
+      - packages/api_contract/**
+      - deploy/**
+      - analysis_options.yaml
+      - .github/workflows/server.yml
+
+permissions:
+  contents: read
+
+# Superseded runs on branches and pull requests are cancelled to save
+# minutes; runs on main always finish (T-011 review R1-G4).
+concurrency:
+  group: server-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+# bash adds -o pipefail, so a failing command inside a pipeline fails the step.
+# Job-level defaults replace these, so the dart job repeats the shell.
+defaults:
+  run:
+    shell: bash
+
+env:
+  # Same version as the dart:3.13.5 image pinned in server/Dockerfile and
+  # server/tool/test_linux.sh (docs/decisions.md, 2026-10-11 toolchain).
+  DART_VERSION: 3.13.5
+  MIN_LINE_COVERAGE: 80
+
+jobs:
+  dart:
+    name: dart (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [server, packages/api_contract]
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # no step needs repository credentials
+
+      - uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      # Pub cache keyed on the package's own lockfile (docs/decisions.md, T-004).
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-dart${{ env.DART_VERSION }}-${{ matrix.package }}-${{ hashFiles(format('{0}/pubspec.lock', matrix.package)) }}
+
+      - name: Dependencies
+        run: dart pub get --enforce-lockfile
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: dart analyze --fatal-infos
+
+      # docs/decisions.md, T-007: generated files are committed; regenerate
+      # and fail on any change or new file.
+      - name: Generated code is up to date
+        if: matrix.package == 'packages/api_contract'
+        run: |
+          dart run build_runner build
+          changes=$(git status --porcelain -- .)
+          if [ -n "$changes" ]; then
+            echo "::error::Generated files are stale. Run 'dart run build_runner build' in packages/api_contract and commit the result."
+            echo "$changes"
+            git diff --stat -- .
+            exit 1
+          fi
+
+      - name: Tests with coverage
+        run: dart run coverage:test_with_coverage
+
+      # Fails below MIN_LINE_COVERAGE, and when any lib/ file with executable
+      # lines is missing from lcov.info: test_with_coverage reports only
+      # libraries the tests loaded (T-011 review R1-S3). The tool's header
+      # lists the exempt files.
+      - name: Line coverage gate
+        run: dart run "$GITHUB_WORKSPACE/server/tool/coverage_gate.dart" . "$MIN_LINE_COVERAGE"
+
+  image:
+    name: image (linux/arm64, linux/amd64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # No build record artifacts (nothing leaves the run but logs).
+      DOCKER_BUILD_RECORD_UPLOAD: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false  # no step needs repository credentials
+
+      # Same values as server/tool/docker_build.sh computes locally.
+      - name: Version
+        id: version
+        run: |
+          git_sha=$(git rev-parse --short=7 HEAD)
+          pubspec_version=$(sed -n 's/^version:[[:space:]]*//p' server/pubspec.yaml | tr -d '[:space:]')
+          echo "git_sha=$git_sha" >> "$GITHUB_OUTPUT"
+          echo "app_version=$pubspec_version+$git_sha" >> "$GITHUB_OUTPUT"
+          echo "Building $pubspec_version+$git_sha"
+
+      # BuildKit image pinned by digest (v0.34.0, Docker Hub, checked
+      # 2026-10-12) instead of the default floating buildx-stable-1 tag.
+      # `driver-opts: image=...` is documented in the setup-buildx-action
+      # README (https://github.com/docker/setup-buildx-action, "driver-opts").
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        with:
+          driver-opts: image=moby/buildkit:v0.34.0@sha256:b059f8d7226d0b326bc871af489a5dddf65e36af4d20d14251b072974d9ee87c
+
+      # T-009 check (a): both platforms from the repo root with -f
+      # server/Dockerfile, so server/Dockerfile.dockerignore applies (on a new
+      # runner the log shows "transferring context" of about 87 kB, the size
+      # of the allowlisted files; see the last step). The build cross-compiles,
+      # so no QEMU is set up yet. Cache: every layer goes to the GitHub
+      # Actions cache (mode=max), including the cross-compiler warm-up layer
+      # and the /runtime/ files from the target-platform dart image, so the
+      # next run neither downloads the cross compiler nor pulls that image.
+      - name: Build linux/arm64 and linux/amd64 (no push)
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/arm64,linux/amd64
+          push: false
+          build-args: |
+            GIT_SHA=${{ steps.version.outputs.git_sha }}
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          cache-from: type=gha,scope=server-image
+          cache-to: type=gha,scope=server-image,mode=max
+
+      # Load each platform into the local Docker engine for the smoke tests
+      # (all layers come from the cache written above).
+      - name: Load linux/amd64 image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: boardgame-server:ci-amd64
+          build-args: |
+            GIT_SHA=${{ steps.version.outputs.git_sha }}
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          cache-from: type=gha,scope=server-image
+
+      - name: Load linux/arm64 image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: server/Dockerfile
+          platforms: linux/arm64
+          load: true
+          push: false
+          tags: boardgame-server:ci-arm64
+          build-args: |
+            GIT_SHA=${{ steps.version.outputs.git_sha }}
+            APP_VERSION=${{ steps.version.outputs.app_version }}
+          cache-from: type=gha,scope=server-image
+
+      # T-009 checks (b) and (d) for amd64.
+      - name: Smoke test linux/amd64
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-amd64 linux/amd64 "$APP_VERSION"
+
+      # T-009 check (c): run the arm64 image under QEMU. GitHub's arm64
+      # runners are billed for private repositories, so this job stays on an
+      # x64 runner (https://docs.github.com/en/actions/reference/runners/github-hosted-runners).
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
+          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+
+      - name: Smoke test linux/arm64 (QEMU)
+        env:
+          APP_VERSION: ${{ steps.version.outputs.app_version }}
+        run: sh server/tool/image_smoke_test.sh boardgame-server:ci-arm64 linux/arm64 "$APP_VERSION"
+
+      # T-009 check (e), plus T-009 R1-G3: the real build's transferred
+      # context must hold only what server/Dockerfile.dockerignore lets in.
+      # A warm builder sends only changed files (the 1.84 kB seen locally and
+      # in the cached builds above), so this build uses the Docker engine's
+      # own builder ("default"), which has never seen the context and must
+      # transfer all of it. Limit: the allowlisted files plus 25% and 16 kB
+      # for tar headers. Without the ignore file the whole repo would go.
+      - name: Build without GIT_SHA fails; build context holds only allowlisted files
+        run: |
+          allowed=$(find server/bin server/lib packages/api_contract/lib \
+            server/pubspec.yaml server/pubspec.lock \
+            packages/api_contract/pubspec.yaml packages/api_contract/pubspec.lock \
+            -type f -print0 | xargs -0 cat | wc -c)
+          repo=$(git ls-files -z | xargs -0 cat | wc -c)
+          limit=$((allowed + allowed / 4 + 16000))
+          echo "allowlisted files: $allowed bytes; whole repo: $repo bytes; context limit: $limit bytes"
+          if docker buildx build --builder default -f server/Dockerfile --platform linux/amd64 --progress=plain . > nosha.log 2>&1; then
+            cat nosha.log
+            echo "::error::The build without GIT_SHA succeeded; it must fail."
+            exit 1
+          fi
+          if ! grep -q "build arg GIT_SHA is required" nosha.log; then
+            cat nosha.log
+            echo "::error::The build failed, but not with the GIT_SHA message."
+            exit 1
+          fi
+          echo "ok: the build without GIT_SHA failed with the expected message"
+          grep "transferring context" nosha.log
+          grep "transferring context" nosha.log | tail -n 1 | awk -v limit="$limit" '
+            {
+              if (!match($0, /transferring context: [0-9.]+(B|kB|MB|GB)/)) { print "::error::no context size in the build log"; exit 1 }
+              s = substr($0, RSTART + 22, RLENGTH - 22)
+              n = s + 0; unit = s; sub(/^[0-9.]+/, "", unit)
+              bytes = n * (unit == "kB" ? 1000 : unit == "MB" ? 1000000 : unit == "GB" ? 1000000000 : 1)
+              if (bytes > limit) { printf "::error::build context is %s, over %d bytes (is server/Dockerfile.dockerignore applied?)\n", s, limit; exit 1 }
+              printf "ok: build context %s (limit %d bytes)\n", s, limit
+            }
+            END { if (NR == 0) { print "::error::no transferring context line in the build log"; exit 1 } }'

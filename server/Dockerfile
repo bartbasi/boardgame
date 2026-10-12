@@ -40,6 +40,25 @@ FROM --platform=$BUILDPLATFORM ${DART_IMAGE} AS build
 
 WORKDIR /src
 
+# Map the target platform to Dart's --target-arch, then compile an empty
+# program once so `dart compile exe` downloads the cross-compiler binaries for
+# that target into ~/.dart now (https://dart.dev/tools/dart-compile). This layer
+# depends only on the base image and the target, so the build cache (CI uses
+# the GitHub Actions cache, T-011) keeps the download across code changes.
+ARG TARGETARCH
+RUN set -eu; \
+    case "${TARGETARCH}" in \
+      amd64) dart_arch=x64 ;; \
+      arm64) dart_arch=arm64 ;; \
+      *) echo "T-009: unsupported target architecture '${TARGETARCH}' (use linux/amd64 or linux/arm64)" >&2; exit 1 ;; \
+    esac; \
+    printf '%s' "${dart_arch}" > /opt/dart-target-arch; \
+    mkdir -p /tmp/warmup; \
+    printf 'void main() {}\n' > /tmp/warmup/main.dart; \
+    dart compile exe --target-os=linux --target-arch="${dart_arch}" \
+      -o /tmp/warmup/main /tmp/warmup/main.dart; \
+    rm -rf /tmp/warmup
+
 # Resolve dependencies first so the layer is reused while only code changes.
 # The server depends on ../packages/api_contract by path, so keep the layout.
 COPY packages/api_contract/pubspec.yaml packages/api_contract/pubspec.lock packages/api_contract/
@@ -50,15 +69,10 @@ COPY packages/api_contract/lib packages/api_contract/lib
 COPY server/bin server/bin
 COPY server/lib server/lib
 
-ARG TARGETARCH
 ARG GIT_SHA
 ARG APP_VERSION
 RUN set -eu; \
-    case "${TARGETARCH}" in \
-      amd64) dart_arch=x64 ;; \
-      arm64) dart_arch=arm64 ;; \
-      *) echo "T-009: unsupported target architecture '${TARGETARCH}' (use linux/amd64 or linux/arm64)" >&2; exit 1 ;; \
-    esac; \
+    dart_arch="$(cat /opt/dart-target-arch)"; \
     if ! printf '%s' "${GIT_SHA:-}" | grep -Eqx '[0-9a-f]{7,40}(-dirty)?'; then \
       echo "T-009: build arg GIT_SHA is required: the short git commit hash, for example --build-arg GIT_SHA=\$(git rev-parse --short=7 HEAD)" >&2; \
       exit 1; \
