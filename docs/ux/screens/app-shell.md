@@ -63,6 +63,7 @@ AdaptiveScaffold, AppNavigation, TwoPane, ContentColumn, OfflineBanner, Snackbar
 ## 7. Accessibility
 
 - Each destination has a semantic label (`nav.*Label`) and reports selected state ("selected", "tab 1 of 4").
+  - Accepted (T-012 UX check): on the NavigationBar, screen readers read the semantic label and the visible label ("Scan a barcode, Scan, Tab 1 of 4"), because Flutter's bar takes a plain-text label. The rail reads only the semantic label. Both are acceptable. Do not remove the visible label or the semantic label to fix this. Where the two strings are equal (Settings), read it once.
 - Focus order: app bar title, offline banner (if shown), content, then navigation (bar at the end on compact; rail first on medium and expanded because it is leading).
 - The destination change announces the new screen title.
 - Rail and bar items are at least 48 x 48 dp (bar items are 80 dp wide at minimum).
