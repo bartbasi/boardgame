@@ -48,4 +48,4 @@ app.*.map.json
 .widget_preview/
 
 # Golden failure images written by flutter_test (T-015)
-failures/
+/test/**/failures/
