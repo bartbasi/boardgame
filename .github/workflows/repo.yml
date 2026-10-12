@@ -1,0 +1,65 @@
+# Repository checks (T-016): secret scanning, no committed .env files,
+# and the prose style check. T-017 adds the dependency license check.
+name: repo
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      # From gitleaks_8.30.1_checksums.txt on the GitHub release.
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: No tracked .env files
+        run: |
+          bad=$(git ls-files | grep -E '(^|/)\.env(\..+)?$' | grep -vE '(^|/)\.env\.example$' || true)
+          if [ -n "$bad" ]; then
+            echo "Tracked .env files are not allowed (only .env.example):"
+            echo "$bad"
+            exit 1
+          fi
+
+      - name: Install gitleaks (MIT)
+        run: |
+          file="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$file" "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${file}"
+          echo "${GITLEAKS_SHA256}  ${file}" | sha256sum -c -
+          tar -xzf "$file" gitleaks
+          sudo mv gitleaks /usr/local/bin/
+
+      - name: Scan new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.sha }}
+        run: |
+          if [ "$EVENT" = "pull_request" ]; then
+            range="$BASE..$HEAD"
+          elif [ -n "$BEFORE" ] && ! echo "$BEFORE" | grep -qE '^0+$' && git cat-file -e "$BEFORE" 2>/dev/null; then
+            range="$BEFORE..$HEAD"
+          else
+            range="$HEAD"   # new branch or rewritten history: scan everything reachable
+          fi
+          echo "Scanning $range"
+          gitleaks git --log-opts="$range" --redact --verbose --exit-code 1 .
+
+  prose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Prose check unit tests
+        run: node --test tool/prose-check.test.mjs
+      - name: Prose check
+        run: node tool/prose-check.mjs
