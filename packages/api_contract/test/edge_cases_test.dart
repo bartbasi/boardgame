@@ -127,7 +127,8 @@ void main() {
       expect(a, b);
       expect(a.hashCode, b.hashCode);
       expect(a, isNot(c));
-      expect(a.toString(), contains('not_found'.isEmpty ? '' : 'm'));
+      expect(a.toString(), contains('ErrorCode.notFound'));
+      expect(a.toString(), contains('message: m'));
     });
   });
 
