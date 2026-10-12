@@ -1,0 +1,21 @@
+---
+name: commands-and-patterns
+description: How to run each suite on this Windows/Git Bash setup, widget test helpers, and gotchas
+metadata:
+  type: reference
+---
+
+- Flutter is at C:\dev\flutter. In Bash: `export PATH="/c/dev/flutter/bin:$PATH"`, then from `<worktree>/app`: `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test --coverage`.
+- lcov.info has CRLF line endings. Strip with `tr -d '\r'` before awk, or sums come out 0/0.
+- `python` heredocs hang in this shell. Use sed or the Write tool for edits.
+- Test helpers in app/test/helpers/pump_app.dart: `pumpApp`, `setTestWindow` (call again mid-test to resize or change brightness), `WindowSizes.all`, `largeTextScale`.
+- Widget tests use the test font (square glyphs), so rail widths differ from real.
+- Back navigation test: `tester.binding.handlePopRoute()` returns false when the app would exit.
+- Edge-case tests live in app/test/qa/.
+- Domain purity checker (app/test/architecture/domain_purity.dart) reads one directive per line; fine because dart format enforces it (T-012-B1).
+
+api_contract and server (from T-007):
+- Commands (api_contract): PATH=/c/dev/flutter/bin/cache/dart-sdk/bin; `dart test`; `dart run coverage:test_with_coverage`; freezed files are not instrumented in lcov.
+- Docker check from Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo" -w /repo/packages/api_contract dart:stable sh -c '...'`.
+- api_contract decoding: json_serializable checked mode; null/missing required -> CheckedFromJsonException with key; unknown enum -> ErrorCode.unknown.
+- Git Bash /tmp is not visible to Windows python; do file edits with bash tools.

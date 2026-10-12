@@ -1,4 +1,1 @@
-- Commands (api_contract): PATH=/c/dev/flutter/bin/cache/dart-sdk/bin; `dart test`; `dart run coverage:test_with_coverage`; freezed files are not instrumented in lcov.
-- Docker check from Git Bash: `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/repo" -w /repo/packages/api_contract dart:stable sh -c '...'`.
-- api_contract decoding: json_serializable checked mode; null/missing required -> CheckedFromJsonException with key; unknown enum -> ErrorCode.unknown.
-- Git Bash /tmp is not visible to Windows python; do file edits with bash tools.
+- [Commands and patterns](commands_and_patterns.md): suite commands for app, api_contract, and server, test helpers, Docker and shell gotchas on Windows

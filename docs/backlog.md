@@ -276,7 +276,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-012 App skeleton: project, feature folders, navigation, themes, strings
 - Milestone: M1
 - Owner: flutter-developer
-- Status: in-review
+- Status: done
 - Depends on: T-004, T-006
 - UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` (PRD Q31, confirmed 2026-10-12); dynamic color off.
 - Linked files: app/
