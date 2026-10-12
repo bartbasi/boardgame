@@ -40,7 +40,7 @@ const pkg = (name, extra = {}) => ({ name, version: '1.0.0', source: 'hosted', s
 const textsFor = (map) => async (p) => map[p.name];
 
 test('parses a lockfile fixture', () => {
-  const pkgs = parseLockfile(fixture('pubspec.lock'));
+  const pkgs = parseLockfile(fixture('pubspec.lock.fixture'));
   assert.deepEqual(
     pkgs.map((p) => [p.name, p.source, p.version, p.dependency]),
     [
