@@ -11,7 +11,7 @@ Repository license fields below were read with `gh api repos/<owner>/<repo>` on 
 | Component | Where it comes from | License | Status |
 |---|---|---|---|
 | Flutter SDK and engine, including the SDK packages in the lockfiles (flutter, flutter_localizations, flutter_test, flutter_web_plugins, sky_engine) | Flutter 3.47.7 (docs/decisions.md 2026-10-11) | BSD-3-Clause (flutter/flutter). The engine bundles further third-party code under its own notices; Flutter generates them into the app's license page. | allowed |
-| Material Icons font (`uses-material-design: true` in app/pubspec.yaml) | Bundled by the Flutter SDK | Apache-2.0 [ASSUMPTION: confirm against the font's notice in the Flutter SDK in T-081] | allowed |
+| Material Icons font (`uses-material-design: true` in app/pubspec.yaml) | Bundled by the Flutter SDK | CC BY 4.0 (material_fonts/materialicons_license.txt in the Flutter SDK) | approved: docs/decisions.md 2026-10-12 (Material Icons, attribution on the licenses screen in T-081) |
 | Google ML Kit barcode scanning (Android only, through mobile_scanner, from M2) | Google | ML Kit terms, subject to the Google APIs Terms of Service (MLKIT-01 in docs/api-research.md) | approved: docs/decisions.md 2026-10-11 (ML Kit with disclosure) |
 | AndroidX and other Gradle dependencies of the Flutter Android embedding | Google Maven | Not checked by the lockfile check [ASSUMPTION: Apache-2.0 for AndroidX; a Gradle license report is added in T-082 before the first store upload] | pending check (T-082) |
 
