@@ -125,8 +125,9 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # T-009 check (a): both platforms from the repo root with -f
-      # server/Dockerfile, so server/Dockerfile.dockerignore applies (the log
-      # shows "transferring context" of about 2 kB). The build cross-compiles,
+      # server/Dockerfile, so server/Dockerfile.dockerignore applies (on a new
+      # runner the log shows "transferring context" of about 87 kB, the size
+      # of the allowlisted files; see the last step). The build cross-compiles,
       # so no QEMU is set up yet. Cache: every layer goes to the GitHub
       # Actions cache (mode=max), including the cross-compiler warm-up layer
       # and the /runtime/ files from the target-platform dart image, so the
@@ -190,11 +191,22 @@ jobs:
         run: sh server/tool/image_smoke_test.sh boardgame-server:ci-arm64 linux/arm64 "${{ steps.version.outputs.app_version }}"
 
       # T-009 check (e), plus T-009 R1-G3: the real build's transferred
-      # context must stay small, which proves the Dockerfile-specific ignore
-      # file applied.
-      - name: Build without GIT_SHA fails; build context is small
+      # context must hold only what server/Dockerfile.dockerignore lets in.
+      # A warm builder sends only changed files (the 1.84 kB seen locally and
+      # in the cached builds above), so this build uses the Docker engine's
+      # own builder ("default"), which has never seen the context and must
+      # transfer all of it. Limit: the allowlisted files plus 25% and 16 kB
+      # for tar headers. Without the ignore file the whole repo would go.
+      - name: Build without GIT_SHA fails; build context holds only allowlisted files
         run: |
-          if docker buildx build -f server/Dockerfile --platform linux/amd64 --progress=plain . > nosha.log 2>&1; then
+          allowed=$(find server/bin server/lib packages/api_contract/lib \
+            server/pubspec.yaml server/pubspec.lock \
+            packages/api_contract/pubspec.yaml packages/api_contract/pubspec.lock \
+            -type f -print0 | xargs -0 cat | wc -c)
+          repo=$(git ls-files -z | xargs -0 cat | wc -c)
+          limit=$((allowed + allowed / 4 + 16000))
+          echo "allowlisted files: $allowed bytes; whole repo: $repo bytes; context limit: $limit bytes"
+          if docker buildx build --builder default -f server/Dockerfile --platform linux/amd64 --progress=plain . > nosha.log 2>&1; then
             cat nosha.log
             echo "::error::The build without GIT_SHA succeeded; it must fail."
             exit 1
@@ -206,12 +218,12 @@ jobs:
           fi
           echo "ok: the build without GIT_SHA failed with the expected message"
           grep "transferring context" nosha.log
-          grep "transferring context" nosha.log | tail -n 1 | awk '
+          grep "transferring context" nosha.log | tail -n 1 | awk -v limit="$limit" '
             {
               if (!match($0, /transferring context: [0-9.]+(B|kB|MB|GB)/)) { print "::error::no context size in the build log"; exit 1 }
               s = substr($0, RSTART + 22, RLENGTH - 22)
               n = s + 0; unit = s; sub(/^[0-9.]+/, "", unit)
               bytes = n * (unit == "kB" ? 1000 : unit == "MB" ? 1000000 : unit == "GB" ? 1000000000 : 1)
-              if (bytes > 10000) { printf "::error::build context is %s, expected about 2 kB (is server/Dockerfile.dockerignore applied?)\n", s; exit 1 }
-              printf "ok: build context %s (limit 10 kB)\n", s
+              if (bytes > limit) { printf "::error::build context is %s, over %d bytes (is server/Dockerfile.dockerignore applied?)\n", s, limit; exit 1 }
+              printf "ok: build context %s (limit %d bytes)\n", s, limit
             }'
