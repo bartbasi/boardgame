@@ -9,7 +9,12 @@ Recurring problems (who makes them):
 - backend-developer (T-007): SDK lower bound set below what was tested (`^3.9.0` while the lockfile and freezed 4 need 3.13). Check pubspec `sdk:` against `sdks:` in pubspec.lock and the dev deps.
 - qa-engineer (T-007): occasional tautological assertions in edge-case tests (e.g. `contains(cond ? '' : 'm')`). Read QA test bodies, not just counts.
 
+- backend-developer (T-008): privacy tests drive the handler in-process only; shelf_io's own error printer (stderr, plain text, includes path?query) is reachable via bad X-Forwarded-Host/Proto because dart:io builds requestedUri with Uri.parse. Check real-socket paths and anything that escapes the pipeline.
+- backend-developer (T-008): errorBoundary logs error.toString(); watch later tickets for FormatException/dio text carrying input, queries, or keys.
+- Forward: T-010 must set Compose stop_grace_period above the 10 s drain (docker default SIGKILL at 10 s). T-066/T-020: /v1 middleware must also cover unmatched /v1 paths.
+
 Conventions confirmed in review:
+- server (T-008): shelf + shelf_router; pipeline requestLog (outer) > errorBoundary > router; Routes registrar records route templates; config exit 78, bind exit 1; server reads only Platform.environment (bin/server.dart).
 - api_contract generated *.freezed.dart / *.g.dart are committed; root analysis_options excludes them, so analyze says nothing about generated code.
 - Decoding errors surface as CheckedFromJsonException (json_serializable `checked: true`), re-exported by api_contract.
 - QA commits may also touch docs/handoffs and QA memory, not only test paths; that is accepted.
@@ -19,6 +24,7 @@ Commands:
 - Pub cache in Git Bash: "$LOCALAPPDATA/Pub/Cache/hosted/pub.dev" (quote it, the user path has a space).
 - Dash check: `git diff main...HEAD -- . ':!*.freezed.dart' ':!*.g.dart' ':!*.lock' | grep -n $'\xe2\x80\x94\|\xe2\x80\x93'` (grep -P with \x{2014} fails here).
 - Ownership: `for c in $(git log --format=%h main..HEAD); do git show --stat --format= $c; done`
+- Server Linux run: `sh server/tool/test_linux.sh` from repo root (Docker, read-only mount). Library source to check: dart-sdk lib/_http/http_impl.dart, pub cache shelf-*/lib/shelf_io.dart.
 - `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list.
 
 Recurring problems, app (first seen T-012, 2026-10-12):
