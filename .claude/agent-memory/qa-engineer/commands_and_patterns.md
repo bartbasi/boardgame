@@ -40,3 +40,7 @@ Compose (from T-010):
 - Plain `docker compose up` without the wrapper fails (no GIT_SHA) and leaves killed containers down.
 - Windows closed-port connects can hang until the timeout; assert only the exit code.
 - Build context check: throwaway `Ctx.Dockerfile` + copy named `Ctx.Dockerfile.dockerignore` in scratchpad, `-f` it with repo root context, `find /ctx`.
+CI workflow QA (from T-014):
+- Verify runs with `gh run view <id> --repo bartbasi/boardgame --json jobs --jq ...` and `--log > file`; confirm action tags with `gh api repos/<r>/git/ref/tags/<tag>`.
+- In flutter_test, `Platform.resolvedExecutable` is flutter_tester, not dart: spawning it with `run` hangs forever (kill with `taskkill //F //IM flutter_tester.exe`). Use `Process.runSync('dart', ..., runInShell: true)` on Windows.
+- `flutter test` has no `-n`; use `--plain-name`. Job-level `defaults.run` replaces workflow-level, losing `shell: bash` (pipefail); check every job.
