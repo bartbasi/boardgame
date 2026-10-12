@@ -1,0 +1,2 @@
+- [Backend framework choice](backend_framework_choice.md) — T-005 proposed shelf + shelf_router over dart_frog; pending user confirmation; switch triggers
+- [Docker and Dart AOT notes](docker_dart_aot_notes.md) — measured ~8 MB idle RSS, scratch image RSS trick, Windows/worktree-guard tooling quirks
