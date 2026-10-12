@@ -1,0 +1,40 @@
+# Build context rules for server/Dockerfile (T-009).
+#
+# Docker uses this file instead of a root .dockerignore because it sits next
+# to the Dockerfile and carries its name
+# (https://docs.docker.com/build/concepts/context/, "Dockerfile-specific
+# ignore files"). The build context is the repo root (docs/decisions.md,
+# T-004), so this file decides what leaves the dev machine.
+#
+# Allowlist: exclude everything, then let in only what the build needs.
+# The last matching line wins.
+
+*
+
+!server/pubspec.yaml
+!server/pubspec.lock
+!server/bin/
+!server/lib/
+!packages/api_contract/pubspec.yaml
+!packages/api_contract/pubspec.lock
+!packages/api_contract/lib/
+
+# Re-exclude, in case they ever appear under an allowed folder.
+# Secrets: every .env file, including .env.example (the image never needs it).
+**/.env
+**/.env.*
+# Version control, other packages, and agent files.
+**/.git
+**/.gitignore
+app
+.claude
+docs
+# Build output and tool state.
+**/.dart_tool
+server/build
+server/coverage
+packages/api_contract/build
+packages/api_contract/coverage
+**/*.exe
+**/*.dill
+**/*.aot

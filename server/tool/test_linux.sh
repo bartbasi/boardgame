@@ -10,7 +10,8 @@
 # folder with the same layout, so nothing on the host changes.
 set -eu
 
-IMAGE="dart:3.13.5"
+# Same tag and digest as DART_IMAGE in server/Dockerfile; change them together.
+IMAGE="dart:3.13.5@sha256:8604cbd137b6d67c24f49b916f2aa9b67d71b539576e0178bf161d831c9e344f"
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 
 # MSYS_NO_PATHCONV stops Git Bash on Windows from rewriting the /src paths.

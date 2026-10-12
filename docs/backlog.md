@@ -226,7 +226,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-009 Server Dockerfile for linux/arm64 and linux/amd64
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: done
 - Depends on: T-008
 - UX spec: n/a
 - Linked files: server/Dockerfile, a Dockerfile-specific ignore file owned by backend-developer (if a root .dockerignore is needed instead, ask the orchestrator)
@@ -258,6 +258,9 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
   8. Given the server service, then Compose sets `stop_grace_period: 15s` so the server's 10 s drain finishes before Docker sends SIGKILL, and `docker compose stop` during an idle period shows the server exits 0 with a `shutdown complete` log line (T-008 handoff, proposed decision 6) (proved by: manual).
   9. Given the server service, then Docker log rotation is set to `max-size: 10m` and `max-file: 3`, logs go to stdout only, and the handoff states whether a time-based rule is also needed to meet the 7-day retention target [ASSUMPTION], with the option checked against official Docker docs (T-008 handoff, proposed decision 3) (proved by: manual, read the Compose file and `docker inspect`).
   10. Given Caddy's reverse proxy to the server, then its upstream keep-alive is shorter than the server's 65 s idle timeout, with the Caddy setting confirmed in Caddy's official docs (T-008 handoff, proposed decision 6) (proved by: manual).
+  11. Given the server service's build, then Compose uses the repo root as the build context and `server/Dockerfile` as the Dockerfile, so server/Dockerfile.dockerignore applies; the handoff records the transferred context size from the build log (about 2 kB expected) as proof that no .env or repo files were sent (T-009 review R1-G4) (proved by: manual, read the Compose file and build log).
+  12. Given the server's health check (AC6), then it runs `/app/server --healthcheck`, a server mode that calls /health on localhost and exits 0 on 200 and 1 otherwise (docs/decisions.md 2026-10-12, no busybox, no shell), with unit or endpoint tests for both exit codes (proved by: unit or endpoint, plus manual `docker inspect` health status).
+  13. Given the scratch image has no /tmp, then if the server writes any temporary file, Compose mounts a writable tmpfs for it; otherwise the handoff states that no temp files are used (T-009 review R1-G4) (proved by: manual, read the Compose file and grep server/).
 
 Production settings (domain, real certificates, backups) are T-071 and T-072, not this ticket.
 
@@ -276,6 +279,9 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
   5. Given the workflow file, then `permissions` is read-only (`contents: read`) and every third-party action is pinned to a full commit SHA (proved by: manual).
   6. Given the tests, then none needs a secret or network access to BGG, eBay, or GameUPC, and the workflow defines no secrets (proved by: manual).
   7. Given a typical change, then the workflow finishes in 10 minutes or less [ASSUMPTION], with the duration recorded in the handoff (proved by: manual).
+  8. Given the image build, then the cross-compiler binaries that `dart compile exe` downloads for a foreign target and the target-platform dart image are cached between runs, and the run log shows the transferred build context is small (about 2 kB), proving server/Dockerfile.dockerignore applied to the real build (T-009 review R1-G3) (proved by: manual, run log of two consecutive runs).
+  9. Given the built images, then the workflow runs the checks listed in docs/handoffs/T-009.md "What CI (T-011) must verify": (a) the two-platform build from the repo root with `-f server/Dockerfile` and GIT_SHA and APP_VERSION build args succeeds; (b) the amd64 image with PORT and LOG_LEVEL returns 200 on GET /health within 5 s with version `<pubspec version>+<sha>`, and with no env exits 78; (c) the arm64 image passes the same /health smoke test under QEMU or on an arm64 runner; (d) `docker image inspect` shows user `65532:65532` on both platforms and each image is 100 MB or less; (e) a build without GIT_SHA fails (proved by: manual, run log).
+  10. Given the image, then nothing is pushed to any registry, public or private, without the user's approval (docs/decisions.md 2026-10-12, glibc and MPL exception) (proved by: manual, read the workflow).
 
 ### T-012 App skeleton: project, feature folders, navigation, themes, strings
 - Milestone: M1
@@ -1018,6 +1024,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: backend-developer
 - Status: todo
 - Goal: A written, reviewed runbook and production Compose and Caddy config for an Ampere A1 VM (linux/arm64) within 2 OCPUs and 12 GB in total (OCI-02), created in the home region (OCI-05), and sized or upgraded per PRD Q20 so Oracle does not reclaim it as idle (OCI-07). Running it needs the user's approval.
+- Carried from T-009: the first step on the real VM is `docker run` of the arm64 image plus `curl /health`, before any other setup, because the arm64 binary has only run under QEMU with 4 KB pages. Record the VM kernel's memory page size (`getconf PAGESIZE`). Whether the Oracle Ampere A1 images use 4 KB or 64 KB pages, and whether the Dart AOT runtime supports 64 KB pages, is [UNVERIFIED] and not yet in docs/api-research.md.
 
 ### T-072 Deploy: daily backups and tested restore
 - Milestone: M5
