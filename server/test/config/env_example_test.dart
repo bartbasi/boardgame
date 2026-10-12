@@ -1,0 +1,124 @@
+import 'dart:collection';
+import 'dart:io';
+
+import 'package:boardgame_server/boardgame_server.dart';
+import 'package:test/test.dart';
+
+/// A map that records every key the config loader asks for.
+class _RecordingMap extends MapBase<String, String> {
+  _RecordingMap(this._inner);
+
+  final Map<String, String> _inner;
+  final Set<String> readKeys = {};
+
+  @override
+  String? operator [](Object? key) {
+    if (key is String) readKeys.add(key);
+    return _inner[key];
+  }
+
+  @override
+  void operator []=(String key, String value) => _inner[key] = value;
+
+  @override
+  void clear() => _inner.clear();
+
+  @override
+  Iterable<String> get keys {
+    fail('The config loader must read variables by name, not list them.');
+  }
+
+  @override
+  String? remove(Object? key) => _inner.remove(key);
+}
+
+/// Parses KEY=value lines; skips blank lines and # comments.
+Map<String, String> _parseEnvFile(String text) {
+  final result = <String, String>{};
+  for (final raw in text.split('\n')) {
+    final line = raw.trim();
+    if (line.isEmpty || line.startsWith('#')) continue;
+    final eq = line.indexOf('=');
+    if (eq <= 0) fail('Malformed line in .env.example: "$line"');
+    final key = line.substring(0, eq).trim();
+    if (result.containsKey(key)) fail('Duplicate key in .env.example: $key');
+    result[key] = line.substring(eq + 1).trim();
+  }
+  return result;
+}
+
+void main() {
+  // `dart test` runs with the package root (server/) as working directory.
+  final example = _parseEnvFile(File('.env.example').readAsStringSync());
+
+  group('.env.example (T-008 AC6)', () {
+    test('lists exactly the variables the config loader reads', () {
+      final recording = _RecordingMap({});
+      expect(() => Config.load(recording), throwsA(isA<ConfigException>()));
+
+      expect(recording.readKeys, isNotEmpty);
+      expect(example.keys.toSet(), recording.readKeys);
+    });
+
+    test('its values form a valid config, so it is a working template', () {
+      expect(() => Config.load(example), returnsNormally);
+    });
+
+    test('every key is UPPER_SNAKE_CASE with a non-empty placeholder', () {
+      for (final MapEntry(:key, :value) in example.entries) {
+        expect(key, matches(RegExp(r'^[A-Z][A-Z0-9_]*$')));
+        expect(value, isNotEmpty, reason: '$key needs a placeholder value');
+      }
+    });
+
+    test('is committed but a real .env is git-ignored', () async {
+      ProcessResult inRepo;
+      try {
+        inRepo = await Process.run('git', [
+          'rev-parse',
+          '--is-inside-work-tree',
+        ]);
+      } on ProcessException {
+        markTestSkipped('git is not installed');
+        return;
+      }
+      if (inRepo.exitCode != 0) {
+        markTestSkipped('not inside a git work tree');
+        return;
+      }
+      final result = await Process.run('git', [
+        'check-ignore',
+        '--no-index',
+        '-q',
+        '.env',
+      ]);
+      expect(result.exitCode, 0, reason: 'server/.env must be git-ignored');
+
+      final example = await Process.run('git', [
+        'check-ignore',
+        '--no-index',
+        '-q',
+        '.env.example',
+      ]);
+      expect(example.exitCode, 1, reason: '.env.example must not be ignored');
+    });
+  });
+
+  group('only the config loader reads the environment', () {
+    test('Platform.environment appears only in bin/server.dart, once', () {
+      final hits = <String>[];
+      for (final dir in ['lib', 'bin']) {
+        for (final entity in Directory(dir).listSync(recursive: true)) {
+          if (entity is! File || !entity.path.endsWith('.dart')) continue;
+          final count = 'Platform.environment'
+              .allMatches(entity.readAsStringSync())
+              .length;
+          for (var i = 0; i < count; i++) {
+            hits.add(entity.uri.pathSegments.last);
+          }
+        }
+      }
+      expect(hits, ['server.dart']);
+    });
+  });
+}
