@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:shelf/shelf_io.dart' as shelf_io;
-
 import 'app.dart';
 import 'config/config.dart';
 import 'http/routes.dart';
+import 'http/serve.dart';
 import 'logging/logger.dart';
 import 'version.dart';
 
@@ -69,11 +68,11 @@ Future<int> runServer({
 
   final HttpServer server;
   try {
-    server = await shelf_io.serve(
+    server = await bindAndServe(
       handler,
       address ?? InternetAddress.anyIPv4,
       config.port,
-      poweredByHeader: null,
+      logger,
     );
   } on SocketException catch (e) {
     logger.error(

@@ -123,6 +123,95 @@ void main() {
     });
   });
 
+  group('own listener (T-008 review R1-M1, R1-G2)', () {
+    Future<_Run> startWithRoutes([void Function(Routes v1)? routes]) async {
+      final run = _Run(environment: await _env(), addTestRoutes: routes)
+        ..start();
+      await run.port;
+      addTearDown(() async {
+        run.signals.add(ProcessSignal.sigterm);
+        await run.exitCode;
+      });
+      return run;
+    }
+
+    test('a URL dart:io cannot build gets the 404 envelope and one request '
+        'line without raw values', () async {
+      final run = await startWithRoutes();
+
+      final response = await rawHttp(
+        await run.port,
+        'GET /v1/x?q=secret HTTP/1.1\r\nHost: localhost\r\n'
+        'X-Forwarded-Host: [secret-host\r\nConnection: close\r\n\r\n',
+      );
+
+      expect(response, startsWith('HTTP/1.1 404'));
+      expect(jsonDecode(rawBody(response)!), {
+        'error': {'code': 'not_found', 'message': 'Not found.'},
+      });
+      final line = run.out.withMessage('request').single;
+      expect(line['method'], 'GET');
+      expect(line['route'], unmatchedRoute);
+      expect(line['status'], 404);
+      expect(line['durationMs'], isA<num>());
+      expect(run.out.lines.join(), isNot(contains('secret')));
+    });
+
+    test('a non-standard method is logged as <other>', () async {
+      final run = await startWithRoutes();
+
+      await rawHttp(
+        await run.port,
+        'SECRETMETHOD /health HTTP/1.1\r\nHost: localhost\r\n'
+        'Connection: close\r\n\r\n',
+      );
+
+      expect(run.out.withMessage('request').single['method'], otherMethod);
+      expect(run.out.lines.join(), isNot(contains('SECRETMETHOD')));
+    });
+
+    test(
+      'a stray async error from a handler goes to our logger, redacted',
+      () async {
+        final run = await startWithRoutes((v1) {
+          v1.get('/stray', (_) {
+            unawaited(
+              Future<void>.error(StateError('late https://x.test/a?q=secret')),
+            );
+            return jsonResponse(200, {});
+          });
+        });
+        final client = HttpClient();
+        addTearDown(() => client.close(force: true));
+
+        final response = await (await client.get(
+          '127.0.0.1',
+          await run.port,
+          '/v1/stray',
+        )).close();
+        await response.drain<void>();
+        await _eventually(
+          () => run.out.withMessage('uncaught async error').isNotEmpty,
+        );
+
+        final line = run.out.withMessage('uncaught async error').single;
+        expect(line['level'], 'error');
+        expect(line['errorType'], 'StateError');
+        expect(line['error'], contains('?<redacted>'));
+        expect(run.out.lines.join(), isNot(contains('secret')));
+      },
+    );
+
+    test('sets the idle keep-alive timeout explicitly', () async {
+      final run = await startWithRoutes();
+
+      final server = await run.listening.future;
+
+      expect(server.idleTimeout, serverIdleTimeout);
+      expect(serverIdleTimeout, const Duration(seconds: 65));
+    });
+  });
+
   group('graceful shutdown on SIGTERM (T-008 AC9)', () {
     test('stops accepting connections, lets an in-flight request finish, and '
         'exits 0', () async {

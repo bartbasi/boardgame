@@ -3,7 +3,11 @@ library;
 
 export 'src/app.dart' show buildApp;
 export 'src/config/config.dart' show Config, ConfigException;
-export 'src/http/middleware.dart' show unmatchedRoute;
+export 'src/http/middleware.dart'
+    show loggableMethod, otherMethod, unmatchedRoute;
+export 'src/http/serve.dart' show bindAndServe, serverIdleTimeout;
+export 'src/logging/error_description.dart'
+    show describeError, maxErrorDescriptionLength;
 export 'src/http/responses.dart'
     show errorResponse, internalErrorResponse, jsonResponse, notFoundResponse;
 export 'src/http/routes.dart' show RouteSlot, Routes;

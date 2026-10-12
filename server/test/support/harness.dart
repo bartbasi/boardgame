@@ -74,6 +74,31 @@ Future<Map<String, dynamic>> jsonObjectOf(Response response) async {
   return decoded;
 }
 
+/// Sends [request] bytes as-is over a raw TCP socket and returns everything
+/// the server sends back until it closes the connection (or 5 s pass).
+/// Used for requests HttpClient refuses to build, such as a bad Host header.
+Future<String> rawHttp(int port, String request) async {
+  final socket = await Socket.connect(InternetAddress.loopbackIPv4, port);
+  socket.write(request);
+  await socket.flush();
+  final bytes = <int>[];
+  try {
+    await socket
+        .timeout(const Duration(seconds: 5))
+        .forEach(bytes.addAll)
+        .catchError((Object _) {});
+  } finally {
+    socket.destroy();
+  }
+  return utf8.decode(bytes, allowMalformed: true);
+}
+
+/// The body of a raw HTTP/1.1 response, or null if there is no header end.
+String? rawBody(String response) {
+  final end = response.indexOf('\r\n\r\n');
+  return end < 0 ? null : response.substring(end + 4);
+}
+
 /// A TCP port that was free a moment ago on the loopback interface.
 Future<int> freePort() async {
   final socket = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
