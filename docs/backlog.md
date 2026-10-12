@@ -207,7 +207,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
 ### T-008 Backend skeleton: /health, fail-fast config, minimal structured logs
 - Milestone: M1
 - Owner: backend-developer
-- Status: todo
+- Status: done
 - Depends on: T-005, T-007
 - UX spec: n/a
 - Linked files: server/, server/.env.example
@@ -238,6 +238,7 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
   5. Given the final image, then its size is 100 MB or less on each platform [ASSUMPTION], recorded in the handoff (proved by: manual).
   6. Given the build context, then the ignore file excludes .env files, .git, app/, .claude/, and build output (proved by: manual).
   7. Given the base images, then each is pinned to an exact version or digest, supports both platforms, and has its license noted in the handoff (proved by: manual).
+  8. Given the build, then it compiles with `-DAPP_VERSION=<pubspec version>+<short git sha>` (T-008 handoff, proposed decision 2), and GET /health on the built image returns that version, not `0.1.0-dev` (proved by: manual).
 
 ### T-010 Local Docker Compose with PostgreSQL and Caddy
 - Milestone: M1
@@ -254,6 +255,9 @@ T-087 is in progress (the user plans to submit the BGG application; not yet subm
   5. Given each service, then it has a memory limit, and the stack's idle memory measured with `docker stats` is recorded in the handoff, with a target of 512 MB or less [ASSUMPTION] (proved by: manual).
   6. Given the health checks, then the server's uses /health, PostgreSQL's uses pg_isready, and the server starts only after PostgreSQL is healthy (proved by: manual).
   7. Given the PostgreSQL and Caddy images, then each is pinned to an exact version that exists for linux/arm64 and linux/amd64 (proved by: manual).
+  8. Given the server service, then Compose sets `stop_grace_period: 15s` so the server's 10 s drain finishes before Docker sends SIGKILL, and `docker compose stop` during an idle period shows the server exits 0 with a `shutdown complete` log line (T-008 handoff, proposed decision 6) (proved by: manual).
+  9. Given the server service, then Docker log rotation is set to `max-size: 10m` and `max-file: 3`, logs go to stdout only, and the handoff states whether a time-based rule is also needed to meet the 7-day retention target [ASSUMPTION], with the option checked against official Docker docs (T-008 handoff, proposed decision 3) (proved by: manual, read the Compose file and `docker inspect`).
+  10. Given Caddy's reverse proxy to the server, then its upstream keep-alive is shorter than the server's 65 s idle timeout, with the Caddy setting confirmed in Caddy's official docs (T-008 handoff, proposed decision 6) (proved by: manual).
 
 Production settings (domain, real certificates, backups) are T-071 and T-072, not this ticket.
 
@@ -407,6 +411,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given packages/api_contract/test/fixtures/, then there is one example JSON file per response type and status, and the app's data layer tests in T-028 reuse them (proved by: unit).
   8. Given the handoff, then it lists every DTO and field added, for the flutter-developer (proved by: manual).
   9. Given the game detail and game summary responses, then they carry the URL of the game's BGG page, built by the backend, so the app's "Powered by BGG" link (BGG-41) never builds BGG URLs itself. The handoff notes how the URL format was confirmed on BGG's site (proved by: unit, fixture round trip).
+- Decision needed before work starts (T-008 open question 4): should the contract add a `bad_request` error code (400) as an additive /v1 change for requests whose URL the server cannot parse (bad Host or X-Forwarded-Host)? Today those get 404 `not_found`. If yes, add it to AC6's list with a fixture, note it for the flutter-developer (the app treats it as a generic error), and change the server's rejection path in the same ticket or a follow-up. The orchestrator records the answer in docs/decisions.md.
 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
@@ -440,6 +445,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given GET /health, then this limiter does not apply (proved by: endpoint).
   6. Given the limiter, then IP addresses are held only in memory, never written to logs or the database, and each entry is removed once its window passes (proved by: unit with log capture; the tracked count is 0 after expiry).
   7. Given 200,000 distinct IPs within one minute, then the number of tracked IPs never exceeds the configured maximum, default 100,000 [ASSUMPTION], with the oldest entries evicted first (proved by: unit).
+  8. Given a handler or /v1 guard on a parameterized route such as `/v1/games/<bggId>` that throws an exception whose text holds the path value (for example `ArgumentError.value("secret-123", "bggId")` and a StateError that embeds the request URL), when the request `/v1/games/secret-123` is made, then the response is the 500 `internal_error` envelope and no log line contains `secret-123`: `describeError` logs only `name` and `message` for ArgumentError (never `invalidValue`) and redacts URL paths as well as query strings, keeping scheme and host (T-008 review R2-S1 and QA round 2 note: path text in guard exceptions must not be logged) (proved by: unit with log capture). If a /v1 data endpoint ships before this ticket, this criterion moves to that ticket.
 - Design note (T-005, docs/decisions.md 2026-10-12): this ticket designs the rule that X-Forwarded-For is trusted only when the direct peer is Caddy's address on the Compose network (AC4). The handoff states how that address is configured and tested.
 
 ### T-021 Server: BGG XML API client and shared request queue
