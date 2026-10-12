@@ -1,6 +1,6 @@
 ---
 name: review-patterns
-description: Recurring review findings by agent, confirmed conventions, and useful commands for this repo (Dart SDK path, dash grep, SDK constraint check)
+description: Recurring review findings by agent, confirmed conventions, forward checks, and useful commands for this repo (Dart and Flutter)
 metadata:
   type: project
 ---
@@ -20,3 +20,19 @@ Commands:
 - Dash check: `git diff main...HEAD -- . ':!*.freezed.dart' ':!*.g.dart' ':!*.lock' | grep -n $'\xe2\x80\x94\|\xe2\x80\x93'` (grep -P with \x{2014} fails here).
 - Ownership: `for c in $(git log --format=%h main..HEAD); do git show --stat --format= $c; done`
 - `dart run coverage:test_with_coverage` writes coverage/ (git-ignored); mention it in the commands list.
+
+Recurring problems, app (first seen T-012, 2026-10-12):
+- flutter-developer: tests guard rules with line-by-line regexes (strings_test hard-coded check) that miss dart-format-wrapped code. Check multi-line forms.
+- flutter-developer and qa-engineer: duplicate test helpers (tap destination) instead of putting them in app/test/helpers/.
+- Semantics handles disposed at end of test body instead of addTearDown.
+- Safe-area handling in the adaptive shell (rail layout) is easy to get half right; check MediaQuery padding passed to content.
+
+Conventions confirmed, app (T-012):
+- lib/app/ is the composition root; lib/core/ shared; generated *.g.dart and gen-l10n output are committed.
+- Domain purity enforced by app/test/architecture/domain_purity.dart (allowlist; adding a package is a reviewed change).
+- Strings test maps copy.md dotted keys to camelCase arb keys; `dev*` keys are skeleton-only.
+
+Forward items to check in later tickets: INTERNET permission in main AndroidManifest (T-013), release signing not debug key (T-014+), allowBackup decision before collection DB.
+
+Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
+Process note: edit the handoff only with the Edit tool, never sed -i (shell writes are not allowed for the reviewer).

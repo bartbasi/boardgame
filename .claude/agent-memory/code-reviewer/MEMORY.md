@@ -1,1 +1,1 @@
-- [Review patterns](review-patterns.md): recurring findings by agent, confirmed conventions, Dart SDK path, dash grep, pub cache path
+- [Review patterns](review-patterns.md): recurring findings by agent, confirmed conventions, forward checks, Dart and Flutter commands
