@@ -1,2 +1,2 @@
-- [App conventions](app_conventions.md) — T-012 conventions: lib/app root, committed generated files, arb key checks, domain allowlist, test helpers
-- [Windows toolchain quirks](windows_toolchain_quirks.md) — Bash guard limits, Flutter PATH, CRLF, Gradle downloads, no emulator, test font widths
+- [App conventions](app_conventions.md) — T-012/T-013 conventions: lib/app root, generated files, arb checks, domain allowlist, ApiClient, fake-time tests
+- [Windows toolchain quirks](windows_toolchain_quirks.md) — Bash guard limits, Flutter PATH, CRLF, Gradle, emulator vs attached phone, disk, test fonts

@@ -1,6 +1,6 @@
 ---
 name: app-conventions
-description: Conventions set in T-012 for app/ that later tickets must follow (composition root, generated files, test helpers, arb keys, domain allowlist)
+description: Conventions set in T-012 and T-013 for app/ that later tickets must follow (composition root, generated files, test helpers, arb keys, domain allowlist)
 metadata:
   type: project
 ---
@@ -17,7 +17,12 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - `tapDestination(tester, label)` lives in `test/helpers/pump_app.dart`; QA's tests use it too.
 - Dispose `tester.ensureSemantics()` handles with try/finally, NOT addTearDown: flutter_test (3.47.7) checks for live handles before tear-downs run, so addTearDown fails every test.
 - Rail layout removes the leading MediaQuery padding from content (rail's SafeArea already uses it); tests use `tester.view.padding = FakeViewPadding(...)`.
-- Do not depend on packages/api_contract until T-013 (T-007 builds it in parallel).
+- T-013 (2026-10-12) added `lib/core/domain/` (Result with Ok/Err, sealed Failure) and `lib/core/data/network/` (ApiClient, ApiConfig, RetryPolicy, failure mapper, log interceptor, `apiClientProvider`). Repositories call `ApiClient.get(path, decode: Dto.fromJson)`, which returns `Result<T>` and never throws. The purity test now also checks lib/core/domain. api_contract is a path dependency.
+- Timing tests use `runFake` from `test/helpers/fake_http.dart` (fakeAsync plus package:clock) with `FakeHttpAdapter`, `respond`, `failWith`, `hang`, `FixedRandom`. Production code must use `clock.now()`, not DateTime.now(), for fake time to apply; for durations and deadlines use a monotonic Stopwatch injected as a factory (tests pass `clock.stopwatch`), per T-013 review R1-G1.
+- Domain purity (since T-013 round 2) is an allowlist of own-package paths: domain may import only `features/<f>/domain/` and `core/domain/`.
+- Reviewer expects exact assertions (failure type, request count, elapsed) in timing tests, using `FixedRandom`, not loose bounds.
+- Gotcha: anything with a Completer (for example a dio CancelToken) must be created INSIDE the fakeAsync callback; one created outside completes on the real microtask queue and never fires in fake time.
+- App tests read api_contract JSON fixtures via `contractFixture('error/not_found.json')` (path ../packages/api_contract/test/fixtures). Note `variants/error_extra_field.json` has code not_found.
 
 **Why:** the reviewer and the strings and architecture tests enforce these, and later tickets (T-013, T-032, T-039) build on them.
-**How to apply:** follow these when adding screens, providers, strings, or domain code. Related: [[windows-toolchain-quirks]].
+**How to apply:** follow these when adding screens, providers, strings, network calls, or domain code. Related: [[windows-toolchain-quirks]].

@@ -307,7 +307,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 ### T-013 App core: Result, Failure types, and HTTP client with retries
 - Milestone: M1
 - Owner: flutter-developer
-- Status: todo
+- Status: done
 - Depends on: T-012
 - UX spec: n/a
 - Linked files: app/lib/core/, app/android/app/src/main/AndroidManifest.xml
@@ -496,6 +496,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   8. Given any 200 response, then it decodes with the api_contract game detail DTO (proved by: endpoint).
   9. Given the stored and returned data, then it holds only fields that docs/api-research.md confirms and BGG's terms allow (proved by: manual, reviewer and PM compare).
   10. Given the migration, then the games table has an internal surrogate primary key and a `bgg_id` column that is unique and nullable (so a game from another source can exist later without one), and no other table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys"). The route still takes `{bggId}` and finds the game through the `bgg_id` column, and responses keep the api_contract field `bggId`; the internal id never appears in a response (proved by: integration against real PostgreSQL, where inserting a second row with bgg_id 13 fails, plus endpoint check of the response body).
+- Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC7), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
 
 ### T-023 Server: GET /v1/games/search
 - Milestone: M2
@@ -514,6 +515,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given BGG is unavailable and nothing is cached, then the endpoint returns 503 `upstream_unavailable` with Retry-After (proved by: endpoint).
   8. Given any search, then the query text does not appear in any log line (proved by: unit with log capture).
   9. Given any 200 response, then it decodes with the api_contract search DTO (proved by: endpoint).
+- Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC7), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
 
 ### T-024 Server: GameUPC client
 - Milestone: M2
@@ -552,6 +554,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   10. Given any lookup, then the database receives only the barcode, the mapping, and timestamps, and nothing about the requester (proved by: manual, reviewer and PM read the migration and code).
   11. Given any 200 response, then it decodes with the api_contract lookup DTO (proved by: endpoint).
   12. Given the migration, then the mapping table stores each GTIN-13 once and points to its games by their internal id (a foreign key to the games table from T-022), not by `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys"). A BGG id from GameUPC that has no games row yet gets a row with only `bgg_id` set, which the game cache fills in later. Responses still carry `bggId`, never the internal id (proved by: integration against real PostgreSQL, storing a mapping for `0036000291452` to a BGG id with no cached game, then reading it back by barcode).
+- Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC8), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
 
 ### T-026 App: barcode value object and validation
 - Milestone: M2
@@ -598,6 +601,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given a 200 whose body does not match the contract, then the result is the unexpected failure and nothing throws (proved by: unit).
   5. Given the architecture test, then package:api_contract is imported only under lib/**/data/, never in domain or presentation (proved by: unit).
   6. Given this data source, then line coverage is at least 80% (proved by: unit, coverage report).
+  7. Given a response whose Content-Length or bytes read exceed 1 MB [ASSUMPTION], then ApiClient (app/lib/core/data/network/) stops reading, returns the unexpected failure, does not retry, and nothing throws; a 900 KB response still decodes (T-013 review R1-G4) (proved by: unit with a fake HTTP adapter).
 
 ### T-029 App: games repository with on-device cache
 - Milestone: M2
@@ -685,6 +689,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   14. Given a compact window, when the search field gets focus, then the NavigationBar hides, and it returns when focus leaves, using the shell behavior from T-031 (app-shell.md section 2 [ASSUMPTION]; PRD Q32: drop if vetoed) (proved by: widget).
   15. Given a medium or expanded window and a hardware keyboard, when the Search screen opens and the user presses Tab, then the first focus stop is the screen content (the search field), not the rail, and Shift+Tab from there reaches the rail (app-shell.md section 7, the "skip" pattern, `shell.skipToContent`; a T-012 gap) (proved by: widget with simulated key events; manual with a hardware keyboard on the emulator).
   16. Given this ticket replaces the Search placeholder, then the Search destination no longer uses `devPlaceholderBody`, and any `dev*` key in app_en.arb that no screen uses anymore is deleted (docs/decisions.md 2026-10-12, T-012) (proved by: unit, the strings test; manual grep of lib/).
+- Carried forward from T-013 review R1-G3: `ServiceUnavailableFailure` drops the server's Retry-After today, and copy.md `common.errorUnavailableBody` has no seconds. If search.md or copy.md adds "Try again in N seconds" for service unavailable, this ticket adds an optional `retryAfter` to `ServiceUnavailableFailure` (like `RateLimitedFailure`) with a unit test; otherwise no change.
 
 ### T-033 App: lookup result and candidate selection
 - Milestone: M2
@@ -1006,12 +1011,14 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: flutter-developer
 - Status: todo
 - Goal: Generate and attest an App Attest key and attach proof to backend requests as the design requires, with the App Attest entitlement (APPLE-12), skipping gracefully where App Attest is unsupported (APPLE-11).
+- Carried forward from T-013 review: on a 401, ApiClient refreshes the server token once and repeats the request once, for GET and POST (the server rejected it before processing it), within the same 20 s call deadline. A second 401 returns AccessDeniedFailure. 403 stays AccessDeniedFailure with no retry. Shared with T-069; whichever lands first builds it in lib/core.
 
 ### T-069 App: Play Integrity on Android
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
 - Goal: Play Integrity standard requests on Android, preparing the token provider no more than 5 times a minute per install (GPLAY-09), with graceful fallback.
+- Carried forward from T-013 review: on a 401, ApiClient refreshes the server token once and repeats the request once, for GET and POST (the server rejected it before processing it), within the same 20 s call deadline. A second 401 returns AccessDeniedFailure. 403 stays AccessDeniedFailure with no retry. Shared with T-068; whichever lands first builds it in lib/core.
 
 ### T-070 Server: log retention and aggregate counters
 - Milestone: M5

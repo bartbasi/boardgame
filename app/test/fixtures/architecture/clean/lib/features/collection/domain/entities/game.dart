@@ -4,7 +4,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:board_game_collector/core/result/result.dart';
+import 'package:board_game_collector/core/domain/result.dart';
 import 'package:meta/meta.dart';
 
 import '../repositories/game_repository.dart';

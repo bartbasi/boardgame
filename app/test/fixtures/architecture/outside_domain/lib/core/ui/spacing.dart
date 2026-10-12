@@ -1,0 +1,3 @@
+class Spacing {
+  const Spacing();
+}

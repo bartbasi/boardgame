@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- The app calls our backend in every build type, including release
+         (T-013 AC14). The debug and profile manifests also declare it for
+         the Flutter tool. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="Board Game Collector"
         android:name="${applicationName}"

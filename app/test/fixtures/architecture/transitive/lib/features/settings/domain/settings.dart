@@ -1,3 +1,3 @@
-import '../../../core/ui/colors.dart';
+import '../../../core/domain/colors.dart';
 
 typedef Uses = AppColors;

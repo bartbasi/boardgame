@@ -25,6 +25,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.3.4"
+  api_contract:
+    dependency: "direct main"
+    description:
+      path: "../packages/api_contract"
+      relative: true
+    source: path
+    version: "0.1.0"
   args:
     dependency: transitive
     description:
@@ -114,7 +121,7 @@ packages:
     source: hosted
     version: "2.0.4"
   clock:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: clock
       sha256: e51d50bca3217c9a9fa2b41a30e4a38971133f5f9ec7a3d57bae095007f1d28e
@@ -169,8 +176,24 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.13"
-  fake_async:
+  dio:
+    dependency: "direct main"
+    description:
+      name: dio
+      sha256: "852ec3b48cc431ac04fff978413c541502b67ffc3e26921e74e3d994694192c1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.11.1"
+  dio_web_adapter:
     dependency: transitive
+    description:
+      name: dio_web_adapter
+      sha256: "3a1b2cd7be71086f38504956e3ebcd2837288d231ff454bafa78021244102bfc"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.2"
+  fake_async:
+    dependency: "direct dev"
     description:
       name: fake_async
       sha256: "5368f224a74523e8d2e7399ea1638b37aecfca824a3cc4dfdf77bf1fa905ac44"
