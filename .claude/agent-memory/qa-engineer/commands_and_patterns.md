@@ -34,4 +34,9 @@ Server and more (from T-008):
 Docker (from T-009):
 - Dockerfile QA: `sh server/tool/docker_build.sh --platform linux/arm64,linux/amd64 --load -t <tag>` works (containerd store, arm64 cross-compiled, no QEMU to build). Run arm64 with `--platform linux/arm64` (QEMU). Use `MSYS_NO_PATHCONV=1`.
 - Host C: can be at 100% full while Docker's own disk has space; builds still worked. Cleanup: `docker image rm`, `docker image rm --force --platform linux/arm64 dart:3.13.5`, then prune cache records by id (`docker buildx du --verbose`, filter by Created at; ~60 MB shared records stay).
+Compose (from T-010):
+- Do NOT set MSYS_NO_PATHCONV when running `sh deploy/compose.sh` (native git gets /c/ paths and fails). DO set it for `docker exec ... /app/server` and `docker run --entrypoint /app/...`, or the path becomes C:/Program Files/Git/app.
+- Build context size: warm cache says 1.94kB, cold says 92.44kB (real sources). Reproduce with `docker buildx prune -f --filter type=source.local`. Never treat "about 2 kB" as a pass/fail number.
+- Plain `docker compose up` without the wrapper fails (no GIT_SHA) and leaves killed containers down.
+- Windows closed-port connects can hang until the timeout; assert only the exit code.
 - Build context check: throwaway `Ctx.Dockerfile` + copy named `Ctx.Dockerfile.dockerignore` in scratchpad, `-f` it with repo root context, `find /ctx`.
