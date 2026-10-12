@@ -1,2 +1,3 @@
 - [App conventions](app_conventions.md) — T-012 conventions: lib/app root, committed generated files, arb key checks, domain allowlist, test helpers
 - [Windows toolchain quirks](windows_toolchain_quirks.md) — Bash guard limits, Flutter PATH, CRLF, Gradle downloads, no emulator, test font widths
+- [CI app workflow](ci_app_workflow.md) — T-014 app.yml design, Flutter installer, job-defaults pipefail trap, scratch-branch proofs, macOS limits
