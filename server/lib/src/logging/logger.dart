@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'error_description.dart';
+
 /// Log levels, lowest to highest. LOG_LEVEL accepts these names.
 enum LogLevel {
   debug,
@@ -72,6 +74,10 @@ class Logger {
       log(LogLevel.warning, message, fields);
 
   /// Writes an error line, with [error] and [stackTrace] when given.
+  ///
+  /// [error] is written as `errorType` (its runtime type) and `error`, a
+  /// redacted description from [describeError] that never holds the input
+  /// that caused it (no FormatException source, no URI, no query string).
   void error(
     String message, {
     Object? error,
@@ -79,7 +85,8 @@ class Logger {
     Map<String, Object?> fields = const {},
   }) => log(LogLevel.error, message, {
     ...fields,
-    if (error != null) 'error': error.toString(),
+    if (error != null) 'errorType': error.runtimeType.toString(),
+    if (error != null) 'error': describeError(error),
     if (stackTrace != null) 'stack': stackTrace.toString(),
   });
 }
