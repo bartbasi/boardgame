@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_query",
+    "message": "The search query is too long."
+  }
+}

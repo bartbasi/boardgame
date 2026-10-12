@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "upstream_unavailable",
+    "message": "A data source is not responding. Try again later."
+  }
+}

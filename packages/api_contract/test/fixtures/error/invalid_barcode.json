@@ -1,0 +1,6 @@
+{
+  "error": {
+    "code": "invalid_barcode",
+    "message": "The barcode must be a valid UPC-A, EAN-13, or EAN-8 code."
+  }
+}
