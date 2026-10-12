@@ -40,7 +40,7 @@ UI and backend tickets refer to these so that every ticket uses the same values.
 - **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5).
 - **BGG attribution:** screens that show BGG data use the BggAttribution component from docs/ux/components.md (`common.bggCredit`, `common.bggLogoLabel`) where the screen spec places it (BGG-40, BGG-41). Until the official logo file arrives from T-087, the spec's placeholder box is used. The ticket records the swap as a follow-up, and the official logo must be in place before release (T-082).
 - **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
-- **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B10 point to its "Blocking risks" table.
+- **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B11 point to its "Blocking risks" table.
 - **Barcode vectors** (check digits verified by hand):
   - Valid UPC-A: `036000291452`, `012345678905`
   - Valid EAN-13: `4006381333931`, `0036000291452` (the EAN-13 form of `036000291452`)
@@ -64,7 +64,7 @@ T-014 and T-015 both edit app.yml, and T-011 and T-019 both edit server.yml, so 
 
 ### M2
 
-Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q5 (images). PRD Q4 (ML Kit) was answered on 2026-10-11 (approved), and the BGG application is in progress (T-087). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b). T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
+Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q5 (images). PRD Q4 (ML Kit) was answered on 2026-10-11 (approved), and the BGG application is in progress (T-087; not yet submitted as of 2026-10-12). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b). T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
 
 - Backend lane: T-018 first, because the app's T-028 needs the contract. Then T-019, T-021, T-022, T-023, T-024, T-025. T-020 fits anywhere after T-008.
 - App lane: T-026 and T-027 start right away (no backend dependency) and can run in parallel worktrees because they touch separate folders. Then T-030 and T-031, then T-028 (after T-018 is merged), T-029, T-032, T-033, T-034, T-035. T-036 when its blockers clear.
@@ -77,7 +77,7 @@ Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen
 
 ### User tasks
 
-T-087 is in progress (the user submits the BGG application this week; approval can take a week or more, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
+T-087 is in progress (the user plans to submit the BGG application; not yet submitted as of 2026-10-12; approval can take a week or more after submission, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
 
 ---
 
@@ -86,7 +86,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-001 PRD and first backlog
 - Milestone: Planning
 - Owner: product-manager
-- Status: in-review
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/PRD.md, docs/backlog.md, docs/handoffs/T-001.md
@@ -99,7 +99,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-002 API and store policy research
 - Milestone: Planning
 - Owner: product-manager
-- Status: in-review
+- Status: done
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/api-research.md
@@ -113,7 +113,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-003 UX flows, screen specs, components, copy, and accessibility checklist (M2 to M4)
 - Milestone: Planning
 - Owner: ux-designer
-- Status: in-review
+- Status: done
 - Depends on: T-001 (the draft is enough to start; revise after the user's review)
 - UX spec: n/a (this ticket writes them)
 - Linked files: docs/ux/
@@ -131,7 +131,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-097 Research fallback game data sources if BGG refuses
 - Milestone: Planning
 - Owner: product-manager
-- Status: in-review
+- Status: done
 - Depends on: none (runs in parallel with T-087; PRD Q23 and R1)
 - UX spec: n/a
 - Linked files: docs/api-research.md (new fallback section), docs/handoffs/T-097.md
@@ -150,7 +150,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-004 Decide: Dart pub workspace or path dependencies
 - Milestone: M1
 - Owner: orchestrator
-- Status: todo
+- Status: in-progress
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/decisions.md, root pubspec.yaml (only if a workspace is chosen)
@@ -163,7 +163,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-005 Decide: shelf or dart_frog for the backend
 - Milestone: M1
 - Owner: backend-developer (writes the proposal; the orchestrator records the decision after the user confirms)
-- Status: todo
+- Status: in-progress
 - Depends on: none
 - UX spec: n/a
 - Linked files: docs/handoffs/T-005.md, docs/decisions.md
@@ -176,7 +176,7 @@ T-087 is in progress (the user submits the BGG application this week; approval c
 ### T-006 Root tooling: shared strict lints, editor config, README outline
 - Milestone: M1
 - Owner: orchestrator
-- Status: todo
+- Status: in-progress
 - Depends on: none
 - UX spec: n/a
 - Linked files: analysis_options.yaml (root), .editorconfig, README.md
@@ -278,7 +278,7 @@ Production settings (domain, real certificates, backups) are T-071 and T-072, no
 - Owner: flutter-developer
 - Status: todo
 - Depends on: T-004, T-006
-- UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` [ASSUMPTION, PRD Q31]; dynamic color off.
+- UX spec: docs/ux/screens/app-shell.md (T-003): four destinations Scan, Search, Collection, Settings, in that order, with Scan as the start destination; seed color `0xFF1F6B5C` (PRD Q31, confirmed 2026-10-12); dynamic color off.
 - Linked files: app/
 - Acceptance criteria:
   1. Given app/, then it is a Flutter project with Android minSdk 24 and iOS deployment target 15.0 (confirmed, docs/decisions.md 2026-10-11), using the display name and ids from PRD Q1 (placeholders until answered) (proved by: manual, read the build files).
@@ -1084,7 +1084,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 Tasks only the user can do: accounts, applications, and messages to partners. The orchestrator reminds the user when each is due. PM records the answers in docs/api-research.md. Credentials never go into chat, tickets, or the repo; they go only into the server's git-ignored .env.
 
 ### T-087 BGG: register the app and apply for a commercial license
-- Milestone: Planning (the user submits it this week; approval can take a week or more, BGG-04)
+- Milestone: Planning (not yet submitted as of 2026-10-12, still planned; approval can take a week or more after submission, BGG-04)
 - Owner: user
 - Status: in-progress
 - Depends on: PRD Q1 (name) and Q6 (publisher) for the bracketed items in the application. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.

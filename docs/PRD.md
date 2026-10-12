@@ -73,7 +73,7 @@ Done when: CI is green on main for app, server, and repo checks; the app runs on
 
 Barcode scanning (UPC-A, EAN-13, EAN-8) with torch, haptics, and duplicate debounce; manual barcode entry; title search; candidate selection when a barcode has zero or several matches; on-device cache of confirmed barcode matches and viewed games; the game detail screen with BGG attribution. Backend: PostgreSQL access, per-IP rate limits, BGG client with a shared request queue, GameUPC client, and the barcode, search, and game detail endpoints.
 
-Started, because they gate M2 backend work: you are reviewing and submitting the BGG app registration and license application this week (T-087, in progress; approval can take a week or more, BGG-04), and PM has researched fallback game data sources in case BGG refuses (T-097, in review). None keeps the product as specified; the best is a reduced product (docs/api-research.md section 10, B11; Q33 to Q36). Still to start: the email to GameUPC (T-088).
+Started, because they gate M2 backend work: you are reviewing the BGG app registration and license application and plan to submit it (T-087, in progress; not yet submitted as of 2026-10-12; approval can take a week or more after submission, BGG-04), and PM has researched fallback game data sources in case BGG refuses (T-097, done). None keeps the product as specified; the best is a reduced product (docs/api-research.md section 10, B11; Q33 to Q36). Still to start: the email to GameUPC (T-088).
 
 Done when: on a real Android phone (and an iPhone through TestFlight, once accounts exist), a user scans a box and reaches the right game's detail screen through the backend, and every M2 ticket is signed off.
 
@@ -221,7 +221,7 @@ The research ids (B1 to B11) refer to the "Blocking risks" table in docs/api-res
 
 | Id | Risk | Impact | Research | Next step |
 |---|---|---|---|---|
-| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. T-097 found no fallback that keeps the product as specified. The best is a reduced product: our own catalog seeded from Wikidata (about 5% of BGG's games, sparse details), a paid barcode database, and games users add by hand (docs/api-research.md section 10). | B1, B11 | You submit the application this week (T-087, in progress). Storage uses internal ids with the BGG id as an external column (section 8.7). If BGG refuses, answer Q33 to Q36. |
+| R1 | BGG may refuse or charge for a commercial license. It may decline apps that compete with any part of its business, it runs GeekMarket, and its free tiers do not cover affiliate revenue (BGG-12, BGG-13, BGG-14). | Without BGG data the app cannot identify or describe games. T-097 found no fallback that keeps the product as specified. The best is a reduced product: our own catalog seeded from Wikidata (about 5% of BGG's games, sparse details), a paid barcode database, and games users add by hand (docs/api-research.md section 10). | B1, B11 | You plan to submit the application (T-087, in progress; not yet submitted as of 2026-10-12). Storage uses internal ids with the BGG id as an external column (section 8.7). If BGG refuses, answer Q33 to Q36. |
 | R2 | Keeping eBay-derived price history is a gray area in the eBay API License Agreement (EBAY-20, EBAY-21, EBAY-23). | History chart, snapshots, offline prices, collection total. | B2 | Ask eBay (T-089, Q24). Build history behind a flag. |
 | R3 | No sold prices: Marketplace Insights is closed to new users (EBAY-100, EBAY-102). | v1 shows asking prices only. | B3 | Accepted. T-059 on hold (Q27). |
 | R4 | GameUPC publishes no terms, limits, or availability promise, and documents only a test endpoint (GUPC-01 to GUPC-07). | Barcode lookup. Title search is the fallback. | B6 | Email the operator (T-088). |
@@ -285,7 +285,6 @@ Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, and Q
 **Before M1 work starts**
 
 - Q1. What are the app's display name, Android application id, and iOS bundle id? Until you answer, M1 uses the placeholder name "Board Game Collector" and the id com.example.boardgamecollector [ASSUMPTION]. That id must change before any store upload. The name may include "eBay" only with EPN's written approval, and only descriptively (EBAY-82). The BGG application (T-087) also needs the name.
-- Q31 (T-003 OQ11). Do you like the seed color `0xFF1F6B5C` (a deep green-teal, the color of game table felt), with wallpaper-based dynamic color turned off? T-012 uses it from M1.
 
 **Before M2**
 
@@ -329,5 +328,6 @@ Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, and Q
 - Q2, answered 2026-10-11. The GitHub repository bartbasi/boardgame is private. iOS builds on macOS runners run only on main and on manual runs (T-014).
 - Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework is still decided in T-005.
 - Q4 (U9, T-003 OQ4), answered 2026-10-11. Google ML Kit is approved on Android through mobile_scanner, with its usage metrics disclosed in the privacy policy and the Google Play Data safety form (MLKIT-01 to MLKIT-08; T-078, T-079). iOS uses Apple's scanner.
-- Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) this week (T-087, in progress). Part (b), GameUPC, stays open as Q10b above.
-- Q23 (U2), answered 2026-10-11. PM researched fallback game data sources in parallel, in case BGG refuses (T-097, in review). Result: no fallback keeps the product as specified (B11). Follow-up questions are Q33 to Q37.
+- Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) yourself (T-087, in progress). As of 2026-10-12 it is not yet submitted; it is still planned. Part (b), GameUPC, stays open as Q10b above.
+- Q23 (U2), answered 2026-10-11. PM researched fallback game data sources in parallel, in case BGG refuses (T-097, done). Result: no fallback keeps the product as specified (B11). Follow-up questions are Q33 to Q37.
+- Q31 (T-003 OQ11), answered 2026-10-12. The seed color is `0xFF1F6B5C` (a deep green-teal), with wallpaper-based dynamic color turned off. T-012 uses it from M1.
