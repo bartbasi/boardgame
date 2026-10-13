@@ -1,8 +1,9 @@
 /// The barcode value object: parsing, validation, and the GTIN-13 key.
 ///
-/// Pure Dart (T-026). The rules match the server's barcode validation in
-/// T-025, so the app never sends a code the server would reject with
-/// `invalid_barcode`.
+/// Pure Dart (T-026). Requirement for the server's barcode validation in
+/// T-025 (not built yet): it must apply the same rules and the same
+/// GTIN-13 key, so the app never sends a code the server would reject with
+/// `invalid_barcode` and both match stores use one key per product.
 library;
 
 import 'package:board_game_collector/core/domain/result.dart';
@@ -24,6 +25,11 @@ enum BarcodeFormat {
 ///
 /// Two barcodes are equal when they have the same [gtin13], so a UPC-A code
 /// and the same code written as EAN-13 with a leading 0 are the same value.
+/// Equal barcodes can still differ in [digits] and [format]
+/// (`036000291452` is upcA, `0036000291452` is ean13), and a Set or Map
+/// keeps whichever came first. To show the code the user scanned or typed,
+/// read [digits] from the instance [parse] returned for that input, not
+/// from a deduplicated collection.
 final class Barcode {
   const Barcode._(this.digits, this.format, this.gtin13);
 
@@ -60,8 +66,12 @@ final class Barcode {
   final BarcodeFormat format;
 
   /// The 13-digit key used for lookups and for the local and server match
-  /// stores: the digits padded on the left with zeros to 13, as GS1 writes
-  /// shorter GTINs. `036000291452` becomes `0036000291452`.
+  /// stores: the digits padded on the left with zeros to 13 (one zero for
+  /// UPC-A, five for EAN-8). `036000291452` becomes `0036000291452` and
+  /// `96385074` becomes `0000096385074`. Leading zeros are only filler and
+  /// do not change the GTIN or its check digit; GS1's 14-digit storage form
+  /// is this key with one more leading zero (docs/api-research.md section
+  /// 11, GS1-03 to GS1-08; docs/decisions.md 2026-10-13).
   final String gtin13;
 
   @override

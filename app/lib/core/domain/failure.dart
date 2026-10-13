@@ -112,9 +112,12 @@ final class InvalidBarcodeFailure extends Failure {
   /// Why the barcode was rejected.
   final InvalidBarcodeReason reason;
 
-  /// How many characters the input had after trimming surrounding
-  /// whitespace. For [InvalidBarcodeReason.wrongLength] every character is a
-  /// digit, so this is the digit count; 0 means the input was empty.
+  /// The length of the input after trimming surrounding whitespace, in
+  /// UTF-16 code units (Dart's `String.length`), so it is not a character
+  /// count when the input has emoji or other non-BMP text. It is meaningful
+  /// as a digit count only for [InvalidBarcodeReason.wrongLength], where
+  /// every unit is an ASCII digit; 0 there means the input was empty. Do not
+  /// show it to the user for the other reasons.
   final int length;
 
   @override
