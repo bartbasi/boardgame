@@ -15,6 +15,8 @@ Store metadata limits (2026-10-13): Apple name/subtitle limits are readable at d
 
 Developer account research (2026-10-13, PRD Q6b): developer.apple.com/programs/enroll/, developer.apple.com/help/account/membership/... , developer.apple.com/support/D-U-N-S/, the App Store Connect DSA help page, and Play Console help (support.google.com/googleplay/android-developer/answer/13634885, 13628312, 13634081, 13634888, 14151465, 6112435) were all readable directly. Facts are APPLE-18 to 25 and GPLAY-18 to 26; user summary in docs/store/developer-accounts.md.
 
+GS1 (2026-10-13, section 11, GS1-01 to GS1-12): gs1.org returns 403 and the General Specifications at ref.gs1.org/standards/genspecs/ exceed WebFetch's 10 MB limit. support.gs1.org (help center), gs1us.org pages, and ref.gs1.org Digital Link are readable. PDF trick: WebFetch cannot parse PDFs but saves them under the session tool-results folder; Read on that saved file (no pages parameter, pdftoppm is missing) returns the text. Worked for documents.gs1us.org PDFs and a ref.gs1.org architecture PDF.
+
 Wikidata trick: the query service answers a URL-encoded SPARQL GET through WebFetch, for example https://query.wikidata.org/sparql?format=json&query=<encoded>. Use COUNT queries for live coverage numbers instead of estimating. Board game class is Q131436.
 
 Tool hiccup: on 2026-10-11 WebFetch and WebSearch both returned a "session limit" error for a while, intermittently. Writing up verified facts first and retrying later worked; fire calls two or three at a time, not six.
