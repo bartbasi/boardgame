@@ -86,6 +86,8 @@ Goldens (T-015, 2026-10-12, approved round 1):
 - New committed assets (fonts, images) also belong in docs/third-party-components.md (orchestrator-owned); developers record them only in the handoff.
 - Flutter source facts: flutter_platform.dart sets comparator and autoUpdateGoldenFiles before testExecutable; runAsync reports errors via FlutterError.reportError (test fails, no hang).
 
+Barcode (T-026, 2026-10-13, approved round 1): Barcode.parse in features/scanner/domain; order trim > ASCII digits > length 8/12/13 > check digit; key = padLeft(13,'0'); InvalidBarcodeFailure lives in core/domain/failure.dart (sealed), only lib switch is isRetryable. Forward: T-030 must drop UPC-E before parse (8 digits, ~1 in 10 pass EAN-8 check); T-031 errorEmpty when length 0; T-025 must pad and order identically (EAN-8 padding pending PM). Doc comments that claim parity with unbuilt tickets: flag.
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.

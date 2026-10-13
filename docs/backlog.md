@@ -37,7 +37,7 @@ UI and backend tickets refer to these so that every ticket uses the same values.
 - **Large text:** text scale factor 2.0. Goldens rendered at 2.0 add the suffix `text200` to the state, for example `scanner_denied_text200_light_compact.png`.
 - **Accessibility guidelines pass** means flutter_test's `androidTapTargetGuideline`, `iOSTapTargetGuideline`, `labeledTapTargetGuideline`, and `textContrastGuideline` all pass for the screen, in light and dark themes.
 - **Offline** in app tests: the fake data source returns the no-connection failure.
-- **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5).
+- **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5). Since PRD Q5 was answered on 2026-10-12 (no images for now), no-image mode is the only mode the app ships with until BGG answers: the API contract has no image URL fields (T-018).
 - **BGG attribution:** screens that show BGG data use the BggAttribution component from docs/ux/components.md (`common.bggCredit`, `common.bggLogoLabel`) where the screen spec places it (BGG-40, BGG-41). Until the official logo file arrives from T-087, the spec's placeholder box is used. The ticket records the swap as a follow-up, and the official logo must be in place before release (T-082).
 - **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
 - **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B11 point to its "Blocking risks" table.
@@ -64,7 +64,8 @@ T-014 and T-015 both edit app.yml, and T-011 and T-019 both edit server.yml, so 
 
 ### M2
 
-Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q5 (images). PRD Q4 (ML Kit) was answered on 2026-10-11 (approved), and the BGG application is in progress (T-087; not yet submitted as of 2026-10-12). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b). T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
+Gate before M2 starts: met. The user answered PRD Q5 on 2026-10-12 (no images for now) and Q4 on 2026-10-11 (ML Kit approved), and submitted the BGG application on 2026-10-13 (T-087, waiting for BGG). M2 resumed on 2026-10-13 with the tickets not blocked by BGG, GameUPC, store accounts, or a deployment (docs/decisions.md). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b), so T-021 to T-025 stay blocked until those arrive. T-036 is blocked on PRD Q6b (store accounts) and Q8 (a deployment).
+- Ready on 2026-10-13: T-018, T-019, T-020 (backend), and T-026, T-027 (app). T-030 and T-031 become ready when T-026 is done; T-028 when T-018 is done.
 
 - Backend lane: T-018 first, because the app's T-028 needs the contract. Then T-019, T-021, T-022, T-023, T-024, T-025. T-020 fits anywhere after T-008.
 - App lane: T-026 and T-027 start right away (no backend dependency) and can run in parallel worktrees because they touch separate folders. Then T-030 and T-031, then T-028 (after T-018 is merged), T-029, T-032, T-033, T-034, T-035. T-036 when its blockers clear.
@@ -77,7 +78,7 @@ Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen
 
 ### User tasks
 
-T-087 is in progress (the user plans to submit the BGG application; not yet submitted as of 2026-10-12; approval can take a week or more after submission, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
+T-087 was submitted on 2026-10-13 and is waiting for BGG (approval can take a week or more after submission, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
 
 ---
 
@@ -444,15 +445,16 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-018 API contract: M2 DTOs and error codes
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-007, T-002 (BGG and GameUPC fields), T-003 (what the screens show), PRD Q5 (where image URLs point)
+- Status: ready
+- Depends on: T-007, T-002 (BGG and GameUPC fields), T-003 (what the screens show), all done. PRD Q5 is satisfied: answered 2026-10-12, no cover images or listing photos for now (docs/decisions.md).
 - UX spec: n/a (reads search.md, lookup-result.md, game-detail.md)
 - Linked files: packages/api_contract/
+- Images (PRD Q5): the contract has no image URL fields at all: no thumbnail URL in game summaries and no image URL in game detail. The no-image decision needs none, because every screen runs in no-image mode. If BGG later allows images (T-087), a follow-up ticket adds optional image fields as an additive /v1 change, after the direct-or-proxy decision. The handoff states that no image fields were added.
 - Acceptance criteria:
   1. Given the barcode lookup response, then it has the normalized code (a GTIN-13 string), a status of `matched`, `candidates`, `none`, or `unavailable`, and a list of game summaries that is empty for `none` and `unavailable` (proved by: unit, a fixture round trip for each status).
-  2. Given a game summary, then it has bggId (a positive integer), name, a nullable year published, a nullable thumbnail URL, and any other field the T-003 specs need that docs/api-research.md confirms BGG provides and lets us show (proved by: unit, fixture round trip).
+  2. Given a game summary, then it has bggId (a positive integer), name, a nullable year published, and any other field the T-003 specs need that docs/api-research.md confirms BGG provides and lets us show. It has no thumbnail or other image URL field (PRD Q5) (proved by: unit, fixture round trip).
   3. Given the search response, then it has the query as the server normalized it and a list of game summaries (proved by: unit).
-  4. Given the game detail response, then it has the fields game-detail.md needs that docs/api-research.md confirms (for example name, year, image, player count, play time, designers, publishers, description), each nullable where BGG may omit it, plus `fetchedAt` as an ISO 8601 UTC timestamp (proved by: unit, including a fixture with every optional field missing).
+  4. Given the game detail response, then it has the fields game-detail.md needs that docs/api-research.md confirms (for example name, year, player count, play time, designers, publishers, description), each nullable where BGG may omit it, plus `fetchedAt` as an ISO 8601 UTC timestamp. It has no image URL field (PRD Q5) (proved by: unit, including a fixture with every optional field missing).
   5. Given a field the specs want that docs/api-research.md does not confirm, then it is left out and listed under "Open questions" in the handoff (proved by: manual).
   6. Given the error codes `invalid_barcode`, `invalid_query`, `invalid_bgg_id`, `not_found`, `rate_limited`, `upstream_unavailable`, and `internal_error`, then each decodes from a fixture, and an unknown code decodes to `unknown` (proved by: unit).
   7. Given packages/api_contract/test/fixtures/, then there is one example JSON file per response type and status, and the app's data layer tests in T-028 reuse them (proved by: unit).
@@ -463,8 +465,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-008, T-010, T-011
+- Status: ready
+- Depends on: T-008, T-010, T-011 (all done)
 - UX spec: n/a
 - Linked files: server/ (database access, migrations), server/.env.example, .github/workflows/server.yml (PostgreSQL service for tests)
 - Acceptance criteria:
@@ -481,8 +483,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-020 Server: per-IP rate limiting on /v1
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-008
+- Status: ready
+- Depends on: T-008 (done)
 - UX spec: n/a
 - Linked files: server/ (middleware), server/.env.example
 - Acceptance criteria:
@@ -499,7 +501,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-021 Server: BGG XML API client and shared request queue
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (waiting for BGG's answer to T-087, submitted 2026-10-13)
 - Depends on: T-002, T-008, T-087 (a BGG token needs an approved app registration, BGG-01, BGG-02, BGG-04; until then the client is built against recorded fixtures)
 - UX spec: n/a
 - Linked files: server/ (BGG client and queue), server/test/fixtures/bgg/, server/.env.example
@@ -519,7 +521,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-022 Server: GET /v1/games/{bggId} with 7-day cache
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021, which waits for BGG)
 - Depends on: T-018, T-019, T-021
 - UX spec: n/a
 - Linked files: server/ (games route, game cache, migration)
@@ -539,7 +541,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-023 Server: GET /v1/games/search
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021, which waits for BGG)
 - Depends on: T-018, T-019, T-021
 - UX spec: n/a
 - Linked files: server/ (search route, search cache, migration)
@@ -558,7 +560,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-024 Server: GameUPC client
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (waiting for the GameUPC operator's answer, T-088)
 - Depends on: T-002, T-008, T-088 (production base URL, key, limits, and permission are UNVERIFIED until the operator answers, GUPC-07)
 - UX spec: n/a
 - Linked files: server/ (GameUPC client), server/test/fixtures/gameupc/, server/.env.example
@@ -575,7 +577,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-025 Server: GET /v1/lookup/barcode/{code}
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021 and T-024, which wait for BGG and GameUPC)
 - Depends on: T-018, T-019, T-021, T-022, T-024
 - UX spec: n/a
 - Linked files: server/ (lookup route, barcode validation, mapping store, migration)
@@ -597,8 +599,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-026 App: barcode value object and validation
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-012
+- Status: ready
+- Depends on: T-012 (done)
 - UX spec: n/a
 - Linked files: app/lib/features/scanner/domain/
 - Acceptance criteria:
@@ -611,8 +613,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-027 App: local database foundation with Drift
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-012
+- Status: ready
+- Depends on: T-012 (done). Windows Developer Mode is on since 2026-10-13, so Flutter plugins build on the dev machine (docs/decisions.md).
 - UX spec: n/a
 - Linked files: app/lib/core/ (database), the schema export folder Drift's tooling uses
 - Acceptance criteria:
@@ -662,7 +664,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-030 App: scanner screen
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
+- Status: todo (becomes ready when T-026 is done; T-003 and T-012 are done, and Windows Developer Mode is on since 2026-10-13)
 - Depends on: T-003, T-012, T-026. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
 - UX spec: docs/ux/screens/scanner.md
 - Linked files: app/lib/features/scanner/presentation/, app/android/ (camera permission), app/ios/Runner/Info.plist (camera usage text)
@@ -689,7 +691,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-031 App: manual barcode entry
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
+- Status: todo (becomes ready when T-026 is done; T-003 is done)
 - Depends on: T-003, T-026
 - UX spec: docs/ux/screens/manual-entry.md
 - Linked files: app/lib/features/scanner/presentation/
@@ -707,7 +709,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029; PRD Q5 (thumbnails)
+- Depends on: T-003, T-029. PRD Q5 is answered (2026-10-12, no images for now): the contract has no thumbnail field (T-018), so only no-image mode is built and tested. The thumbnail part of AC2 is deferred to the follow-up ticket that adds images, and the handoff says so.
 - UX spec: docs/ux/screens/search.md
 - Linked files: app/lib/features/*/presentation/ (search screen)
 - Acceptance criteria:
@@ -733,7 +735,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-032; PRD Q5 (thumbnails)
+- Depends on: T-003, T-029, T-032. PRD Q5 is answered (2026-10-12, no images for now): the contract has no thumbnail field (T-018), so only no-image mode is built and tested. The thumbnail part of AC2 is deferred to the follow-up ticket that adds images, and the handoff says so.
 - UX spec: docs/ux/screens/lookup-result.md
 - Linked files: app/lib/features/scanner/presentation/ (lookup result)
 - Acceptance criteria:
@@ -754,7 +756,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-033; PRD Q5 (cover images). The official "Powered by BGG" logo comes from T-087 (BGG-41); a placeholder is used until then, per "Shared test definitions".
+- Depends on: T-003, T-029, T-033. PRD Q5 is answered (2026-10-12, no images for now): the contract has no image field (T-018), so only the no-image header is built and tested (AC15). The cover image in AC1 and the image loading and failure states in AC9 are deferred to the follow-up ticket that adds images, and the handoff says so. The official "Powered by BGG" logo comes from T-087 (BGG-41); a placeholder is used until then, per "Shared test definitions".
 - UX spec: docs/ux/screens/game-detail.md (the M2 part)
 - Linked files: app/lib/features/game_detail/presentation/
 - Acceptance criteria:
@@ -791,8 +793,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-036 App: test builds for TestFlight and Play internal testing
 - Milestone: M2
 - Owner: flutter-developer
-- Status: blocked
-- Depends on: T-014; PRD Q1 (ids), Q6 (Apple Developer and Play Console accounts), Q8 (a backend reachable from a phone). Uploading a build needs the orchestrator to get the user's approval first.
+- Status: blocked (on PRD Q6b and Q8)
+- Depends on: T-014 (done); PRD Q1 part (a), answered 2026-10-13: the ids are `com.bartbasi.boardgamecollection`; Q6b (individual or company publisher, then the Apple Developer and Play Console accounts; none exists yet as of 2026-10-13); Q8 (a backend reachable from a phone). The final store name (Q1b) is not needed for test builds; the working title "Board Game Collection" is used. Uploading a build needs the orchestrator to get the user's approval first.
 - UX spec: n/a
 - Linked files: .github/workflows/app.yml, app/ios/, app/android/
 - Acceptance criteria:
@@ -802,7 +804,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given two runs in a row, then the second has a higher build number, set automatically (proved by: manual).
   5. Given the test build, then API_BASE_URL points to the backend chosen in PRD Q8 (proved by: manual).
   6. Given the handoff, then it lists every secret by name with how to create it, for the orchestrator to put in README.md (proved by: manual).
-  7. Given PRD Q1 is answered, then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it (proved by: manual, the T-082 checklist search).
+  7. Given the ids from PRD Q1 part (a), then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it: ids become `com.bartbasi.boardgamecollection`, and the name becomes the working title "Board Game Collection" until Q1b is answered (proved by: manual, the T-082 checklist search).
   8. Given the Android test build installed from the internal testing track on a phone, when the user runs a title search, then results come from the backend chosen in Q8. This proves a store-signed release build reaches the API (T-012 review R1-G5) (proved by: manual on device).
 
 ---
@@ -1119,7 +1121,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q38, which absorbs Q13), and opening eBay listings.
+- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (none while PRD Q5's no-image answer stands), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q38, which absorbs Q13), and opening eBay listings.
 - Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
   1. Given the privacy policy, then it states that on Android the barcode scanner uses Google ML Kit, which processes camera images on the device without sending them to Google, and sends ML Kit usage and performance metrics to Google (MLKIT-02, MLKIT-03, MLKIT-04), and that iOS uses Apple's scanner (MLKIT-05). This disclosure is required because the user approved ML Kit on that condition (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
@@ -1147,14 +1149,14 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Depends on: PRD Q1 (final name and ids)
+- Depends on: PRD Q1b (final store name). The ids are known: `com.bartbasi.boardgamecollection` (Q1 part (a), answered 2026-10-13).
 - Goal: Signed release builds for both stores, with final ids, icons, and version numbering, and the official "Powered by BGG" logo from T-087 in every BggAttribution (no placeholders left). Submission needs the user's approval.
 - Acceptance criteria (only these so far; the full set comes when the ticket is scoped):
   1. Given a release build of the Android app in CI, then it is signed with the upload key from GitHub Actions secrets, not the Flutter template's debug key: the certificate printed by `apksigner verify --print-certs` (or `keytool -printcert -jarfile`) on the App Bundle or APK is the upload certificate and not "Android Debug" (T-012 review R1-G3) (proved by: manual, run log).
   2. Given the release signing settings are missing (no key file or secrets), when a release build runs, then it fails with a message naming the missing setting and produces no artifact. It never falls back to the debug key. Checked once locally and once in CI on a scratch branch without the secrets, deleted afterward (proved by: manual).
-  3. Given PRD Q1 is answered, then every item in the rename checklist below has the final value, and `git grep` over app/ for `com.example` and for the placeholder name finds nothing in tracked files (proved by: manual).
+  3. Given PRD Q1b is answered, then every item in the rename checklist below has the final value (ids `com.bartbasi.boardgamecollection`, name from Q1b), and `git grep` over app/ for `com.example`, `boardgamecollector` (outside the Dart package name `board_game_collector`), and the placeholder name "Board Game Collector" finds nothing in tracked files (proved by: manual).
   4. Given the release build, then app_en.arb has no key starting with `dev`, and the strings test fails if one is added (docs/decisions.md 2026-10-12, T-012: `dev*` strings must not ship) (proved by: unit).
-- Rename checklist for PRD Q1 (from the T-012 handoff, R1-G6). Applied here, or in T-036 if the first test upload comes first (Q1 says the id must change before any store upload). All items change together:
+- Rename checklist for PRD Q1 (from the T-012 handoff, R1-G6). Applied here, or in T-036 if the first test upload comes first (the id must change before any store upload, and it is permanent after that). The new ids are `com.bartbasi.boardgamecollection` (docs/decisions.md 2026-10-13); the Kotlin folder becomes `com/bartbasi/boardgamecollection/`. The display name is the working title "Board Game Collection" until Q1b gives the final name. All items change together:
   - `app/lib/l10n/app_en.arb`: `shellAppName`, then run `flutter gen-l10n`. docs/ux/copy.md `shell.appName` changes too (ux-designer owns it).
   - `app/android/app/src/main/AndroidManifest.xml`: `android:label`.
   - `app/android/app/build.gradle.kts`: `namespace` and `applicationId`.
@@ -1184,10 +1186,10 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 Tasks only the user can do: accounts, applications, and messages to partners. The orchestrator reminds the user when each is due. PM records the answers in docs/api-research.md. Credentials never go into chat, tickets, or the repo; they go only into the server's git-ignored .env.
 
 ### T-087 BGG: register the app and apply for a commercial license
-- Milestone: Planning (not yet submitted as of 2026-10-12, still planned; approval can take a week or more after submission, BGG-04)
+- Milestone: Planning (submitted 2026-10-13, waiting for BGG; approval can take a week or more after submission, BGG-04)
 - Owner: user
-- Status: in-progress
-- Depends on: PRD Q1 (name) and Q6 (publisher) for the bracketed items in the application. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.
+- Status: in-progress (submitted 2026-10-13, waiting for BGG)
+- Depends on: none left; the user submitted the application on 2026-10-13 (docs/decisions.md). If the final app name (PRD Q1b) or the publisher (Q6b) later differs from what the application said, the user tells BGG. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.
 - Goal: Register at https://boardgamegeek.com/applications and send the commercial license application from docs/api-research.md section 1.6, filled in and approved, including the question about cover images (PRD Q5). Once approved, create the Bearer token and download the official "Powered by BGG" logo files (BGG-01, BGG-02, BGG-41).
 - Acceptance criteria:
   1. Given BGG answers, then its written answer is shared with PM and recorded in docs/api-research.md (proved by: manual).

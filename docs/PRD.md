@@ -73,7 +73,7 @@ Done when: CI is green on main for app, server, and repo checks; the app runs on
 
 Barcode scanning (UPC-A, EAN-13, EAN-8) with torch, haptics, and duplicate debounce; manual barcode entry; title search; candidate selection when a barcode has zero or several matches; on-device cache of confirmed barcode matches and viewed games; the game detail screen with BGG attribution. Backend: PostgreSQL access, per-IP rate limits, BGG client with a shared request queue, GameUPC client, and the barcode, search, and game detail endpoints.
 
-Started, because they gate M2 backend work: you are reviewing the BGG app registration and license application and plan to submit it (T-087, in progress; not yet submitted as of 2026-10-12; approval can take a week or more after submission, BGG-04), and PM has researched fallback game data sources in case BGG refuses (T-097, done). None keeps the product as specified; the best is a reduced product (docs/api-research.md section 10, B11; Q33 to Q36). Still to start: the email to GameUPC (T-088).
+Started, because they gate M2 backend work: you submitted the BGG app registration and license application on 2026-10-13 and are waiting for BGG's answer (T-087; approval can take a week or more after submission, BGG-04), and PM has researched fallback game data sources in case BGG refuses (T-097, done). None keeps the product as specified; the best is a reduced product (docs/api-research.md section 10, B11; Q33 to Q36). Still to start: the email to GameUPC (T-088).
 
 Done when: on a real Android phone (and an iPhone through TestFlight, once accounts exist), a user scans a box and reaches the right game's detail screen through the backend, and every M2 ticket is signed off.
 
@@ -115,7 +115,7 @@ These rules apply to every screen and endpoint that shows a price.
 - The EPN campaign id is a backend setting. The app never holds it and never builds affiliate URLs. The backend sends it as `affiliateCampaignId` in the `X-EBAY-C-ENDUSERCTX` header (EBAY-50). eBay returns itemAffiliateWebUrl only when that header is sent (EBAY-51), and partners must use it (EBAY-52). The backend returns itemAffiliateWebUrl when present and itemWebUrl otherwise.
 - **Disclosure:** a short disclosure sits next to the listings, visible without scrolling (EBAY-92). A disclosure only in Settings, behind a link, or in small print is not enough. It must use an EPN-approved phrase; "Affiliate link" is not approved (EBAY-93). You choose the wording (Q25). Settings also carries the full disclosure. The disclosure is inline text, never a modal, and never needs to be acknowledged. Wording lives in docs/legal/ (T-050).
 - No rewards or incentives for tapping links (EBAY-94).
-- eBay logos, if used, must be exactly the files EPN provides. "eBay" may appear in the app name only with EPN's written approval and only descriptively (EBAY-82; see Q1).
+- eBay logos, if used, must be exactly the files EPN provides. "eBay" may appear in the app name only with EPN's written approval and only descriptively (EBAY-82; see Q1b).
 - **Nothing blocks, delays, or requires a tap to keep using the app.** That means no interstitials, no onboarding wall, no rating prompts [ASSUMPTION], no confirmation dialog before opening eBay, no forced update screens, and no countdowns. The camera permission prompt appears only when the user opens the scanner, and denying it never blocks search or the collection.
 
 ## 8. Non-functional requirements
@@ -208,7 +208,7 @@ US English only, USD, US date and number formats ($1,234.56; Oct 11, 2026).
 
 ### 8.10 Partner and store compliance
 
-- **BGG:** a written commercial license before launch (BGG-11, BGG-12; T-087). Every screen that shows BGG data credits BoardGameGeek by name and shows the "Powered by BGG" logo, linked to BGG, at a legible size (BGG-40, BGG-41). BGG data is not modified (BGG-15). XML API2 only, never BGG's JSON API (BGG-17). Cover images only as BGG allows (BGG-42, Q5); every screen must work without them.
+- **BGG:** a written commercial license before launch (BGG-11, BGG-12; T-087). Every screen that shows BGG data credits BoardGameGeek by name and shows the "Powered by BGG" logo, linked to BGG, at a legible size (BGG-40, BGG-41). BGG data is not modified (BGG-15). XML API2 only, never BGG's JSON API (BGG-17). Cover images only as BGG allows (BGG-42). Until BGG answers, the app shows no cover images or listing photos at all (Q5, answered 2026-10-12), and every screen must work without them.
 - **eBay:** the account deletion notification endpoint is live before the first production eBay API call (EBAY-10, EBAY-11; T-084). Content age limits apply (section 6 rule 6). Cached eBay content is deleted when no longer needed (EBAY-21), and all of it within 10 days if the agreement ends (EBAY-26). No category-wide or site-wide statistics (EBAY-23).
 - **EPN:** app approval, disclosure placement, and approved wording (section 7).
 - **GameUPC:** written permission for commercial use and a production key before launch (GUPC-01, GUPC-07; T-088).
@@ -232,7 +232,7 @@ The research ids (B1 to B11) refer to the "Blocking risks" table in docs/api-res
 | R9 | No commission until EPN approves the app, and EPN wants a live store link first (EBAY-90, EBAY-91). | Revenue from launch day until approval. | B4 | Apply at launch (T-092, Q15). |
 | R10 | EPN restricts disclosure wording and placement (EBAY-92, EBAY-93). Approved phrases such as "Ad" may sit badly with "no ads" and with Google Play's "Contains ads" answer (GPLAY-12). | Listing layout, copy, store declarations. | B5 | Choose wording (Q25). |
 | R11 | Attestation as the brief specifies conflicts with "no device ids" (APPLE-13) and with Play Integrity's daily quota (GPLAY-07, GPLAY-08). | M5 protection design, privacy disclosures. | B7 | Decide (Q26). |
-| R12 | Rights to BGG cover images are unclear, and BGG staff asked developers not to hotlink (BGG-42). | Cover images on game screens. | B10 | Ask BGG in the application (Q5). Screens work without images. |
+| R12 | Rights to BGG cover images are unclear, and BGG staff asked developers not to hotlink (BGG-42). | Cover images on game screens. | B10 | No images until BGG answers (Q5, answered 2026-10-12); the application asks BGG about image use. Screens work without images. |
 | R13 | The first production eBay API call needs the account deletion endpoint live on a public HTTPS URL (EBAY-10, EBAY-11). That means a deployment before M4 can use production eBay data, including the category check (T-085) and recording test fixtures. | M4 schedule, deployment approval. | EBAY-10, EBAY-11 | Decide when the first deployment happens (Q8). |
 
 ## 10. Out of scope for v1
@@ -268,7 +268,7 @@ Ticket-level proposals are marked in docs/backlog.md.
 
 ## 12. Open questions
 
-Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, Q33 to Q37 come from the fallback research (F1 to F5 in docs/handoffs/T-097.md), and Q38 comes from the T-012 code review (it absorbs Q13). Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5. Answered questions move to the "Answered" list at the end of this section and keep their ids.
+Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, Q33 to Q37 come from the fallback research (F1 to F5 in docs/handoffs/T-097.md), and Q38 comes from the T-012 code review (it absorbs Q13). Where a question matches one in the research handoff (U1 to U9 in docs/handoffs/T-002.md) or the UX handoff (OQ1 to OQ15 under "Open questions" in docs/handoffs/T-003.md), those ids are shown. T-003 OQ1 (BGG attribution) is answered by research and needs no user decision: BoardGameGeek is credited by name with the "Powered by BGG" logo on every screen that shows BGG data (section 8.10). T-003 OQ2's eBay attribution part depends on an old eBay article (EBAY-80) and is checked in T-091; its image part is Q5. Answered questions move to the "Answered" list at the end of this section and keep their ids. When only part of a question is answered, the open part keeps the id with a "b" suffix (Q1b, Q6b, Q10b).
 
 **Start now (long lead time)**
 
@@ -282,14 +282,13 @@ Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, Q33 t
 - Q35 (T-097 F3). In path (c), most games would show only a title, perhaps a publisher, and users would add many games by hand (Q11). Is that still a product you want to ship?
 - Q36 (T-097 F4). Some Wikidata statements cite BGG as their source (WD-05), and GameUPC works through BGG ids. If BGG has refused us, should a lawyer confirm that using Wikidata board game data, and BGG ids as a lookup key, is safe? [ASSUMPTION: low risk, not legal advice.]
 
-**Before M1 work starts**
+**Before the first store upload (T-036 in M2, T-082 in M5)**
 
-- Q1. What are the app's display name, Android application id, and iOS bundle id? Until you answer, M1 uses the placeholder name "Board Game Collector" and the id com.example.boardgamecollector [ASSUMPTION]. That id must change before any store upload. The name may include "eBay" only with EPN's written approval, and only descriptively (EBAY-82). The BGG application (T-087) also needs the name.
+- Q1b (open part of Q1). What is the app's final store name? The working title is "Board Game Collection" (Q1 part (a) below); PM is researching name options for you. The name can change after launch; the ids cannot. The name may include "eBay" only with EPN's written approval, and only descriptively (EBAY-82). The iOS short name (`CFBundleName`) must be under 16 characters (T-082 rename checklist), so the label under the icon may need a shorter form.
+- Q6b (open part of Q6). Should the publisher be you as an individual or a company? This decides which Apple Developer Program and Google Play Console accounts you create, and the seller name both stores show. Options, costs, and a recommendation are in docs/store/developer-accounts.md. iPhone testing through TestFlight and Play internal testing (T-036) need the accounts.
 
 **Before M2**
 
-- Q5 (T-003 OQ2, OQ5). Can the app load cover images (BGG) and listing photos (eBay) directly from their image hosts? A strict reading of "the app talks only to our backend" says no, which means the backend proxies them. BGG staff have asked developers not to hotlink, and image rights are unclear (BGG-42), so the research suggests asking BGG in the license application. The options are direct loading, a backend proxy or cache, or no cover images. Until this is answered, every screen must work without cover images.
-- Q6. Do you have Apple Developer Program and Google Play Console accounts (both are paid)? Is the publisher you as an individual, or a company? iPhone testing through TestFlight (T-036) needs the Apple account.
 - Q7. Which iPhone and Android phone models can you test on? We will use them as the reference devices for section 8.3 and for manual checks.
 - Q8. When should the first deployment to the VM happen? Two things need one before M5: iPhone testing in M2 (the phone must reach the backend), and the first production eBay call in M4, which needs the account deletion endpoint live on a public HTTPS URL (R13). Any deployment first needs attestation (T-066 to T-069), the Q26 decision, and a domain name for Caddy, which may cost money.
 - Q9. Should a match the user confirms stay only on the device (proposed), or also go to our backend so other users get better matches? If we ever pass votes on to GameUPC, its demo sends a `user_id`, and we must not send any device or user identifier (GUPC-02).
@@ -326,9 +325,12 @@ Ids are stable: Q1 to Q22 are from round 1, Q23 to Q32 are new in round 2, Q33 t
 
 **Answered** (kept for reference; source: docs/decisions.md)
 
+- Q1 part (a), answered 2026-10-13. The Android application id and the iOS bundle id are `com.bartbasi.boardgamecollection`, and the working title is "Board Game Collection". The ids are permanent once uploaded to a store. The final store name stays open as Q1b above. M1's placeholders (name "Board Game Collector", id `com.example.boardgamecollector`) are replaced through the rename checklist in T-082 (or T-036, whichever uploads first).
 - Q2, answered 2026-10-11. The GitHub repository bartbasi/boardgame is private. iOS builds on macOS runners run only on main and on manual runs (T-014).
 - Q3, answered 2026-10-11. Confirmed: GitHub Actions for CI, minimum Android API 24 and iOS 15, and price snapshots for games looked up in the last 90 days. Their [ASSUMPTION] markers are removed. The backend framework was decided in T-005 on 2026-10-12: shelf with shelf_router.
 - Q4 (U9, T-003 OQ4), answered 2026-10-11. Google ML Kit is approved on Android through mobile_scanner, with its usage metrics disclosed in the privacy policy and the Google Play Data safety form (MLKIT-01 to MLKIT-08; T-078, T-079). iOS uses Apple's scanner.
-- Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) yourself (T-087, in progress). As of 2026-10-12 it is not yet submitted; it is still planned. Part (b), GameUPC, stays open as Q10b above.
+- Q5 (T-003 OQ2, OQ5), answered 2026-10-12. No cover images and no listing photos for now. Every screen works without images, and the API contract carries no image URL fields (T-018). The BGG license application (T-087) asks BGG about image use; whether images later load directly or through a backend proxy is decided after BGG answers (BGG-42, R12).
+- Q6 part (a), answered 2026-10-13. You have no Apple Developer Program or Google Play Console account yet. The individual or company choice stays open as Q6b above.
+- Q10 part (a) (U1), answered 2026-10-11. You review and submit the BGG application (docs/api-research.md section 1.6) yourself (T-087). You submitted it on 2026-10-13 and are waiting for BGG's answer. Part (b), GameUPC, stays open as Q10b above.
 - Q23 (U2), answered 2026-10-11. PM researched fallback game data sources in parallel, in case BGG refuses (T-097, done). Result: no fallback keeps the product as specified (B11). Follow-up questions are Q33 to Q37.
 - Q31 (T-003 OQ11), answered 2026-10-12. The seed color is `0xFF1F6B5C` (a deep green-teal), with wallpaper-based dynamic color turned off. T-012 uses it from M1.
