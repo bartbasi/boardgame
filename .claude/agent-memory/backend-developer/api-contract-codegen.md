@@ -16,6 +16,10 @@ api_contract DTOs use freezed 4.x (MIT) + json_serializable 6.x (BSD-3) with `bu
 - freezed 4 syntax: `@freezed abstract class X with _$X { const factory X({...}) = _X; factory X.fromJson(...) }`; no `final` in constructor params (Dart 3.13).
 - freezed files carry `// coverage:ignore-file`, so coverage counts only hand-written and `.g.dart` lines.
 - Coverage: `dart run coverage:test_with_coverage` (coverage dev dep) writes coverage/lcov.info.
+- Value rules (T-018): use `JsonConverter<T, Object>` (non-null JSON type). With `Object?` json_serializable calls the converter with null even for nullable fields, so optional fields reject null; with `Object` it wraps nullable fields in `_$JsonConverterFromJson` and casts required ones. Plain `int` fields decode via `(v as num).toInt()`, which silently truncates 1.5; the converters in lib/src/converters.dart reject that.
+- Cross-field checks: `factory X.fromJson(json) => _check(json, _$XFromJson(json));` works with freezed; throw `CheckedFromJsonException(json, key, className, message)` yourself.
+- Adding an ErrorCode value breaks the app compile: app/lib/core/data/network/failure_mapper.dart had an exhaustive switch with no wildcard (T-018 asked flutter-developer to add `_ =>`). Check app/ for exhaustive enum switches before adding enum values; app.yml runs on packages/api_contract changes.
+- Wildcards (`_`) in Dart switch over enums are fine for coverage; Python heredocs with `'''` inside Bash fail in this harness, use Edit or a script in a git-ignored .dart_tool/ folder.
 - Use the SDK binary `C:\dev\flutter\bin\cache\dart-sdk\bin\dart.exe` to prove "no Flutter"; Docker `dart:stable` needs the repo layout (root analysis_options.yaml two levels up) or analyze warns include_file_not_found.
 
 Related: [[worktree-shell-limits]]
