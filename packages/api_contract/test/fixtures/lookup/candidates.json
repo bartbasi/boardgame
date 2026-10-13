@@ -1,0 +1,27 @@
+{
+  "code": "0036000291452",
+  "status": "candidates",
+  "games": [
+    {
+      "bggId": 13,
+      "name": "Catan",
+      "yearPublished": 1995,
+      "thumbnailUrl": null,
+      "bggUrl": "https://boardgamegeek.com/boardgame/13"
+    },
+    {
+      "bggId": 822,
+      "name": "Carcassonne",
+      "yearPublished": 2000,
+      "thumbnailUrl": null,
+      "bggUrl": "https://boardgamegeek.com/boardgame/822"
+    },
+    {
+      "bggId": 424242,
+      "name": "Example Game With No Year",
+      "yearPublished": null,
+      "thumbnailUrl": null,
+      "bggUrl": "https://boardgamegeek.com/boardgame/424242"
+    }
+  ]
+}
