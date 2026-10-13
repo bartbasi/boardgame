@@ -52,9 +52,14 @@ void main() {
   final example = _parseEnvFile(File('.env.example').readAsStringSync());
 
   group('.env.example (T-008 AC6)', () {
-    test('lists exactly the variables the config loader reads', () {
+    test('lists exactly the variables the config loaders read (T-008 AC6, '
+        'T-019 AC4)', () {
       final recording = _RecordingMap({});
       expect(() => Config.load(recording), throwsA(isA<ConfigException>()));
+      expect(
+        () => DatabaseConfig.load(recording),
+        throwsA(isA<ConfigException>()),
+      );
 
       expect(recording.readKeys, isNotEmpty);
       expect(example.keys.toSet(), recording.readKeys);
@@ -62,6 +67,7 @@ void main() {
 
     test('its values form a valid config, so it is a working template', () {
       expect(() => Config.load(example), returnsNormally);
+      expect(() => DatabaseConfig.load(example), returnsNormally);
     });
 
     test('every key is UPPER_SNAKE_CASE with a non-empty placeholder', () {
