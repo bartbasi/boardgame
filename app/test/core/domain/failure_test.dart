@@ -13,6 +13,7 @@ final List<Failure> _everyFailure = [
   const ServiceUnavailableFailure(),
   const NotFoundFailure(),
   const InvalidInputFailure(InvalidInputCode.invalidBarcode),
+  const InvalidBarcodeFailure(InvalidBarcodeReason.badCheckDigit, length: 12),
   const AccessDeniedFailure(),
   const CancelledFailure(),
   const ConfigurationFailure(ConfigurationProblem.insecureBaseUrl),
@@ -30,6 +31,7 @@ String _copyKey(Failure failure) => switch (failure) {
   ServiceUnavailableFailure() => 'common.errorUnavailableBody',
   NotFoundFailure() => 'not found (screen specific)',
   InvalidInputFailure() => 'invalid input (screen specific)',
+  InvalidBarcodeFailure() => 'manualEntry.error* (by reason)',
   AccessDeniedFailure() => 'common.errorGenericBody',
   CancelledFailure() => 'nothing shown',
   ConfigurationFailure() => 'common.errorGenericBody',
@@ -46,6 +48,7 @@ void main() {
       'common.errorUnavailableBody',
       'not found (screen specific)',
       'invalid input (screen specific)',
+      'manualEntry.error* (by reason)',
       'common.errorGenericBody',
       'nothing shown',
       'common.errorGenericBody',
@@ -67,6 +70,15 @@ void main() {
     }
   });
 
+  test('invalid barcode carries the reason and the trimmed length', () {
+    const failure = InvalidBarcodeFailure(
+      InvalidBarcodeReason.nonDigit,
+      length: 12,
+    );
+    expect(failure.reason, InvalidBarcodeReason.nonDigit);
+    expect(failure.length, 12);
+  });
+
   test('configuration carries the problem', () {
     expect(
       const ConfigurationFailure(ConfigurationProblem.missingBaseUrl).problem,
@@ -82,6 +94,8 @@ void main() {
             retryAfter: retryAfter,
           ),
           InvalidInputFailure(:final code) => InvalidInputFailure(code),
+          InvalidBarcodeFailure(:final reason, :final length) =>
+            InvalidBarcodeFailure(reason, length: length),
           ConfigurationFailure(:final problem) => ConfigurationFailure(problem),
           _ => failure,
         };
@@ -102,6 +116,27 @@ void main() {
       expect(
         const InvalidInputFailure(InvalidInputCode.invalidQuery),
         isNot(const InvalidInputFailure(InvalidInputCode.invalidBggId)),
+      );
+      expect(
+        const InvalidBarcodeFailure(InvalidBarcodeReason.nonDigit, length: 5),
+        isNot(
+          const InvalidBarcodeFailure(
+            InvalidBarcodeReason.wrongLength,
+            length: 5,
+          ),
+        ),
+      );
+      expect(
+        const InvalidBarcodeFailure(
+          InvalidBarcodeReason.wrongLength,
+          length: 5,
+        ),
+        isNot(
+          const InvalidBarcodeFailure(
+            InvalidBarcodeReason.wrongLength,
+            length: 6,
+          ),
+        ),
       );
       expect(const TimeoutFailure(), isNot(const NoConnectionFailure()));
       expect(const NotFoundFailure(), isNot('NotFoundFailure()'));
@@ -126,6 +161,13 @@ void main() {
     expect(
       const InvalidInputFailure(InvalidInputCode.invalidBarcode).toString(),
       'InvalidInputFailure(InvalidInputCode.invalidBarcode)',
+    );
+    expect(
+      const InvalidBarcodeFailure(
+        InvalidBarcodeReason.wrongLength,
+        length: 0,
+      ).toString(),
+      'InvalidBarcodeFailure(InvalidBarcodeReason.wrongLength, 0)',
     );
   });
 }
