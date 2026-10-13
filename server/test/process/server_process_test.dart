@@ -11,6 +11,7 @@ import 'package:boardgame_server/boardgame_server.dart';
 import 'package:test/test.dart';
 
 import '../support/harness.dart';
+import '../support/database.dart';
 
 /// Starts `dart bin/server.dart` (same process id, so signals reach the
 /// server) with [environment] on top of the parent environment.
@@ -32,7 +33,10 @@ void main() {
       final signals = StreamController<ProcessSignal>();
       final listening = Completer<HttpServer>();
       final serverExit = runServer(
-        environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'},
+        environment: withTestDatabase({
+          'PORT': '${await freePort()}',
+          'LOG_LEVEL': 'info',
+        }),
         shutdownSignals: signals.stream,
         stdoutLine: (_) {},
         stderrLine: (_) {},
@@ -99,10 +103,9 @@ void main() {
     'SIGTERM: the process stops listening and exits 0 (T-008 AC9)',
     () async {
       final port = await freePort();
-      final process = await _startServer({
-        'PORT': '$port',
-        'LOG_LEVEL': 'info',
-      });
+      final process = await _startServer(
+        withTestDatabase({'PORT': '$port', 'LOG_LEVEL': 'info'}),
+      );
       final stdoutLines = <String>[];
       final started = Completer<void>();
       process.stdout

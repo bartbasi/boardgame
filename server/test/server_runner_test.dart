@@ -7,6 +7,7 @@ import 'package:boardgame_server/boardgame_server.dart';
 import 'package:test/test.dart';
 
 import 'support/harness.dart';
+import 'support/database.dart';
 
 /// Drives [runServer] in-process on the loopback interface.
 class _Run {
@@ -44,10 +45,8 @@ class _Run {
   Future<int> get port async => (await listening.future).port;
 }
 
-Future<Map<String, String>> _env() async => {
-  'PORT': '${await freePort()}',
-  'LOG_LEVEL': 'info',
-};
+Future<Map<String, String>> _env() async =>
+    withTestDatabase({'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'});
 
 void main() {
   group('startup with bad config (T-008 AC4, AC5)', () {
@@ -112,7 +111,10 @@ void main() {
       final blocker = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       addTearDown(blocker.close);
       final run = _Run(
-        environment: {'PORT': '${blocker.port}', 'LOG_LEVEL': 'info'},
+        environment: withTestDatabase({
+          'PORT': '${blocker.port}',
+          'LOG_LEVEL': 'info',
+        }),
       )..start();
 
       expect(await run.exitCode, listenErrorExitCode);
