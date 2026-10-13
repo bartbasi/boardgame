@@ -184,6 +184,102 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settingsTitle;
 
+  /// copy.md scanner.actionManual. Opens manual barcode entry from Scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter barcode'**
+  String get scannerActionManual;
+
+  /// copy.md search.actionManual. App bar action on Search that opens manual barcode entry.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter barcode'**
+  String get searchActionManual;
+
+  /// copy.md manualEntry.title. App bar title.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter barcode'**
+  String get manualEntryTitle;
+
+  /// copy.md manualEntry.fieldLabel. Visible label of the barcode field.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode number'**
+  String get manualEntryFieldLabel;
+
+  /// copy.md manualEntry.helper. Helper text under the field.
+  ///
+  /// In en, this message translates to:
+  /// **'8, 12, or 13 digits, printed under the barcode.'**
+  String get manualEntryHelper;
+
+  /// copy.md manualEntry.submit. Primary button.
+  ///
+  /// In en, this message translates to:
+  /// **'Look up'**
+  String get manualEntrySubmit;
+
+  /// copy.md manualEntry.errorLength. Shown after submit for a digit count other than 8, 12, or 13 (not 0).
+  ///
+  /// In en, this message translates to:
+  /// **'A barcode has 8, 12, or 13 digits. You entered {count}.'**
+  String manualEntryErrorLength(int count);
+
+  /// copy.md manualEntry.errorNonDigit. Fallback when a non-digit reaches validation.
+  ///
+  /// In en, this message translates to:
+  /// **'Use digits only.'**
+  String get manualEntryErrorNonDigit;
+
+  /// copy.md manualEntry.errorCheckDigit. Wrong check digit.
+  ///
+  /// In en, this message translates to:
+  /// **'That number does not look right. Check the digits against the box.'**
+  String get manualEntryErrorCheckDigit;
+
+  /// copy.md manualEntry.errorEmpty. Submit with an empty field.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the barcode number.'**
+  String get manualEntryErrorEmpty;
+
+  /// copy.md manualEntry.errorAnnouncement. Announced to screen readers when an error appears.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {message}'**
+  String manualEntryErrorAnnouncement(String message);
+
+  /// copy.md manualEntry.searchInstead. Text button that opens Search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by title instead'**
+  String get manualEntrySearchInstead;
+
+  /// copy.md manualEntry.scanInstead. Text button that returns to the scanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan instead'**
+  String get manualEntryScanInstead;
+
+  /// copy.md manualEntry.digitCounter. Counter under the field.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of 13 digits'**
+  String manualEntryDigitCounter(int count);
+
+  /// copy.md itemEdit.clearField. Label of a clear button inside a text field; also used by the barcode field until copy.md has its own key (T-031 open question).
+  ///
+  /// In en, this message translates to:
+  /// **'Clear {field}'**
+  String itemEditClearField(String field);
+
+  /// copy.md lookup.title. App bar title of the lookup result screen.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode {code}'**
+  String lookupTitle(String code);
+
   /// Skeleton only (T-012), not in copy.md. Removed when the destination screen is built.
   ///
   /// In en, this message translates to:

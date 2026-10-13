@@ -10,11 +10,60 @@ import '../navigation/app_destination.dart';
 ///
 /// Compact windows get a bottom NavigationBar; medium and expanded windows
 /// (including phone landscape) get a NavigationRail on the leading edge.
-class AppShell extends StatelessWidget {
+///
+/// On compact windows the NavigationBar hides while a text field has focus,
+/// so the keyboard does not squeeze the content, and returns when focus
+/// leaves (app-shell.md section 2 [ASSUMPTION], PRD Q32; built in T-031).
+/// The rail never hides.
+class AppShell extends StatefulWidget {
   const AppShell({required this.navigationShell, super.key});
 
   /// Holds one navigator per destination; see `appRouter`.
   final StatefulNavigationShell navigationShell;
+
+  /// Whether [node] is the focus node of a text field.
+  ///
+  /// A text field's EditableText builds a Focus widget for its node, so the
+  /// node's context sits below that EditableText.
+  static bool isTextFieldFocus(FocusNode? node) {
+    final context = node?.context;
+    if (context == null) return false;
+    final editable = context.findAncestorWidgetOfExactType<EditableText>();
+    return editable != null && identical(editable.focusNode, node);
+  }
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  bool _textFieldFocused = false;
+
+  StatefulNavigationShell get navigationShell => widget.navigationShell;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onFocusChanged);
+    _textFieldFocused = AppShell.isTextFieldFocus(
+      FocusManager.instance.primaryFocus,
+    );
+  }
+
+  @override
+  void dispose() {
+    FocusManager.instance.removeListener(_onFocusChanged);
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    final focused = AppShell.isTextFieldFocus(
+      FocusManager.instance.primaryFocus,
+    );
+    if (focused != _textFieldFocused && mounted) {
+      setState(() => _textFieldFocused = focused);
+    }
+  }
 
   void _select(int index) {
     // Tapping the selected destination again pops it to its root.
@@ -56,27 +105,30 @@ class AppShell extends StatelessWidget {
     if (sizeClass == WindowSizeClass.compact) {
       return Scaffold(
         body: content,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: selectedIndex,
-          onDestinationSelected: _select,
-          destinations: [
-            for (final destination in AppDestination.values)
-              NavigationDestination(
-                // The bar takes its label as a String, so the semantic label
-                // (nav.*Label) goes on the icon. Screen readers then read,
-                // for example, "Scan a barcode, Scan, Tab 1 of 4".
-                icon: Icon(
-                  destination.icon,
-                  semanticLabel: _extraSemanticLabel(destination, l10n),
-                ),
-                selectedIcon: Icon(
-                  destination.selectedIcon,
-                  semanticLabel: _extraSemanticLabel(destination, l10n),
-                ),
-                label: destination.label(l10n),
+        bottomNavigationBar: _textFieldFocused
+            ? null
+            : NavigationBar(
+                selectedIndex: selectedIndex,
+                onDestinationSelected: _select,
+                destinations: [
+                  for (final destination in AppDestination.values)
+                    NavigationDestination(
+                      // The bar takes its label as a String, so the semantic
+                      // label (nav.*Label) goes on the icon. Screen readers
+                      // then read, for example, "Scan a barcode, Scan, Tab 1
+                      // of 4".
+                      icon: Icon(
+                        destination.icon,
+                        semanticLabel: _extraSemanticLabel(destination, l10n),
+                      ),
+                      selectedIcon: Icon(
+                        destination.selectedIcon,
+                        semanticLabel: _extraSemanticLabel(destination, l10n),
+                      ),
+                      label: destination.label(l10n),
+                    ),
+                ],
               ),
-          ],
-        ),
       );
     }
 
