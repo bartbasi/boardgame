@@ -129,6 +129,18 @@ void main() {
       }
     });
 
+    test('an unparseable fetchedAt is not echoed in the error (R2-G1)', () {
+      final full = readFixture('game_detail/full.json');
+      try {
+        GameDetailResponse.fromJson({...full, 'fetchedAt': 'secret-text-123'});
+        fail('expected CheckedFromJsonException');
+      } on CheckedFromJsonException catch (e) {
+        expect(e.key, 'fetchedAt');
+        expect(e.innerError.toString(), isNot(contains('secret-text-123')));
+        expect(e.toString(), isNot(contains('secret-text-123')));
+      }
+    });
+
     test('real edge dates are accepted', () {
       final full = readFixture('game_detail/full.json');
       final cases = {

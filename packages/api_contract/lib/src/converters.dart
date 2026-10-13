@@ -58,7 +58,13 @@ class UtcDateTimeConverter implements JsonConverter<DateTime, Object> {
     if (json is! String) {
       throw const FormatException('must be an ISO 8601 UTC timestamp string');
     }
-    final parsed = DateTime.parse(json);
+    final DateTime parsed;
+    try {
+      parsed = DateTime.parse(json);
+    } on FormatException {
+      // DateTime.parse puts the rejected text in its exception; never echo.
+      throw const FormatException('must be an ISO 8601 UTC timestamp');
+    }
     if (!parsed.isUtc) {
       throw const FormatException('must be in UTC (end in Z or an offset)');
     }
@@ -115,8 +121,9 @@ class UtcDateTimeConverter implements JsonConverter<DateTime, Object> {
 }
 
 /// Decodes a normalized barcode: a GTIN-13 string of exactly 13 ASCII
-/// digits. The server pads UPC-A codes with a leading zero and validates
-/// the check digit before it answers, so the contract checks only the form.
+/// digits. The server pads a UPC-A with one leading zero and an EAN-8 with
+/// five (docs/decisions.md 2026-10-13) and validates the check digit before
+/// it answers, so the contract checks only the form.
 class Gtin13Converter implements JsonConverter<String, Object> {
   /// Creates the converter.
   const Gtin13Converter();

@@ -16,7 +16,7 @@ part 'search_response.g.dart';
 ///   "query": "catan",
 ///   "games": [
 ///     {"bggId": 13, "name": "Catan", "yearPublished": 1995,
-///      "thumbnailUrl": null, "bggUrl": "https://boardgamegeek.com/boardgame/13"}
+///      "bggUrl": "https://boardgamegeek.com/boardgame/13"}
 ///   ]
 /// }
 /// ```

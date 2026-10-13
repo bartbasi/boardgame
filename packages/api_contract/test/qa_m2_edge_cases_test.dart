@@ -8,7 +8,6 @@ Map<String, dynamic> game([Map<String, dynamic> over = const {}]) => {
   'bggId': 13,
   'name': 'Catan',
   'yearPublished': 1995,
-  'thumbnailUrl': null,
   'bggUrl': 'https://boardgamegeek.com/boardgame/13',
   ...over,
 };
@@ -74,13 +73,13 @@ void main() {
       );
       expect(a, b);
       expect(a.yearPublished, isNull);
-      expect(a.thumbnailUrl, isNull);
     });
     test('summary toJson writes explicit nulls', () {
       final j = GameSummary.fromJson({'bggId': 1, 'name': 'n', 'bggUrl': 'u'})
           .toJson();
       expect(j.containsKey('yearPublished'), isTrue);
-      expect(j.containsKey('thumbnailUrl'), isTrue);
+      // No image URL field exists (T-018 R2-M1, PRD Q5).
+      expect(j.containsKey('thumbnailUrl'), isFalse);
     });
     test('detail: absent equals null, lists default empty', () {
       final a = GameDetailResponse.fromJson(detail());

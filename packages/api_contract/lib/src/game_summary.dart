@@ -14,10 +14,13 @@ part 'game_summary.g.dart';
 ///   "bggId": 13,
 ///   "name": "Catan",
 ///   "yearPublished": 1995,
-///   "thumbnailUrl": null,
 ///   "bggUrl": "https://boardgamegeek.com/boardgame/13"
 /// }
 /// ```
+///
+/// There is no image URL field: no cover images are shown until BGG
+/// answers how its images may be used (PRD Q5, BGG-42, docs/decisions.md
+/// 2026-10-12). One can be added later as an optional field.
 @freezed
 abstract class GameSummary with _$GameSummary {
   /// Creates a game summary.
@@ -33,14 +36,6 @@ abstract class GameSummary with _$GameSummary {
     /// era can be represented; the server sends null, never 0, for an
     /// unknown year.
     @WholeNumberConverter() int? yearPublished,
-
-    /// A small cover image URL, or null.
-    ///
-    /// Always null for now: no cover images are shown until BGG answers how
-    /// its images may be used (PRD Q5, BGG-42, docs/decisions.md
-    /// 2026-10-12). The field exists because the screens already handle a
-    /// missing thumbnail, and filling it later needs no contract change.
-    String? thumbnailUrl,
 
     /// The URL of the game's page on BoardGameGeek, built by the server, for
     /// the "Powered by BGG" link (BGG-41). Clients never build BGG URLs.

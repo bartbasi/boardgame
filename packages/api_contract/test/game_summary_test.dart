@@ -21,18 +21,16 @@ void main() {
           bggId: 13,
           name: 'Catan',
           yearPublished: 1995,
-          thumbnailUrl: 'https://images.example.invalid/13-thumbnail.jpg',
           bggUrl: 'https://boardgamegeek.com/boardgame/13',
         ),
       );
     });
 
-    test('minimal.json has no year and no thumbnail', () {
+    test('minimal.json has no year', () {
       final game = GameSummary.fromJson(
         readFixture('game_summary/minimal.json'),
       );
       expect(game.yearPublished, isNull);
-      expect(game.thumbnailUrl, isNull);
       expect(game.bggUrl, 'https://boardgamegeek.com/boardgame/424242');
     });
 
@@ -43,9 +41,30 @@ void main() {
         'bggUrl': 'https://boardgamegeek.com/boardgame/1',
       });
       expect(game.yearPublished, isNull);
-      expect(game.thumbnailUrl, isNull);
       expect(game.toJson(), containsPair('yearPublished', null));
-      expect(game.toJson(), containsPair('thumbnailUrl', null));
+    });
+  });
+
+  group('GameSummary has no image URL field (T-018 AC2, PRD Q5)', () {
+    test('toJson has exactly bggId, name, yearPublished, and bggUrl', () {
+      for (final path in listFixtures('game_summary')) {
+        final keys = GameSummary.fromJson(readFixture(path)).toJson().keys;
+        expect(keys.toSet(), {
+          'bggId',
+          'name',
+          'yearPublished',
+          'bggUrl',
+        }, reason: path);
+      }
+    });
+
+    test('an incoming thumbnailUrl is ignored as an unknown field', () {
+      final game = GameSummary.fromJson({
+        ...readFixture('game_summary/full.json'),
+        'thumbnailUrl': 'https://images.example.invalid/13-thumbnail.jpg',
+      });
+      expect(game.toJson(), readFixture('game_summary/full.json'));
+      expect(game.toJson().containsKey('thumbnailUrl'), isFalse);
     });
   });
 
@@ -58,7 +77,6 @@ void main() {
       'malformed/game_summary_name_missing.json': 'name',
       'malformed/game_summary_bgg_url_null.json': 'bggUrl',
       'malformed/game_summary_year_fraction.json': 'yearPublished',
-      'malformed/game_summary_thumbnail_number.json': 'thumbnailUrl',
     };
     cases.forEach((path, key) {
       test('$path throws CheckedFromJsonException for $key', () {

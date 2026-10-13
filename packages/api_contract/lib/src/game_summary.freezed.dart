@@ -22,13 +22,7 @@ mixin _$GameSummary {
 /// give one. Negative values are allowed, so a year before the common
 /// era can be represented; the server sends null, never 0, for an
 /// unknown year.
-@WholeNumberConverter() int? get yearPublished;/// A small cover image URL, or null.
-///
-/// Always null for now: no cover images are shown until BGG answers how
-/// its images may be used (PRD Q5, BGG-42, docs/decisions.md
-/// 2026-10-12). The field exists because the screens already handle a
-/// missing thumbnail, and filling it later needs no contract change.
- String? get thumbnailUrl;/// The URL of the game's page on BoardGameGeek, built by the server, for
+@WholeNumberConverter() int? get yearPublished;/// The URL of the game's page on BoardGameGeek, built by the server, for
 /// the "Powered by BGG" link (BGG-41). Clients never build BGG URLs.
  String get bggUrl;
 /// Create a copy of GameSummary
@@ -44,20 +38,20 @@ $GameSummaryCopyWith<GameSummary> get copyWith => _$GameSummaryCopyWithImpl<Game
 @override
 bool operator ==(Object other) {
   final _this = this as GameSummary;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameSummary&&(identical(other.bggId, _this.bggId) || other.bggId == _this.bggId)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.yearPublished, _this.yearPublished) || other.yearPublished == _this.yearPublished)&&(identical(other.thumbnailUrl, _this.thumbnailUrl) || other.thumbnailUrl == _this.thumbnailUrl)&&(identical(other.bggUrl, _this.bggUrl) || other.bggUrl == _this.bggUrl));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameSummary&&(identical(other.bggId, _this.bggId) || other.bggId == _this.bggId)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.yearPublished, _this.yearPublished) || other.yearPublished == _this.yearPublished)&&(identical(other.bggUrl, _this.bggUrl) || other.bggUrl == _this.bggUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as GameSummary;
-  return Object.hash(runtimeType,_this.bggId,_this.name,_this.yearPublished,_this.thumbnailUrl,_this.bggUrl);
+  return Object.hash(runtimeType,_this.bggId,_this.name,_this.yearPublished,_this.bggUrl);
 }
 
 @override
 String toString() {
   final _this = this as GameSummary;
-  return 'GameSummary(bggId: ${_this.bggId}, name: ${_this.name}, yearPublished: ${_this.yearPublished}, thumbnailUrl: ${_this.thumbnailUrl}, bggUrl: ${_this.bggUrl})';
+  return 'GameSummary(bggId: ${_this.bggId}, name: ${_this.name}, yearPublished: ${_this.yearPublished}, bggUrl: ${_this.bggUrl})';
 }
 
 
@@ -68,7 +62,7 @@ abstract mixin class $GameSummaryCopyWith<$Res>  {
   factory $GameSummaryCopyWith(GameSummary value, $Res Function(GameSummary) _then) = _$GameSummaryCopyWithImpl;
 @useResult
 $Res call({
-@PositiveIntConverter() int bggId, String name,@WholeNumberConverter() int? yearPublished, String? thumbnailUrl, String bggUrl
+@PositiveIntConverter() int bggId, String name,@WholeNumberConverter() int? yearPublished, String bggUrl
 });
 
 
@@ -85,13 +79,12 @@ class _$GameSummaryCopyWithImpl<$Res>
 
 /// Create a copy of GameSummary
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? bggId = null,Object? name = null,Object? yearPublished = freezed,Object? thumbnailUrl = freezed,Object? bggUrl = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? bggId = null,Object? name = null,Object? yearPublished = freezed,Object? bggUrl = null,}) {
   return _then(GameSummary(
 bggId: null == bggId ? _self.bggId : bggId // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,yearPublished: freezed == yearPublished ? _self.yearPublished : yearPublished // ignore: cast_nullable_to_non_nullable
-as int?,thumbnailUrl: freezed == thumbnailUrl ? _self.thumbnailUrl : thumbnailUrl // ignore: cast_nullable_to_non_nullable
-as String?,bggUrl: null == bggUrl ? _self.bggUrl : bggUrl // ignore: cast_nullable_to_non_nullable
+as int?,bggUrl: null == bggUrl ? _self.bggUrl : bggUrl // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -177,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String? thumbnailUrl,  String bggUrl)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String bggUrl)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GameSummary() when $default != null:
-return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_that.bggUrl);case _:
+return $default(_that.bggId,_that.name,_that.yearPublished,_that.bggUrl);case _:
   return orElse();
 
 }
@@ -198,10 +191,10 @@ return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String? thumbnailUrl,  String bggUrl)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String bggUrl)  $default,) {final _that = this;
 switch (_that) {
 case _GameSummary():
-return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_that.bggUrl);case _:
+return $default(_that.bggId,_that.name,_that.yearPublished,_that.bggUrl);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -218,10 +211,10 @@ return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String? thumbnailUrl,  String bggUrl)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@PositiveIntConverter()  int bggId,  String name, @WholeNumberConverter()  int? yearPublished,  String bggUrl)?  $default,) {final _that = this;
 switch (_that) {
 case _GameSummary() when $default != null:
-return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_that.bggUrl);case _:
+return $default(_that.bggId,_that.name,_that.yearPublished,_that.bggUrl);case _:
   return null;
 
 }
@@ -233,7 +226,7 @@ return $default(_that.bggId,_that.name,_that.yearPublished,_that.thumbnailUrl,_t
 @JsonSerializable()
 
 class _GameSummary implements GameSummary {
-  const _GameSummary({@PositiveIntConverter() required this.bggId, required this.name, @WholeNumberConverter() this.yearPublished, this.thumbnailUrl, required this.bggUrl});
+  const _GameSummary({@PositiveIntConverter() required this.bggId, required this.name, @WholeNumberConverter() this.yearPublished, required this.bggUrl});
   factory _GameSummary.fromJson(Map<String, dynamic> json) => _$GameSummaryFromJson(json);
 
 /// The game's BoardGameGeek id, a whole number of at least 1.
@@ -245,13 +238,6 @@ class _GameSummary implements GameSummary {
 /// era can be represented; the server sends null, never 0, for an
 /// unknown year.
 @override@WholeNumberConverter() final  int? yearPublished;
-/// A small cover image URL, or null.
-///
-/// Always null for now: no cover images are shown until BGG answers how
-/// its images may be used (PRD Q5, BGG-42, docs/decisions.md
-/// 2026-10-12). The field exists because the screens already handle a
-/// missing thumbnail, and filling it later needs no contract change.
-@override final  String? thumbnailUrl;
 /// The URL of the game's page on BoardGameGeek, built by the server, for
 /// the "Powered by BGG" link (BGG-41). Clients never build BGG URLs.
 @override final  String bggUrl;
@@ -269,18 +255,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameSummary&&(identical(other.bggId, bggId) || other.bggId == bggId)&&(identical(other.name, name) || other.name == name)&&(identical(other.yearPublished, yearPublished) || other.yearPublished == yearPublished)&&(identical(other.thumbnailUrl, thumbnailUrl) || other.thumbnailUrl == thumbnailUrl)&&(identical(other.bggUrl, bggUrl) || other.bggUrl == bggUrl));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameSummary&&(identical(other.bggId, bggId) || other.bggId == bggId)&&(identical(other.name, name) || other.name == name)&&(identical(other.yearPublished, yearPublished) || other.yearPublished == yearPublished)&&(identical(other.bggUrl, bggUrl) || other.bggUrl == bggUrl));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,bggId,name,yearPublished,thumbnailUrl,bggUrl);
+    return Object.hash(runtimeType,bggId,name,yearPublished,bggUrl);
 }
 
 @override
 String toString() {
-    return 'GameSummary(bggId: $bggId, name: $name, yearPublished: $yearPublished, thumbnailUrl: $thumbnailUrl, bggUrl: $bggUrl)';
+    return 'GameSummary(bggId: $bggId, name: $name, yearPublished: $yearPublished, bggUrl: $bggUrl)';
 }
 
 
@@ -291,7 +277,7 @@ abstract mixin class _$GameSummaryCopyWith<$Res> implements $GameSummaryCopyWith
   factory _$GameSummaryCopyWith(_GameSummary value, $Res Function(_GameSummary) _then) = __$GameSummaryCopyWithImpl;
 @override @useResult
 $Res call({
-@PositiveIntConverter() int bggId, String name,@WholeNumberConverter() int? yearPublished, String? thumbnailUrl, String bggUrl
+@PositiveIntConverter() int bggId, String name,@WholeNumberConverter() int? yearPublished, String bggUrl
 });
 
 
@@ -308,13 +294,12 @@ class __$GameSummaryCopyWithImpl<$Res>
 
 /// Create a copy of GameSummary
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? bggId = null,Object? name = null,Object? yearPublished = freezed,Object? thumbnailUrl = freezed,Object? bggUrl = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? bggId = null,Object? name = null,Object? yearPublished = freezed,Object? bggUrl = null,}) {
   return _then(_GameSummary(
 bggId: null == bggId ? _self.bggId : bggId // ignore: cast_nullable_to_non_nullable
 as int,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,yearPublished: freezed == yearPublished ? _self.yearPublished : yearPublished // ignore: cast_nullable_to_non_nullable
-as int?,thumbnailUrl: freezed == thumbnailUrl ? _self.thumbnailUrl : thumbnailUrl // ignore: cast_nullable_to_non_nullable
-as String?,bggUrl: null == bggUrl ? _self.bggUrl : bggUrl // ignore: cast_nullable_to_non_nullable
+as int?,bggUrl: null == bggUrl ? _self.bggUrl : bggUrl // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }

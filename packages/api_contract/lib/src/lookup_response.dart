@@ -45,7 +45,7 @@ enum LookupStatus {
 ///   "status": "matched",
 ///   "games": [
 ///     {"bggId": 13, "name": "Catan", "yearPublished": 1995,
-///      "thumbnailUrl": null, "bggUrl": "https://boardgamegeek.com/boardgame/13"}
+///      "bggUrl": "https://boardgamegeek.com/boardgame/13"}
 ///   ]
 /// }
 /// ```
@@ -54,7 +54,8 @@ abstract class LookupResponse with _$LookupResponse {
   /// Creates a lookup response.
   const factory LookupResponse({
     /// The barcode as the server normalized it: a GTIN-13 string of 13
-    /// digits (a 12-digit UPC-A gets a leading zero).
+    /// digits. A 12-digit UPC-A gets one leading zero and an EAN-8 gets
+    /// five (docs/decisions.md 2026-10-13).
     @Gtin13Converter() required String code,
 
     /// The outcome. An unrecognized value becomes [LookupStatus.unknown].

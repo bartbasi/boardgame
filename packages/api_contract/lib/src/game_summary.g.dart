@@ -21,7 +21,6 @@ _GameSummary _$GameSummaryFromJson(Map<String, dynamic> json) =>
             const WholeNumberConverter().fromJson,
           ),
         ),
-        thumbnailUrl: $checkedConvert('thumbnailUrl', (v) => v as String?),
         bggUrl: $checkedConvert('bggUrl', (v) => v as String),
       );
       return val;
@@ -35,7 +34,6 @@ Map<String, dynamic> _$GameSummaryToJson(_GameSummary instance) =>
         instance.yearPublished,
         const WholeNumberConverter().toJson,
       ),
-      'thumbnailUrl': instance.thumbnailUrl,
       'bggUrl': instance.bggUrl,
     };
 

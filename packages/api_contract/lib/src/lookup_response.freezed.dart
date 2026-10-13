@@ -17,7 +17,8 @@ T _$identity<T>(T value) => value;
 mixin _$LookupResponse {
 
 /// The barcode as the server normalized it: a GTIN-13 string of 13
-/// digits (a 12-digit UPC-A gets a leading zero).
+/// digits. A 12-digit UPC-A gets one leading zero and an EAN-8 gets
+/// five (docs/decisions.md 2026-10-13).
 @Gtin13Converter() String get code;/// The outcome. An unrecognized value becomes [LookupStatus.unknown].
 @JsonKey(unknownEnumValue: LookupStatus.unknown) LookupStatus get status;/// The matched game or the candidates; see [LookupStatus] for how many
 /// each status carries.
@@ -226,7 +227,8 @@ class _LookupResponse implements LookupResponse {
   factory _LookupResponse.fromJson(Map<String, dynamic> json) => _$LookupResponseFromJson(json);
 
 /// The barcode as the server normalized it: a GTIN-13 string of 13
-/// digits (a 12-digit UPC-A gets a leading zero).
+/// digits. A 12-digit UPC-A gets one leading zero and an EAN-8 gets
+/// five (docs/decisions.md 2026-10-13).
 @override@Gtin13Converter() final  String code;
 /// The outcome. An unrecognized value becomes [LookupStatus.unknown].
 @override@JsonKey(unknownEnumValue: LookupStatus.unknown) final  LookupStatus status;
