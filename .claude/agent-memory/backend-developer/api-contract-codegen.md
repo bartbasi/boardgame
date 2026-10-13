@@ -24,3 +24,4 @@ api_contract DTOs use freezed 4.x (MIT) + json_serializable 6.x (BSD-3) with `bu
 
 Related: [[worktree-shell-limits]]
 - DateTime.parse rolls impossible dates over (month 13, hour 24, second 60) and double.toInt() clamps beyond int range; validate both (T-018 B1, B2).
+- Before coding, re-read the ticket as it is on main (merge main first): T-018 AC2 changed on main before the branch and the round 1 code followed the stale wording.
