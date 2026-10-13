@@ -101,6 +101,43 @@ enum InvalidInputCode {
   unknown,
 }
 
+/// A barcode the app rejected on the device, before any request was sent.
+///
+/// Returned by `Barcode.parse` (features/scanner/domain). The backend's own
+/// rejection of a barcode arrives as [InvalidInputFailure] with
+/// [InvalidInputCode.invalidBarcode] instead.
+final class InvalidBarcodeFailure extends Failure {
+  const InvalidBarcodeFailure(this.reason, {required this.length});
+
+  /// Why the barcode was rejected.
+  final InvalidBarcodeReason reason;
+
+  /// The length of the input after trimming surrounding whitespace, in
+  /// UTF-16 code units (Dart's `String.length`), so it is not a character
+  /// count when the input has emoji or other non-BMP text. It is meaningful
+  /// as a digit count only for [InvalidBarcodeReason.wrongLength], where
+  /// every unit is an ASCII digit; 0 there means the input was empty. Do not
+  /// show it to the user for the other reasons.
+  final int length;
+
+  @override
+  List<Object?> get props => [reason, length];
+}
+
+/// Why a barcode was rejected on the device. Checked in this order, so a
+/// code with a letter is [nonDigit] even when its length is also wrong.
+enum InvalidBarcodeReason {
+  /// The input has a character that is not an ASCII digit 0 to 9.
+  nonDigit,
+
+  /// The input has a digit count other than 8 (EAN-8), 12 (UPC-A), or
+  /// 13 (EAN-13), including an empty input.
+  wrongLength,
+
+  /// The last digit does not match the GS1 check digit of the others.
+  badCheckDigit,
+}
+
 /// The backend refused the request (HTTP 401 or 403), for example when the
 /// app's install could not be verified.
 final class AccessDeniedFailure extends Failure {

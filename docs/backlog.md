@@ -583,7 +583,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Linked files: server/ (lookup route, barcode validation, mapping store, migration)
 - Acceptance criteria:
   1. Given `036000291452`, `4006381333931`, and `96385074`, then they pass validation; given `036000291453`, `12345`, and `03600029145A`, then the endpoint returns 400 `invalid_barcode` and makes no upstream call (proved by: endpoint, table-driven).
-  2. Given `036000291452` and `0036000291452`, then both normalize to the GTIN-13 `0036000291452` and share one stored mapping [ASSUMPTION: GTIN-13 is the storage key] (proved by: unit and endpoint).
+  2. Given `036000291452` and `0036000291452`, then both normalize to the GTIN-13 `0036000291452` and share one stored mapping; given `96385074`, then its key is `0000096385074`. The 13-digit key rule (UPC-A gets one leading zero, EAN-8 five, EAN-13 unchanged) is the same as the app's in T-026 (docs/decisions.md 2026-10-13, GS1-03 to GS1-08) (proved by: unit and endpoint).
   3. Given GameUPC returns status `verified` with exactly one BGG id (GUPC-02), then the endpoint returns 200 with status `matched` and one game summary (proved by: endpoint).
   4. Given GameUPC returns several BGG ids, then the endpoint returns 200 with status `candidates` and up to 10 summaries [ASSUMPTION], ordered by GameUPC's `confidence` (GUPC-02) (proved by: endpoint).
   5. Given GameUPC returns no BGG id, then the endpoint returns 200 with status `none` and an empty list, not 404 (proved by: endpoint).
@@ -595,11 +595,12 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   11. Given any 200 response, then it decodes with the api_contract lookup DTO (proved by: endpoint).
   12. Given the migration, then the mapping table stores each GTIN-13 once and points to its games by their internal id (a foreign key to the games table from T-022), not by `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys"). A BGG id from GameUPC that has no games row yet gets a row with only `bgg_id` set, which the game cache fills in later. Responses still carry `bggId`, never the internal id (proved by: integration against real PostgreSQL, storing a mapping for `0036000291452` to a BGG id with no cached game, then reading it back by barcode).
 - Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC8), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
+- Carried forward from T-026: the server validates in the same order as the app's `Barcode.parse` (app/lib/features/scanner/domain/barcode.dart): trim surrounding whitespace, then ASCII digits `0` to `9` only (other Unicode digits are rejected), then length 8, 12, or 13 (14-digit GTIN-14 is rejected), then the GS1 check digit; any failure is 400 `invalid_barcode`. It uses the same 13-digit key as AC2. UPC-E is not supported in v1 (docs/decisions.md 2026-10-13; T-100). The server reviewer checks the rules against the app's barcode.dart.
 
 ### T-026 App: barcode value object and validation
 - Milestone: M2
 - Owner: flutter-developer
-- Status: ready
+- Status: done
 - Depends on: T-012 (done)
 - UX spec: n/a
 - Linked files: app/lib/features/scanner/domain/
@@ -664,8 +665,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-030 App: scanner screen
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo (becomes ready when T-026 is done; T-003 and T-012 are done, and Windows Developer Mode is on since 2026-10-13)
-- Depends on: T-003, T-012, T-026. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
+- Status: ready
+- Depends on: T-003 (done), T-012 (done), T-026 (done). Windows Developer Mode is on since 2026-10-13. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
 - UX spec: docs/ux/screens/scanner.md
 - Linked files: app/lib/features/scanner/presentation/, app/android/ (camera permission), app/ios/Runner/Info.plist (camera usage text)
 - Acceptance criteria:
@@ -687,12 +688,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   16. Given Android, then the bundled ML Kit model is used [ASSUMPTION], so the first scan works offline without a Google Play services download (MLKIT-06). The handoff records the change in APK size (proved by: manual).
   17. Given a screen reader is on, when the user changes destination with the bar (compact) or the rail (expanded), then the new destination's screen title is announced, for all four destinations, not only Scan (app-shell.md section 7; a T-012 gap, built here because Scan is the first real destination screen) (proved by: widget that captures the announcement; manual with TalkBack).
   18. Given this ticket replaces the Scan placeholder, then the Scan destination no longer uses `devPlaceholderBody`, and any `dev*` key in app_en.arb that no screen uses anymore is deleted. `dev*` keys must not ship (docs/decisions.md 2026-10-12, T-012) (proved by: unit, the strings test; manual grep of lib/).
+- Carried forward from T-026: filter detections by symbology before calling `Barcode.parse`. A UPC-E raw value is 8 digits and can pass the EAN-8 check digit, which would give a wrong key (GS1-11; UPC-E not in v1, docs/decisions.md 2026-10-13, T-100). The AC4 test must include a UPC-E detection whose 8-digit raw value is EAN-8 valid (for example `96385074` reported as UPC-E) and show that nothing happens. Use the `digits` of the instance `parse` returned for navigation, not a value from a deduplicated set.
 
 ### T-031 App: manual barcode entry
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo (becomes ready when T-026 is done; T-003 is done)
-- Depends on: T-003, T-026
+- Status: ready
+- Depends on: T-003 (done), T-026 (done)
 - UX spec: docs/ux/screens/manual-entry.md
 - Linked files: app/lib/features/scanner/presentation/
 - Acceptance criteria:
@@ -704,6 +706,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given both themes at text scale 2.0 in compact and expanded sizes, then nothing overflows and the accessibility guidelines pass (proved by: widget).
   7. Given the golden list in manual-entry.md, then every listed golden exists and passes (proved by: golden).
   8. Given a compact window, when the barcode field gets focus, then the NavigationBar hides, and when focus leaves the field, then it returns; given a medium or expanded window, then the rail stays. This is the first text field in the app, so the shell behavior is built here and reused by later screens (app-shell.md section 2 [ASSUMPTION]; PRD Q32: if the user vetoes it, drop this criterion and note it in the handoff) (proved by: widget).
+- Carried forward from T-026: the digit filter in AC2 keeps ASCII `0` to `9` only (`Barcode.parse` rejects other Unicode digits as non-digit). An empty or whitespace-only submit gives `InvalidBarcodeFailure` with reason `wrongLength` and `length` 0: show `manualEntry.errorEmpty` for it, and `manualEntry.errorLength` with `{count}` set to `length` for other wrong lengths. The AC4 test also submits an empty field and checks `manualEntry.errorEmpty`. Show `length` only for `wrongLength`.
 
 ### T-032 App: title search screen
 - Milestone: M2
@@ -806,6 +809,21 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given the handoff, then it lists every secret by name with how to create it, for the orchestrator to put in README.md (proved by: manual).
   7. Given the ids from PRD Q1 part (a), then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it: ids become `com.bartbasi.boardgamecollection`, and the name becomes the working title "Board Game Collection" until Q1b is answered (proved by: manual, the T-082 checklist search).
   8. Given the Android test build installed from the internal testing track on a phone, when the user runs a title search, then results come from the backend chosen in Q8. This proves a store-signed release build reaches the API (T-012 review R1-G5) (proved by: manual on device).
+
+### T-100 App: UPC-E barcode support (low priority)
+- Milestone: unscheduled, low priority (not in v1 per docs/decisions.md 2026-10-13)
+- Owner: flutter-developer
+- Status: todo
+- Depends on: T-026 (done), T-030; GS1-10 confirmed in docs/api-research.md (the official UPC-E to UPC-A expansion rules from the GS1 General Specifications; UNVERIFIED as of 2026-10-13). The PM confirms GS1-10 before step 2 starts.
+- UX spec: n/a (no new screens; scanner.md and manual-entry.md get a note if behavior changes)
+- Linked files: app/lib/features/scanner/
+- Acceptance criteria:
+  1. Step 1, before any code change: given a printed UPC-E label, when it is scanned with mobile_scanner on an Android phone (ML Kit) and on an iPhone (Apple Vision), then the handoff records, per platform, the reported format and the exact raw value (8 digits, 6 digits, or already expanded to 12), and the PM adds the result to docs/api-research.md (closing GS1-11) (proved by: manual on an Android phone and an iPhone).
+  2. Step 2, only after GS1-10 is confirmed: given a scanner detection reported as UPC-E, then it is expanded to UPC-A using only the confirmed GS1 rules and then goes through `Barcode.parse`, so it gets the same 13-digit key as its UPC-A form. Test vectors come from a GS1 source cited in api-research, not from memory or a blog (proved by: unit, table-driven).
+  3. Given an 8-digit value from manual entry, then it is still treated as EAN-8, because typed digits carry no symbology (GS1-11) (proved by: unit).
+  4. Given a UPC-E detection that does not expand to a valid UPC-A (bad check digit, or a number system other than the ones GS1 allows), then nothing happens, as for any invalid scan in T-030 AC5 (proved by: widget with a fake scanner).
+  5. Given T-030 AC4, then its UPC-E row is changed from "nothing happens" to the expanded lookup, and no other format changes (proved by: widget with a fake scanner).
+  6. Given the server, then no change is needed because the app sends the expanded UPC-A; the handoff confirms T-025 still treats every 8-digit code as EAN-8 and never as UPC-E (proved by: manual, reviewer reads both rules).
 
 ---
 
