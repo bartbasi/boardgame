@@ -99,6 +99,7 @@ bool isRetryable(Failure failure) => switch (failure) {
   ServiceUnavailableFailure() => true,
   NotFoundFailure() ||
   InvalidInputFailure() ||
+  InvalidBarcodeFailure() ||
   AccessDeniedFailure() ||
   CancelledFailure() ||
   ConfigurationFailure() ||

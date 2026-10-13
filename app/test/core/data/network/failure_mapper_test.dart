@@ -190,6 +190,12 @@ void main() {
       isRetryable(const InvalidInputFailure(InvalidInputCode.unknown)),
       isFalse,
     );
+    expect(
+      isRetryable(
+        const InvalidBarcodeFailure(InvalidBarcodeReason.nonDigit, length: 1),
+      ),
+      isFalse,
+    );
     expect(isRetryable(const AccessDeniedFailure()), isFalse);
     expect(isRetryable(const CancelledFailure()), isFalse);
     expect(

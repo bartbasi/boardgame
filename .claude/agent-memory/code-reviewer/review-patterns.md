@@ -88,6 +88,8 @@ Goldens (T-015, 2026-10-12, approved round 1):
 
 Barcode (T-026, 2026-10-13, approved round 1): Barcode.parse in features/scanner/domain; order trim > ASCII digits > length 8/12/13 > check digit; key = padLeft(13,'0'); InvalidBarcodeFailure lives in core/domain/failure.dart (sealed), only lib switch is isRetryable. Forward: T-030 must drop UPC-E before parse (8 digits, ~1 in 10 pass EAN-8 check); T-031 errorEmpty when length 0; T-025 must pad and order identically (EAN-8 padding pending PM). Doc comments that claim parity with unbuilt tickets: flag.
 
+Contract M2 (T-018, 2026-10-13, round 2 CHANGES REQUIRED): backend-developer kept a field (thumbnailUrl) that the ticket's AC had dropped on main before the branch merged main. Developers read the ticket as it was at branch time. Always diff the ticket text: `git log -L '/^### T-0NN/,+15:docs/backlog.md' --oneline` and check that each AC change is reflected in the code. Contract rules confirmed: value converters in api_contract/lib/src/converters.dart (PositiveInt up to 2^53-1, WholeNumber, UtcDateTime with extended form and calendar check, Gtin13); LookupResponse checks games count per status; app ErrorCode switch exhaustive on purpose (decisions 2026-10-13). Forward: T-022/T-023/T-025 must encode via the DTOs (compact timestamps fail decoding); T-028 must not add wildcards.
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
