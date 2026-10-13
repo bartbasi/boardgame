@@ -7,7 +7,7 @@ Request and response DTOs shared by the Board Game Collector app (`app/`) and ba
 - Changes within /v1 are additive only: new optional fields, new DTOs, new error codes.
 - Removing or renaming a field, changing its type, or making an optional field required needs a new API version (/v2), while /v1 keeps working. There is never a forced app update.
 - Clients must tolerate additions, so decoding ignores unknown fields and maps unknown error codes and lookup statuses to `unknown`.
-- Because new enum values are additive, code that switches over `ErrorCode` or `LookupStatus` must end with a wildcard (`_ =>`) or treat `unknown` as the default. A switch that lists every value stops compiling when a value is added, even though the wire format stays compatible.
+- Adding an `ErrorCode` or `LookupStatus` value is wire compatible (old app builds decode it to `unknown`), but it breaks the build of any code in this repo that switches over every value. The app's exhaustive switches are intentional (docs/decisions.md 2026-10-13): whoever adds a value updates the app in the same change so that the new value is handled.
 
 ## Decoding rules
 
@@ -125,7 +125,7 @@ Body of `GET /v1/lookup/barcode/{code}`.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `code` | string | yes | The normalized barcode: a GTIN-13 of exactly 13 ASCII digits (a UPC-A gets a leading zero). |
+| `code` | string | yes | The normalized barcode: a GTIN-13 of exactly 13 ASCII digits (a UPC-A gets one leading zero, an EAN-8 gets five; docs/decisions.md 2026-10-13). |
 | `status` | string | yes | One of the statuses below. |
 | `games` | array of game summaries | yes | The count must fit the status, or decoding fails. |
 
