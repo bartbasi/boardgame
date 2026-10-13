@@ -109,6 +109,32 @@ void main() {
       }
     });
 
+    test('doubles beyond 2^53 are rejected, not clamped (B1)', () {
+      for (final bad in [1e300, 9007199254740992.0, -1e300]) {
+        expect(
+          () =>
+              GameSummary.fromJson({'bggId': bad, 'name': 'n', 'bggUrl': 'u'}),
+          throwsA(
+            isA<CheckedFromJsonException>().having(
+              (e) => e.key,
+              'key',
+              'bggId',
+            ),
+          ),
+          reason: '$bad',
+        );
+      }
+    });
+
+    test('the largest exact double, 2^53 - 1, is accepted', () {
+      final game = GameSummary.fromJson({
+        'bggId': 9007199254740991.0,
+        'name': 'n',
+        'bggUrl': 'u',
+      });
+      expect(game.bggId, 9007199254740991);
+    });
+
     test('the largest 32-bit id is accepted', () {
       final game = GameSummary.fromJson({
         'bggId': 2147483647,

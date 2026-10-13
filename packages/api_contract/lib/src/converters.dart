@@ -62,7 +62,52 @@ class UtcDateTimeConverter implements JsonConverter<DateTime, Object> {
     if (!parsed.isUtc) {
       throw const FormatException('must be in UTC (end in Z or an offset)');
     }
+    _checkCalendarFields(json);
     return parsed;
+  }
+
+  /// `YYYY-MM-DDThh:mm[:ss]` at the start of the text, before any fraction
+  /// or zone.
+  static final _fields = RegExp(
+    r'^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2})(?::(\d{2}))?',
+  );
+
+  /// [DateTime.parse] rolls impossible values over (month 13, day 45, hour
+  /// 24, second 60) instead of rejecting them. This rebuilds the written
+  /// date and time and requires every field to come back unchanged. It
+  /// also requires the extended form with dashes and colons, which is what
+  /// the server sends.
+  static void _checkCalendarFields(String text) {
+    final match = _fields.firstMatch(text);
+    if (match == null) {
+      throw const FormatException(
+        'must use the extended form YYYY-MM-DDThh:mm:ss',
+      );
+    }
+    final written = [
+      for (var i = 1; i <= 6; i++) int.parse(match.group(i) ?? '0'),
+    ];
+    final rebuilt = DateTime.utc(
+      written[0],
+      written[1],
+      written[2],
+      written[3],
+      written[4],
+      written[5],
+    );
+    final actual = [
+      rebuilt.year,
+      rebuilt.month,
+      rebuilt.day,
+      rebuilt.hour,
+      rebuilt.minute,
+      rebuilt.second,
+    ];
+    for (var i = 0; i < written.length; i++) {
+      if (written[i] != actual[i]) {
+        throw const FormatException('is not a real calendar date and time');
+      }
+    }
   }
 
   @override
@@ -90,9 +135,17 @@ class Gtin13Converter implements JsonConverter<String, Object> {
   Object toJson(String object) => object;
 }
 
+/// The largest whole number a double holds exactly (2^53 - 1). Beyond it,
+/// [double.toInt] can clamp (1e300 becomes the 64-bit maximum), so larger
+/// doubles are rejected rather than silently changed.
+const _maxSafeDouble = 9007199254740991.0;
+
 int? _wholeNumber(Object json) {
   if (json is int) return json;
-  if (json is double && json.isFinite && json == json.truncateToDouble()) {
+  if (json is double &&
+      json.isFinite &&
+      json.abs() <= _maxSafeDouble &&
+      json == json.truncateToDouble()) {
     return json.toInt();
   }
   return null;

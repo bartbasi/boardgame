@@ -104,6 +104,54 @@ void main() {
       expect(json['fetchedAt'] as String, endsWith('Z'));
     });
 
+    test('impossible dates and times are rejected, not rolled over (B2)', () {
+      final full = readFixture('game_detail/full.json');
+      for (final bad in [
+        '2026-13-45T00:00:00Z',
+        '2026-02-29T00:00:00Z',
+        '2026-04-31T00:00:00Z',
+        '2026-10-13T24:00:00Z',
+        '2026-10-13T08:60:00Z',
+        '2026-10-13T08:15:60Z',
+        '20261013T081530Z',
+      ]) {
+        expect(
+          () => GameDetailResponse.fromJson({...full, 'fetchedAt': bad}),
+          throwsA(
+            isA<CheckedFromJsonException>().having(
+              (e) => e.key,
+              'key',
+              'fetchedAt',
+            ),
+          ),
+          reason: bad,
+        );
+      }
+    });
+
+    test('real edge dates are accepted', () {
+      final full = readFixture('game_detail/full.json');
+      final cases = {
+        '2028-02-29T23:59:59Z': DateTime.utc(2028, 2, 29, 23, 59, 59),
+        '2026-12-31T23:59:59.999999Z': DateTime.utc(
+          2026,
+          12,
+          31,
+          23,
+          59,
+          59,
+          999,
+          999,
+        ),
+        '2026-10-13T08:15Z': DateTime.utc(2026, 10, 13, 8, 15),
+        '2026-10-13T00:30:00+01:00': DateTime.utc(2026, 10, 12, 23, 30),
+      };
+      cases.forEach((text, expected) {
+        final game = GameDetailResponse.fromJson({...full, 'fetchedAt': text});
+        expect(game.fetchedAt, expected, reason: text);
+      });
+    });
+
     test('microseconds survive a round trip', () {
       final at = DateTime.utc(2026, 10, 13, 8, 15, 30, 123, 456);
       final json = GameDetailResponse(
