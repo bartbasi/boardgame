@@ -44,7 +44,13 @@ The three `POSTGRES_*` values only take effect when the `pgdata` volume is empty
 
 CI (`.github/workflows/server.yml`, job `compose config`, T-098) runs `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q` on every change under deploy/ and fails if it exits non-zero, so every required variable must have a placeholder in `deploy/.env.example`. It then removes each variable from a copy of `deploy/.env.example`, one at a time, and requires Compose to stop with "required variable <name> is missing", so every variable in the example must also have a `${VAR:?...}` guard in docker-compose.yml. Run the first command locally before committing a change to either file.
 
-The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database yet; when it does (T-017 onward), its connection settings are added to server/.env.example, `Config.load`, and this file together.
+The server gets `PORT=8080`, `LOG_LEVEL`, and its PostgreSQL settings (T-019): `DATABASE_HOST=postgres`, `DATABASE_PORT=5432`, and `DATABASE_NAME`, `DATABASE_USER`, `DATABASE_PASSWORD` taken from the three `POSTGRES_*` values, so deploy/.env holds each secret once. The server connects as the role created from `POSTGRES_USER`, which owns the database and so can run the migrations at startup. `DATABASE_POOL_MAX` is not set, so the server's default of 5 connections applies (server/.env.example).
+
+### Database collation
+
+`POSTGRES_INITDB_ARGS="--locale-provider=builtin --locale=C.UTF-8"` (T-019, proposed decision in docs/handoffs/T-019.md). The database sorts text by Unicode code point and takes character classes and case mapping from PostgreSQL's own builtin provider, not from the image's C library (https://www.postgresql.org/docs/18/locale.html, "Locale Providers"). That behavior is "stable within a PostgreSQL major version" (https://www.postgresql.org/docs/18/collation.html, `pg_c_utf8`), so an OS or image update cannot silently change the order of an index. Without it, the Alpine image initializes with the libc provider and `en_US.utf8`, which musl does not record a collation version for, so PostgreSQL could not even warn about a change (https://www.postgresql.org/docs/18/sql-altercollation.html, Notes).
+
+Like the `POSTGRES_*` values, it applies only when the `pgdata` volume is empty. A local volume created before T-019 keeps its old settings until `sh deploy/compose.sh down -v`. Check with `sh deploy/compose.sh exec postgres psql -U <user> -d <db> -c "SELECT datlocprovider, datlocale FROM pg_database WHERE datname = current_database()"` (`b` and `C.UTF-8`). The server also logs `localeProvider` and `locale` in its `database ready` line at every start.
 
 ## Services
 
@@ -62,8 +68,8 @@ The server gets only `PORT=8080` and `LOG_LEVEL`. It does not use the database y
 ### Health checks and start order
 
 - postgres: `pg_isready -h 127.0.0.1 -p 5432 -U $POSTGRES_USER -d $POSTGRES_DB -t 3`, exit 0 when accepting connections (https://www.postgresql.org/docs/current/app-pg-isready.html). It checks over TCP on purpose: while the image initializes a new data directory it runs a temporary server with `listen_addresses=''` (Unix socket only, docker-entrypoint.sh in the image), so a socket check could pass before the real server is up.
-- server: `/app/server --healthcheck`, the server binary's own probe. It calls `GET http://127.0.0.1:$PORT/health`, exits 0 on 200 and 1 otherwise, within 3 s (docs/decisions.md 2026-10-12; the scratch image has no shell or curl). Every check writes one `request` log line (about 2,900 a day at the 30 s interval).
-- The server starts only after postgres is healthy (`depends_on: condition: service_healthy`). Caddy starts after the server has started; until the server is ready, Caddy answers 502.
+- server: `/app/server --healthcheck`, the server binary's own probe. It calls `GET http://127.0.0.1:$PORT/health`, exits 0 on 200 and 1 otherwise, within 3 s (docs/decisions.md 2026-10-12; the scratch image has no shell or curl). Every check writes one `request` log line (about 2,900 a day at the 30 s interval). `/health` also checks PostgreSQL (T-019): while the database is unreachable it answers 503 with `"database":"unavailable"` within 2 s, so the server shows as unhealthy; it keeps running and turns healthy again when the database is back. Docker does not restart unhealthy containers by itself.
+- The server starts only after postgres is healthy (`depends_on: condition: service_healthy`). At startup it waits up to 30 s for PostgreSQL, applies pending migrations, and only then listens (server/README.md, "Database"); a failed migration stops it with exit code 70. Caddy starts after the server has started; until the server is ready, Caddy answers 502.
 - `start_interval: 1s` makes the first checks run every second during `start_period`, so `up --wait` returns quickly.
 
 ### Shutdown
