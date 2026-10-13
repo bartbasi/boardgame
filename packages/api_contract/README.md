@@ -15,8 +15,18 @@ Request and response DTOs shared by the Board Game Collector app (`app/`) and ba
 - Before calling `fromJson`, callers must check that the body is a JSON object: handle the `FormatException` from `jsonDecode` (invalid JSON, or an HTML error page from a proxy) and check `is Map<String, dynamic>` (not an array or a scalar). Those failures happen before this package is involved and are not `CheckedFromJsonException`.
 - Unknown fields are ignored.
 - A required field that is missing, null, or of the wrong type throws `CheckedFromJsonException` (re-exported from this package). Its `key` names the field. Decoding never returns a silent null for a required field.
-- An error code this version does not know decodes to `ErrorCode.unknown`.
-- JSON keys are camelCase, the same as the Dart field names. Error code values are snake_case.
+- An error code this version does not know decodes to `ErrorCode.unknown`; a lookup status it does not know decodes to `LookupStatus.unknown`.
+- JSON keys are camelCase, the same as the Dart field names. Error code and status values are snake_case.
+
+### Value rules
+
+Decoding also checks values, not only types. A violation throws `CheckedFromJsonException` whose `key` names the field. Error messages never contain the rejected value.
+
+- `bggId`, `minPlayers`, `maxPlayers`, `minPlayTimeMinutes`, `maxPlayTimeMinutes`: whole numbers of at least 1. `yearPublished`: any whole number. A JSON number written as a double (`13.0`) is accepted only if it is whole and at most 2^53 - 1 in size; `1.5` and `1e300` are rejected.
+- `fetchedAt`: an ISO 8601 string in UTC (ends in `Z` or has an explicit offset) in the extended form `YYYY-MM-DDThh:mm[:ss[.ffffff]]`. The compact form (`20261013T081530Z`), a timestamp without a zone, and impossible values (month 13, day 45, 29 February in a non-leap year, hour 24, second 60) are rejected rather than rolled over. The server's encoder (`toJson`) always writes the extended form with `Z`.
+- Lookup `code`: exactly 13 ASCII digits.
+- Lookup `games` count must fit `status`: exactly 1 for `matched`, at least 1 for `candidates`, 0 for `none` and `unavailable`, any for an unknown status. A mismatch fails with key `games` and class `LookupResponse`.
+- A bad game nested in `games` (search or lookup) fails with the inner field's key (for example `bggId`) and class `GameSummary`, not with key `games`.
 
 ## JSON shapes
 
@@ -51,7 +61,7 @@ Dart: `ErrorEnvelope(error: ApiError(code: ErrorCode.invalidBarcode, message: '.
 | `internal_error` | 500 | `ErrorCode.internalError` | Unexpected server error. |
 | (any other value) | any | `ErrorCode.unknown` | Client side only: a code added after this app version. The server never sends it. |
 
-There is no generic `bad_request` code (decided in T-018, docs/handoffs/T-018.md). A request whose URL the server cannot parse gets 404 `not_found`.
+There is no generic `bad_request` code (docs/decisions.md 2026-10-13). A request whose URL the server cannot parse gets 404 `not_found`.
 
 ### Health
 
@@ -78,7 +88,6 @@ One game in a list (search results, lookup candidates). Not a response body on i
   "bggId": 13,
   "name": "Catan",
   "yearPublished": 1995,
-  "thumbnailUrl": null,
   "bggUrl": "https://boardgamegeek.com/boardgame/13"
 }
 ```
@@ -88,10 +97,9 @@ One game in a list (search results, lookup candidates). Not a response body on i
 | `bggId` | integer | yes | BoardGameGeek id, a whole number of at least 1. |
 | `name` | string | yes | Primary name. |
 | `yearPublished` | integer or null | no | Null when BGG gives none, never 0. May be negative. |
-| `thumbnailUrl` | string or null | no | Always null for now: no cover images until BGG answers (PRD Q5, docs/decisions.md 2026-10-12). |
 | `bggUrl` | string | yes | The game's BGG page, built by the server for the "Powered by BGG" link (BGG-41). Clients never build BGG URLs. |
 
-Dart: `GameSummary`.
+Dart: `GameSummary`. There is no image URL field (PRD Q5, docs/decisions.md 2026-10-12); one can be added later as an optional field.
 
 ### Search
 
@@ -100,7 +108,7 @@ Body of `GET /v1/games/search?q=`. No results is a 200 with an empty list.
 ```json
 {
   "query": "catan",
-  "games": [{"bggId": 13, "name": "Catan", "yearPublished": 1995, "thumbnailUrl": null, "bggUrl": "https://boardgamegeek.com/boardgame/13"}]
+  "games": [{"bggId": 13, "name": "Catan", "yearPublished": 1995, "bggUrl": "https://boardgamegeek.com/boardgame/13"}]
 }
 ```
 
@@ -119,7 +127,7 @@ Body of `GET /v1/lookup/barcode/{code}`.
 {
   "code": "0036000291452",
   "status": "matched",
-  "games": [{"bggId": 13, "name": "Catan", "yearPublished": 1995, "thumbnailUrl": null, "bggUrl": "https://boardgamegeek.com/boardgame/13"}]
+  "games": [{"bggId": 13, "name": "Catan", "yearPublished": 1995, "bggUrl": "https://boardgamegeek.com/boardgame/13"}]
 }
 ```
 
@@ -170,9 +178,9 @@ Body of `GET /v1/games/{bggId}`.
 | `designers`, `publishers` | array of strings | no | BGG's order. Missing or null decodes as an empty list; the server sends `[]`. |
 | `description` | string or null | no | Plain text with `\n` line breaks, no HTML markup or character entities. |
 | `bggUrl` | string | yes | As in the game summary. |
-| `fetchedAt` | string | yes | ISO 8601 in UTC (ends in `Z`, or has an explicit offset). When the server fetched the data from BGG; a cached answer keeps its original time. A timestamp without a zone fails decoding. |
+| `fetchedAt` | string | yes | ISO 8601 in UTC (ends in `Z`, or has an explicit offset), extended form `YYYY-MM-DDThh:mm[:ss[.ffffff]]` (see Value rules). When the server fetched the data from BGG; a cached answer keeps its original time. |
 
-Dart: `GameDetailResponse`. There is no cover image field (PRD Q5); one can be added later as an optional field.
+Dart: `GameDetailResponse`. There is no image URL field (PRD Q5); one can be added later as an optional field.
 
 ### Missing values
 
@@ -205,7 +213,7 @@ Fixture values (names, designers, descriptions) are examples written for tests, 
 dart run build_runner build
 ```
 
-CI (T-011) should run the same command and fail if `git diff --exit-code` shows the committed files are stale.
+CI (server.yml, `dart (packages/api_contract)` job) runs the same command and fails if any committed generated file is stale or missing.
 
 ## Commands
 
