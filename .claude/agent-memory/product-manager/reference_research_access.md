@@ -11,6 +11,8 @@ Readable directly: eBay's Browse OpenAPI spec (https://developer.ebay.com/develo
 
 Apple documentation trick (2026-10-12): developer.apple.com/documentation/... pages render with JavaScript and WebFetch sees only the title. The same page is readable as JSON at developer.apple.com/tutorials/data/documentation/<same path>.json; cite the HTML URL and note the JSON form. developer.android.com/identity/data/autobackup is readable directly.
 
+Store metadata limits (2026-10-13): Apple name/subtitle limits are readable at developer.apple.com/help/app-store-connect/reference/app-information/app-information (keywords at .../platform-version-information); Google Play limits at support.google.com/googleplay/android-developer/answer/9859152. tmsearch.uspto.gov needs JavaScript and does not render, so trademark checks must be done by the user. Store-name conflict checks rely on web search (incomplete for Google Play).
+
 Wikidata trick: the query service answers a URL-encoded SPARQL GET through WebFetch, for example https://query.wikidata.org/sparql?format=json&query=<encoded>. Use COUNT queries for live coverage numbers instead of estimating. Board game class is Q131436.
 
 Tool hiccup: on 2026-10-11 WebFetch and WebSearch both returned a "session limit" error for a while, intermittently. Writing up verified facts first and retrying later worked; fire calls two or three at a time, not six.
