@@ -15,16 +15,23 @@
 # Checks, in order:
 #   1. The image architecture matches PLATFORM, the user is 65532:65532, and
 #      the unpacked file system (`docker export` size) is 100 MB or less.
-#   2. With PORT and LOG_LEVEL set, GET /health returns 200 with status "ok"
-#      and EXPECTED_VERSION within 5 seconds of `docker run`.
+#   2. With PORT, LOG_LEVEL, and the DATABASE_* settings of a throwaway
+#      PostgreSQL container (same image and initdb settings as
+#      deploy/docker-compose.yml, on a private network), GET /health returns
+#      200 with status and database "ok" and EXPECTED_VERSION within 5
+#      seconds of `docker run`, and the migrations were recorded (T-019).
 #   3. `docker exec <container> /app/server --healthcheck` exits 0 while the
 #      server is up, 1 when nothing listens on PORT, and an unknown argument
 #      exits 64 (T-098 AC1).
-#   4. `docker stop` (SIGTERM) makes it exit 0.
-#   5. With no environment, it exits 78.
+#   4. PostgreSQL stopped: GET /health answers 503 with database
+#      "unavailable" within 2 s, --healthcheck exits 1, and the server keeps
+#      running; PostgreSQL started again: /health is 200 again (T-019 AC6).
+#   5. `docker stop` (SIGTERM) makes it exit 0.
+#   6. With no environment, it exits 78.
 #
 # Needs docker, curl, and jq (all present on GitHub's ubuntu runners).
 # HOST_PORT (default 18080) is the local port mapped to the container.
+# The PostgreSQL container runs on the host's own platform (no QEMU).
 set -eu
 
 if [ "$#" -ne 3 ]; then
@@ -38,11 +45,18 @@ EXPECTED_VERSION="$3"
 HOST_PORT="${HOST_PORT:-18080}"
 MAX_BYTES=100000000
 HEALTH_DEADLINE_MS=5000
+# T-019 AC6: /health must answer within 2 s while the database is down.
+DB_DOWN_DEADLINE_MS=2000
 NAME="boardgame-smoke-$$"
 WORK="$(mktemp -d)"
+# Same tag and digest as deploy/docker-compose.yml; change them together.
+PG_IMAGE="postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873"
+# A throwaway password for a database that lives only as long as this run.
+PG_PASSWORD="smoke-$$"
 
 cleanup() {
-  docker rm -f "$NAME" "$NAME-noenv" "$NAME-fs" >/dev/null 2>&1 || true
+  docker rm -f "$NAME" "$NAME-noenv" "$NAME-fs" "$NAME-pg" >/dev/null 2>&1 || true
+  docker network rm "$NAME" >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
 trap cleanup EXIT
@@ -54,6 +68,26 @@ fail() {
 
 now_ms() {
   echo $(($(date +%s%N) / 1000000))
+}
+
+# Waits up to 60 s until PostgreSQL accepts TCP connections (deploy/README.md
+# explains why the check uses TCP and not the socket).
+wait_for_postgres() {
+  tries=0
+  until docker exec "$NAME-pg" pg_isready -q -h 127.0.0.1 -U smoke -d smoke; do
+    tries=$((tries + 1))
+    if [ "$tries" -gt 60 ]; then
+      docker logs "$NAME-pg" >&2 || true
+      fail "PostgreSQL did not become ready within 60 s"
+    fi
+    sleep 1
+  done
+}
+
+# GET /health once: prints the status code; the body goes to $WORK/body.
+health() {
+  curl -s -o "$WORK/body" -w '%{http_code}' --max-time 5 \
+    "http://127.0.0.1:$HOST_PORT/health" || true
 }
 
 # 1. Image metadata.
@@ -78,10 +112,19 @@ rm -f "$WORK/rootfs.tar"
   fail "unpacked file system is $unpacked bytes, limit $MAX_BYTES"
 echo "ok ($PLATFORM): platform $arch, user $user, unpacked file system $unpacked bytes (limit $MAX_BYTES); docker image inspect .Size $store_size bytes"
 
-# 2. GET /health within 5 s.
+# 2. GET /health within 5 s, with a real PostgreSQL behind it.
+docker network create "$NAME" >/dev/null
+docker run -d --name "$NAME-pg" --network "$NAME" --network-alias postgres \
+  -e POSTGRES_USER=smoke -e POSTGRES_PASSWORD="$PG_PASSWORD" -e POSTGRES_DB=smoke \
+  -e "POSTGRES_INITDB_ARGS=--locale-provider=builtin --locale=C.UTF-8" \
+  "$PG_IMAGE" >/dev/null
+wait_for_postgres
+
 start="$(now_ms)"
-docker run -d --name "$NAME" --platform "$PLATFORM" \
+docker run -d --name "$NAME" --platform "$PLATFORM" --network "$NAME" \
   -e PORT=8080 -e LOG_LEVEL=info \
+  -e DATABASE_HOST=postgres -e DATABASE_NAME=smoke -e DATABASE_USER=smoke \
+  -e DATABASE_PASSWORD="$PG_PASSWORD" \
   -p "127.0.0.1:$HOST_PORT:8080" "$IMAGE" >/dev/null
 code=""
 while :; do
@@ -98,10 +141,18 @@ elapsed=$(($(now_ms) - start))
 [ "$elapsed" -le "$HEALTH_DEADLINE_MS" ] || fail "GET /health took $elapsed ms"
 status="$(jq -er '.status' "$WORK/body")" || fail "health body has no status"
 version="$(jq -er '.version' "$WORK/body")" || fail "health body has no version"
+database="$(jq -er '.database' "$WORK/body")" || fail "health body has no database"
 [ "$status" = "ok" ] || fail "health status is '$status'"
+[ "$database" = "ok" ] || fail "health database is '$database'"
 [ "$version" = "$EXPECTED_VERSION" ] ||
   fail "health version is '$version', want '$EXPECTED_VERSION'"
-echo "ok ($PLATFORM): GET /health 200 in $elapsed ms, version $version"
+echo "ok ($PLATFORM): GET /health 200 in $elapsed ms, version $version, database ok"
+migrated="$(docker exec "$NAME-pg" psql -At -U smoke -d smoke -c 'SELECT count(*) FROM schema_migrations')" ||
+  fail "schema_migrations is missing"
+[ "$migrated" -ge 1 ] || fail "no migration was recorded"
+docker logs "$NAME" 2>&1 | grep -q '"msg":"database schema up to date"' ||
+  fail "no 'database schema up to date' log line"
+echo "ok ($PLATFORM): $migrated migration(s) recorded in schema_migrations"
 
 # 3. The Compose health check (`/app/server --healthcheck`, T-010 AC12,
 # T-098 AC1) inside the running container: exit 0 while the server answers;
@@ -146,7 +197,53 @@ set -e
 }
 echo "ok ($PLATFORM): an unknown argument exited 64"
 
-# 4. SIGTERM: clean exit.
+# 4. PostgreSQL down: 503 within 2 s, the server keeps running; back up: 200.
+docker stop "$NAME-pg" >/dev/null
+# The last good result is reused for 1 s; poll until the server notices.
+deadline=$(($(now_ms) + 10000))
+code=""
+while [ "$(now_ms)" -lt "$deadline" ]; do
+  code="$(health)"
+  [ "$code" = "503" ] && break
+  sleep 0.2
+done
+[ "$code" = "503" ] || fail "GET /health with PostgreSQL stopped returned '$code', want 503"
+start="$(now_ms)"
+code="$(health)"
+elapsed=$(($(now_ms) - start))
+[ "$code" = "503" ] || fail "GET /health with PostgreSQL stopped returned '$code', want 503"
+[ "$elapsed" -le "$DB_DOWN_DEADLINE_MS" ] ||
+  fail "GET /health with PostgreSQL stopped took $elapsed ms, limit $DB_DOWN_DEADLINE_MS ms"
+database="$(jq -er '.database' "$WORK/body")" || fail "503 body has no database"
+[ "$database" = "unavailable" ] || fail "503 body database is '$database'"
+running="$(docker inspect -f '{{.State.Running}}' "$NAME")"
+[ "$running" = "true" ] || fail "the server stopped when PostgreSQL went away"
+set +e
+timeout 30 docker exec "$NAME" /app/server --healthcheck >"$WORK/hc-db.log" 2>&1
+hc_db_code=$?
+set -e
+[ "$hc_db_code" -eq 1 ] || {
+  cat "$WORK/hc-db.log" >&2
+  fail "--healthcheck with PostgreSQL stopped exited $hc_db_code, want 1"
+}
+echo "ok ($PLATFORM): PostgreSQL stopped: GET /health 503 in $elapsed ms, database unavailable, --healthcheck exited 1: $(cat "$WORK/hc-db.log")"
+
+docker start "$NAME-pg" >/dev/null
+wait_for_postgres
+deadline=$(($(now_ms) + 30000))
+code=""
+while [ "$(now_ms)" -lt "$deadline" ]; do
+  code="$(health)"
+  [ "$code" = "200" ] && break
+  sleep 0.5
+done
+[ "$code" = "200" ] || {
+  docker logs "$NAME" >&2 || true
+  fail "GET /health after PostgreSQL restarted returned '$code', want 200"
+}
+echo "ok ($PLATFORM): PostgreSQL back: GET /health 200 again"
+
+# 5. SIGTERM: clean exit.
 docker stop "$NAME" >/dev/null
 stop_code="$(docker inspect -f '{{.State.ExitCode}}' "$NAME")"
 [ "$stop_code" = "0" ] || {
@@ -156,7 +253,7 @@ stop_code="$(docker inspect -f '{{.State.ExitCode}}' "$NAME")"
 docker rm "$NAME" >/dev/null
 echo "ok ($PLATFORM): docker stop exited 0"
 
-# 5. No environment: config error, exit 78.
+# 6. No environment: config error, exit 78.
 # Named so the EXIT trap removes it, and limited to 30 s so a server that
 # wrongly starts without config fails the step instead of hanging the job
 # (timeout then exits 124).
