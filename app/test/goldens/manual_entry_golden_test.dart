@@ -20,8 +20,9 @@ const manualEntryGoldenCases = <GoldenCase>[
 ];
 
 /// Opens manual entry the way a user does, from the Scan destination. The
-/// field takes focus, so on compact the NavigationBar is hidden (T-031
-/// AC8); the keyboard itself is not drawn.
+/// field takes focus, but goldens draw no keyboard (no view inset), so the
+/// compact NavigationBar shows: it hides only while the keyboard is open
+/// (T-031 round 2, R1-S1).
 Future<void> _openManualEntry(WidgetTester tester) async {
   await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
   await tester.pumpAndSettle();
