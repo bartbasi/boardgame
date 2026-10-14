@@ -24,6 +24,7 @@ T _ok<T>(Result<T> r) => switch (r) {
 };
 
 void main() {
+  indexTests();
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
   late AppDatabase db;
   late LocalGameStore store;
@@ -673,23 +674,52 @@ void main() {
       expect(logged.join(), isNot(contains('corrupt.sqlite')));
     });
 
-    test('a truncated real database file fails cleanly', () async {
+    test('a truncated database file fails every read and write', () async {
       final file = File('${dir.path}/trunc.sqlite');
       final good = AppDatabase(NativeDatabase(file));
       await LocalGameStore(good)
           .saveDetails(bggId: 1, detailsJson: '{}', fetchedAt: _at(0));
       await good.close();
       final bytes = file.readAsBytesSync();
-      file.writeAsBytesSync(bytes.sublist(0, bytes.length ~/ 2 + 3));
+      // Measured with drift 2.35 and the bundled SQLite: every cut that
+      // leaves part of a file ("database disk image is malformed") fails.
+      for (final length in [bytes.length ~/ 2 + 3, 100, 4096, 8192]) {
+        file.writeAsBytesSync(bytes.sublist(0, length));
+        final d = AppDatabase(NativeDatabase(file));
+        final logged = <String>[];
+        await allOperationsFail(LocalGameStore(d, log: logged.add));
+        expect(logged, hasLength(5), reason: 'length $length');
+        expect(logged.join(), isNot(contains('trunc.sqlite')));
+        await d.close();
+      }
+    });
+
+    test('a zero byte file is a new empty database, not a failure', () async {
+      // Documents behavior: a file cut to nothing silently loses its data.
+      final file = File('${dir.path}/empty.sqlite')..writeAsBytesSync([]);
       final d = AppDatabase(NativeDatabase(file));
       addTearDown(d.close);
       final s = LocalGameStore(d);
-      // Either a clean failure or a readable result, but never a throw.
-      final r = await s.readDetails(1);
-      expect(
-        r,
-        anyOf(isA<Ok<CachedGameDetails?>>(), isA<Err<CachedGameDetails?>>()),
-      );
+      expect(_ok(await s.readDetails(1)), isNull);
+      _ok(await s.saveDetails(bggId: 1, detailsJson: '{}', fetchedAt: _at(0)));
+      expect(_ok(await s.readDetails(1)), isNotNull);
+    });
+
+    test('background isolate errors log only the cause type', () async {
+      final file = File('${dir.path}/bg_corrupt.sqlite')
+        ..writeAsBytesSync(List<int>.generate(8192, (i) => (i * 17 + 3) % 256));
+      final d = AppDatabase(NativeDatabase.createInBackground(file));
+      addTearDown(d.close);
+      final logged = <String>[];
+      await allOperationsFail(LocalGameStore(d, log: logged.add));
+      expect(logged, hasLength(5));
+      for (final line in logged) {
+        expect(
+          line,
+          matches(RegExp(r'^LocalGameStore\.\w+ failed: SqliteException$')),
+        );
+        expect(line, isNot(contains('bg_corrupt')));
+      }
     });
 
     test('a path that is a directory fails every operation', () async {
@@ -832,4 +862,71 @@ class _FailOnUpdate extends QueryInterceptor {
     }
     return super.runUpdate(executor, statement, args);
   }
+}
+
+/// Round 2: the index on barcode_matches.game_id (review R1-S1).
+void indexTests() {
+  group('barcode_matches.game_id index', () {
+    Future<List<String>> indexNames(AppDatabase d) async {
+      final rows = await d
+          .customSelect("PRAGMA index_list('barcode_matches')")
+          .get();
+      return [for (final r in rows) r.read<String>('name')];
+    }
+
+    test('exists, non-unique, on game_id only, after a fresh create', () async {
+      final d = inMemoryDatabase();
+      addTearDown(d.close);
+      expect(await indexNames(d), contains('barcode_matches_game_id'));
+      final list = await d
+          .customSelect("PRAGMA index_list('barcode_matches')")
+          .get();
+      final row = list.singleWhere(
+        (r) => r.read<String>('name') == 'barcode_matches_game_id',
+      );
+      expect(row.read<int>('unique'), 0);
+      final cols = await d
+          .customSelect("PRAGMA index_info('barcode_matches_game_id')")
+          .get();
+      expect(cols.map((c) => c.read<String>('name')), ['game_id']);
+    });
+
+    test('exists in a database created from the exported v1 schema', () async {
+      final schema = await SchemaVerifier(GeneratedHelper()).schemaAt(1);
+      final d = AppDatabase(schema.newConnection());
+      addTearDown(d.close);
+      expect(await indexNames(d), contains('barcode_matches_game_id'));
+      await d.validateDatabaseSchema();
+    });
+
+    test('is named in the exported JSON schema file', () {
+      final text = File('drift_schemas/app_database/drift_schema_v1.json')
+          .readAsStringSync();
+      expect(text, contains('barcode_matches_game_id'));
+    });
+
+    test('two codes for one game both stay and use the index', () async {
+      final d = inMemoryDatabase();
+      addTearDown(d.close);
+      final s = LocalGameStore(d);
+      for (final code in ['0000000000001', '0000000000002']) {
+        _ok(
+          await s.saveConfirmedMatch(
+            gtin13: code,
+            bggId: 5,
+            confirmedAt: _at(0),
+          ),
+        );
+      }
+      final plan = await d
+          .customSelect(
+            'EXPLAIN QUERY PLAN SELECT 1 FROM barcode_matches WHERE game_id = 1',
+          )
+          .get();
+      expect(
+        plan.map((r) => r.read<String>('detail')).join(' '),
+        contains('barcode_matches_game_id'),
+      );
+    });
+  });
 }

@@ -102,10 +102,18 @@ void main() {
     expect(databaseFile().existsSync(), isTrue);
 
     container.dispose();
-    // The background isolate is gone: queries fail, and the store turns
+    // The provider closes the database without awaiting it, so the close can
+    // still be in flight (seen on Linux CI, T-027-B1). Poll until the
+    // background isolate is gone: queries then fail, and the store turns
     // that error into a Failure (AC6).
-    final result = await LocalGameStore(db).readDetails(13);
-    expect(result.failureOrNull, const StorageFailure());
+    final store = LocalGameStore(db);
+    Result<CachedGameDetails?>? result;
+    for (var i = 0; i < 100; i++) {
+      result = await store.readDetails(13);
+      if (result.failureOrNull != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect(result?.failureOrNull, const StorageFailure());
   });
 
   test('localGameStoreProvider uses the app database', () async {
