@@ -103,5 +103,6 @@ bool isRetryable(Failure failure) => switch (failure) {
   AccessDeniedFailure() ||
   CancelledFailure() ||
   ConfigurationFailure() ||
+  StorageFailure() ||
   UnexpectedFailure() => false,
 };

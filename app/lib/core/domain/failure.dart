@@ -175,6 +175,13 @@ enum ConfigurationProblem {
   insecureBaseUrl,
 }
 
+/// The on-device database could not read or write (for example the disk is
+/// full, the file is damaged, or the database was closed). Not retryable;
+/// callers that have the data elsewhere, such as the backend, use that.
+final class StorageFailure extends Failure {
+  const StorageFailure();
+}
+
 /// Anything else: an unexpected status, a body that could not be decoded,
 /// or an error we did not anticipate.
 final class UnexpectedFailure extends Failure {

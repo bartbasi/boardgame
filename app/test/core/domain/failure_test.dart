@@ -17,6 +17,7 @@ final List<Failure> _everyFailure = [
   const AccessDeniedFailure(),
   const CancelledFailure(),
   const ConfigurationFailure(ConfigurationProblem.insecureBaseUrl),
+  const StorageFailure(),
   const UnexpectedFailure(),
 ];
 
@@ -35,6 +36,7 @@ String _copyKey(Failure failure) => switch (failure) {
   AccessDeniedFailure() => 'common.errorGenericBody',
   CancelledFailure() => 'nothing shown',
   ConfigurationFailure() => 'common.errorGenericBody',
+  StorageFailure() => 'common.errorGenericBody',
   UnexpectedFailure() => 'common.errorGenericBody',
 };
 
@@ -51,6 +53,7 @@ void main() {
       'manualEntry.error* (by reason)',
       'common.errorGenericBody',
       'nothing shown',
+      'common.errorGenericBody',
       'common.errorGenericBody',
       'common.errorGenericBody',
     ]);
