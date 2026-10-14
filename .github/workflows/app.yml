@@ -217,6 +217,20 @@ jobs:
       - name: Build debug APK
         run: flutter build apk --debug
 
+      # Records the APK size and its native libraries in the job summary, so
+      # a dependency's size cost is visible (T-030 AC16: the bundled ML Kit
+      # model ships as libbarhopper_v3.so per ABI).
+      - name: Report APK size
+        run: |
+          apk=build/app/outputs/flutter-apk/app-debug.apk
+          {
+            echo "### Debug APK"
+            echo "Total: $(stat -c %s "$apk") bytes"
+            echo '```'
+            unzip -l "$apk" | grep -E '\.so$' || true
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   ios:
     name: iOS build (no codesign)
     # Only pushes to main and manual runs; never other branches or pull
