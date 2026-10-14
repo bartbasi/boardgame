@@ -94,6 +94,9 @@ PostgreSQL (T-019, 2026-10-14, round 1 CHANGES REQUIRED): migrations are Dart co
 - backend-developer (T-019): stale cross-ticket comments again ("T-018 in parallel" after T-018 merged; a test file name that does not exist). Grep comments for ticket ids and file paths.
 - backend-developer (T-019): single-sample timing tests (fixed delay then one query). Ask for poll-and-max.
 
+Manual entry (T-031, 2026-10-14, round 1 CHANGES REQUIRED): flutter-developer pushes routes from callbacks with no double-submit guard (QA B1); same race on every `context.push` entry point. Recommended pattern: screen guard tied to the push future (onSubmit returns `context.push`, flag reset in finally), not router dedupe. Shell hides NavigationBar on text-field FOCUS (AppShell.isTextFieldFocus), but PRD Q32 says keyboard open: Android IME dismiss keeps focus, iOS number pad has no Done key and Flutter does not unfocus on touch outside (editable_text.dart _EditableTextTapOutsideAction). Forward: T-032 Search root autofocus would lose the bar (R1-S1); T-033 lookup provider keyed by gtin13; T-030 must guard repeated detections. Check loose layout bounds (`<= width * 0.6` for a 55% spec).
+- Golden proof shortcut: `gh run view <push run> --log | sed -E 's/^.*Z //' | grep -E "<screen>_.*png"` lists each compared golden with a pass mark.
+
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
 Flutter commands (Flutter not on PATH): `export PATH="/c/dev/flutter/bin:$PATH"` then from app/: `flutter pub get --enforce-lockfile`, `flutter analyze`, `dart format --output=none --set-exit-if-changed .`, `flutter test`.
