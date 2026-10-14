@@ -202,6 +202,25 @@
           "gtin13"
         ]
       }
+    },
+    {
+      "id": 2,
+      "references": [
+        1
+      ],
+      "type": "index",
+      "data": {
+        "on": 1,
+        "name": "barcode_matches_game_id",
+        "sql": null,
+        "unique": false,
+        "columns": [
+          {
+            "column": "game_id",
+            "order_by": null
+          }
+        ]
+      }
     }
   ],
   "fixed_sql": [
@@ -220,6 +239,15 @@
         {
           "dialect": "sqlite",
           "sql": "CREATE TABLE IF NOT EXISTS \"barcode_matches\" (\"gtin13\" TEXT NOT NULL CHECK(LENGTH(\"gtin13\") = 13 AND (gtin13 NOT GLOB '*[^0-9]*')), \"game_id\" INTEGER NOT NULL REFERENCES games (id), \"confirmed_at\" INTEGER NOT NULL, PRIMARY KEY (\"gtin13\"));"
+        }
+      ]
+    },
+    {
+      "name": "barcode_matches_game_id",
+      "sql": [
+        {
+          "dialect": "sqlite",
+          "sql": "CREATE INDEX barcode_matches_game_id ON barcode_matches (game_id)"
         }
       ]
     }

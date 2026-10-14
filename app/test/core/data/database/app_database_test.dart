@@ -81,6 +81,28 @@ void main() {
       expect(keys.single['to'], 'id');
     });
 
+    test('barcode_matches.game_id has a non-unique index (R1-S1)', () async {
+      final indexes = await _rows(db, 'PRAGMA index_list(barcode_matches)');
+      final byName = {for (final i in indexes) i['name']! as String: i};
+      expect(byName, contains('barcode_matches_game_id'));
+      expect(byName['barcode_matches_game_id']!['unique'], 0);
+      final columns = await _rows(
+        db,
+        "PRAGMA index_info('barcode_matches_game_id')",
+      );
+      expect(columns.map((c) => c['name']), ['game_id']);
+
+      // SQLite uses it for the lookup the store's cleanup runs.
+      final plan = await _rows(
+        db,
+        'EXPLAIN QUERY PLAN SELECT 1 FROM barcode_matches WHERE game_id = 1',
+      );
+      expect(
+        plan.map((row) => row['detail']).join(' '),
+        contains('barcode_matches_game_id'),
+      );
+    });
+
     test('no table uses bgg_id as its key', () async {
       for (final table in ['games', 'barcode_matches']) {
         final columns = await _rows(db, 'PRAGMA table_info($table)');

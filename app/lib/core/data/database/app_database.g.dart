@@ -668,11 +668,19 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $GamesTable games = $GamesTable(this);
   late final $BarcodeMatchesTable barcodeMatches = $BarcodeMatchesTable(this);
+  late final Index barcodeMatchesGameId = Index(
+    'barcode_matches_game_id',
+    'CREATE INDEX barcode_matches_game_id ON barcode_matches (game_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [games, barcodeMatches];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    games,
+    barcodeMatches,
+    barcodeMatchesGameId,
+  ];
 }
 
 typedef $$GamesTableCreateCompanionBuilder = GamesCompanion Function({

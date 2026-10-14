@@ -8,7 +8,8 @@
 /// Schema changes: bump [AppDatabase.schemaVersion], add the step to
 /// [AppDatabase.migration], run `dart run build_runner build` and
 /// `dart run drift_dev make-migrations`, and extend
-/// test/drift/app_database/migration_test.dart (docs/handoffs/T-027.md).
+/// test/drift/app_database/migration_test.dart (app/README.md, "On-device
+/// database").
 library;
 
 import 'package:drift/drift.dart';
@@ -57,7 +58,11 @@ class Games extends Table {
 
 /// Barcodes the user (or a single backend match) confirmed, keyed by the
 /// 13-digit GTIN key from `Barcode.gtin13` (docs/decisions.md 2026-10-13).
+///
+/// `game_id` is indexed: deleting unused games and SQLite's foreign key
+/// check on a games delete both look matches up by game (T-027 R1-S1).
 @DataClassName('BarcodeMatchRow')
+@TableIndex(name: 'barcode_matches_game_id', columns: {#gameId})
 class BarcodeMatches extends Table {
   /// 13 ASCII digits.
   TextColumn get gtin13 => text().check(

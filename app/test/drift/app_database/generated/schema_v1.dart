@@ -553,11 +553,19 @@ class DatabaseAtV1 extends GeneratedDatabase {
   DatabaseAtV1(QueryExecutor e) : super(e);
   late final Games games = Games(this);
   late final BarcodeMatches barcodeMatches = BarcodeMatches(this);
+  late final Index barcodeMatchesGameId = Index(
+    'barcode_matches_game_id',
+    'CREATE INDEX barcode_matches_game_id ON barcode_matches (game_id)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
   @override
-  List<DatabaseSchemaEntity> get allSchemaEntities => [games, barcodeMatches];
+  List<DatabaseSchemaEntity> get allSchemaEntities => [
+    games,
+    barcodeMatches,
+    barcodeMatchesGameId,
+  ];
   @override
   int get schemaVersion => 1;
 }
