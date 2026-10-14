@@ -1,6 +1,10 @@
-// T-031 AC8: on compact windows the NavigationBar hides while a text field
-// has focus and returns when focus leaves; the rail never hides
-// (docs/ux/screens/app-shell.md section 2 [ASSUMPTION], PRD Q32).
+// T-031 AC8: on compact windows the NavigationBar hides while the keyboard
+// is open for a focused text field, and returns when focus leaves or the
+// keyboard closes; the rail never hides (PRD Q32 [ASSUMPTION]; round 2
+// follows Q32's "while the keyboard is open", review R1-S1).
+//
+// pumpApp installs a fake on-screen keyboard (installFakeKeyboard): the
+// view gets a bottom inset while the text input is shown.
 import 'package:board_game_collector/app/app.dart';
 import 'package:board_game_collector/app/navigation/app_router.dart';
 import 'package:board_game_collector/app/shell/app_shell.dart';
@@ -23,8 +27,8 @@ void _unfocus(WidgetTester tester) =>
 
 void main() {
   group('compact', () {
-    testWidgets('the bar hides while the barcode field has focus and '
-        'returns when focus leaves', (tester) async {
+    testWidgets('the bar hides while the barcode field has focus with the '
+        'keyboard open and returns when focus leaves', (tester) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsOne);
@@ -40,6 +44,49 @@ void main() {
       await tester.tap(_field);
       await tester.pumpAndSettle();
       expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('the bar returns when the keyboard closes while focus stays '
+        '(Android Back), and hides again when it reopens', (tester) async {
+      await pumpApp(tester);
+      await _openManualEntry(tester);
+      expect(tester.view.viewInsets.bottom, greaterThan(0));
+      expect(find.byType(NavigationBar), findsNothing);
+
+      // Android Back with the keyboard up closes only the keyboard.
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(_field);
+      expect(field.focusNode!.hasPrimaryFocus, isTrue);
+      expect(find.byType(NavigationBar), findsOne);
+
+      // Tapping the focused field shows the keyboard again.
+      await tester.tap(_field);
+      await tester.pumpAndSettle();
+      expect(tester.view.viewInsets.bottom, greaterThan(0));
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('focus without a keyboard keeps the bar (for example a '
+        'hardware keyboard, or the iOS number pad dismissed)', (tester) async {
+      await pumpApp(tester, keyboard: false);
+      await _openManualEntry(tester);
+
+      expect(
+        tester.widget<TextField>(_field).focusNode!.hasPrimaryFocus,
+        isTrue,
+      );
+      expect(tester.view.viewInsets.bottom, 0);
+      expect(find.byType(NavigationBar), findsOne);
+    });
+
+    testWidgets('a keyboard inset without a focused text field keeps the '
+        'bar', (tester) async {
+      await pumpApp(tester, keyboard: false);
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpAndSettle();
+      expect(find.byType(NavigationBar), findsOne);
     });
 
     testWidgets('the bar stays hidden after an error, because focus stays', (
@@ -140,8 +187,19 @@ void main() {
         tester.widget<TextField>(_field).focusNode!.hasPrimaryFocus,
         isTrue,
       );
+      expect(tester.view.viewInsets.bottom, greaterThan(0));
       expect(find.byType(NavigationRail), findsOne);
       expect(find.byType(NavigationBar), findsNothing);
+
+      // The shell's Scaffold already makes room for the keyboard, so the
+      // screen's own Scaffold must not see the inset again (round 2 fix:
+      // the rail layout used to put it back, shrinking the screen twice).
+      final screen = find.byType(Scaffold).last;
+      expect(MediaQuery.viewInsetsOf(tester.element(screen)).bottom, 0);
+      expect(
+        tester.getRect(screen).bottom,
+        entry.value.height - fakeKeyboardHeight(entry.value),
+      );
     });
   }
 
