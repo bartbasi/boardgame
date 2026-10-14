@@ -33,6 +33,56 @@
   "settingsTitle": "Settings",
   "@settingsTitle": {"description": "copy.md settings.title."},
 
+  "scannerActionManual": "Enter barcode",
+  "@scannerActionManual": {"description": "copy.md scanner.actionManual. Opens manual barcode entry from Scan."},
+  "searchActionManual": "Enter barcode",
+  "@searchActionManual": {"description": "copy.md search.actionManual. App bar action on Search that opens manual barcode entry."},
+
+  "manualEntryTitle": "Enter barcode",
+  "@manualEntryTitle": {"description": "copy.md manualEntry.title. App bar title."},
+  "manualEntryFieldLabel": "Barcode number",
+  "@manualEntryFieldLabel": {"description": "copy.md manualEntry.fieldLabel. Visible label of the barcode field."},
+  "manualEntryHelper": "8, 12, or 13 digits, printed under the barcode.",
+  "@manualEntryHelper": {"description": "copy.md manualEntry.helper. Helper text under the field."},
+  "manualEntrySubmit": "Look up",
+  "@manualEntrySubmit": {"description": "copy.md manualEntry.submit. Primary button."},
+  "manualEntryErrorLength": "A barcode has 8, 12, or 13 digits. You entered {count}.",
+  "@manualEntryErrorLength": {
+    "description": "copy.md manualEntry.errorLength. Shown after submit for a digit count other than 8, 12, or 13 (not 0).",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "manualEntryErrorNonDigit": "Use digits only.",
+  "@manualEntryErrorNonDigit": {"description": "copy.md manualEntry.errorNonDigit. Fallback when a non-digit reaches validation."},
+  "manualEntryErrorCheckDigit": "That number does not look right. Check the digits against the box.",
+  "@manualEntryErrorCheckDigit": {"description": "copy.md manualEntry.errorCheckDigit. Wrong check digit."},
+  "manualEntryErrorEmpty": "Enter the barcode number.",
+  "@manualEntryErrorEmpty": {"description": "copy.md manualEntry.errorEmpty. Submit with an empty field."},
+  "manualEntryErrorAnnouncement": "Error: {message}",
+  "@manualEntryErrorAnnouncement": {
+    "description": "copy.md manualEntry.errorAnnouncement. Announced to screen readers when an error appears.",
+    "placeholders": {"message": {"type": "String"}}
+  },
+  "manualEntrySearchInstead": "Search by title instead",
+  "@manualEntrySearchInstead": {"description": "copy.md manualEntry.searchInstead. Text button that opens Search."},
+  "manualEntryScanInstead": "Scan instead",
+  "@manualEntryScanInstead": {"description": "copy.md manualEntry.scanInstead. Text button that returns to the scanner."},
+  "manualEntryDigitCounter": "{count} of 13 digits",
+  "@manualEntryDigitCounter": {
+    "description": "copy.md manualEntry.digitCounter. Counter under the field.",
+    "placeholders": {"count": {"type": "int"}}
+  },
+  "itemEditClearField": "Clear {field}",
+  "@itemEditClearField": {
+    "description": "copy.md itemEdit.clearField. Label of a clear button inside a text field; also used by the barcode field until copy.md has its own key (T-031 open question).",
+    "placeholders": {"field": {"type": "String"}}
+  },
+
+  "lookupTitle": "Barcode {code}",
+  "@lookupTitle": {
+    "description": "copy.md lookup.title. App bar title of the lookup result screen.",
+    "placeholders": {"code": {"type": "String"}}
+  },
+
   "devPlaceholderBody": "This screen is not built yet.",
   "@devPlaceholderBody": {"description": "Skeleton only (T-012), not in copy.md. Removed when the destination screen is built."},
   "devPlaceholderItem": "Placeholder item {number}",
