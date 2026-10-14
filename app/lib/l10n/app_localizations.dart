@@ -184,11 +184,143 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settingsTitle;
 
+  /// copy.md common.retry. Button that tries a failed action again.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get commonRetry;
+
+  /// copy.md common.openSettings. Opens the app's page in the system settings.
+  ///
+  /// In en, this message translates to:
+  /// **'Open settings'**
+  String get commonOpenSettings;
+
   /// copy.md scanner.actionManual. Opens manual barcode entry from Scan.
   ///
   /// In en, this message translates to:
   /// **'Enter barcode'**
   String get scannerActionManual;
+
+  /// copy.md scanner.actionSearch. Switches to the Search destination.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by title'**
+  String get scannerActionSearch;
+
+  /// copy.md scanner.hint. Hint over the camera preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Point the camera at the barcode on the box.'**
+  String get scannerHint;
+
+  /// copy.md scanner.hintSlow. Hint after 8 s with no valid detection.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold steady and fill the frame with the barcode. Try the torch in low light.'**
+  String get scannerHintSlow;
+
+  /// copy.md scanner.viewfinderLabel. Semantic label of the camera preview.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera view. Barcode scanning is active.'**
+  String get scannerViewfinderLabel;
+
+  /// copy.md scanner.torchOn. Torch toggle label while the torch is off.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn torch on'**
+  String get scannerTorchOn;
+
+  /// copy.md scanner.torchOff. Torch toggle label while the torch is on.
+  ///
+  /// In en, this message translates to:
+  /// **'Turn torch off'**
+  String get scannerTorchOff;
+
+  /// copy.md scanner.torchLabelOn. Announced when the torch turns on.
+  ///
+  /// In en, this message translates to:
+  /// **'Torch is on'**
+  String get scannerTorchLabelOn;
+
+  /// copy.md scanner.torchLabelOff. Announced when the torch turns off.
+  ///
+  /// In en, this message translates to:
+  /// **'Torch is off'**
+  String get scannerTorchLabelOff;
+
+  /// copy.md scanner.success. Announced to screen readers after a successful scan.
+  ///
+  /// In en, this message translates to:
+  /// **'Barcode {code} read. Looking up the game.'**
+  String scannerSuccess(String code);
+
+  /// copy.md scanner.permission.requestingTitle. Panel title behind the system camera prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access'**
+  String get scannerPermissionRequestingTitle;
+
+  /// copy.md scanner.permission.requestingBody. Panel text behind the system camera prompt.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera reads barcodes on game boxes. Photos and video are never saved or sent anywhere.'**
+  String get scannerPermissionRequestingBody;
+
+  /// copy.md scanner.denied.title. Panel title when the camera permission is denied or restricted.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is off'**
+  String get scannerDeniedTitle;
+
+  /// copy.md scanner.denied.body.
+  ///
+  /// In en, this message translates to:
+  /// **'Without the camera we cannot scan. You can still enter the barcode or search by title.'**
+  String get scannerDeniedBody;
+
+  /// copy.md scanner.denied.allow. Asks for the camera permission again.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow camera'**
+  String get scannerDeniedAllow;
+
+  /// copy.md scanner.permanentlyDenied.title.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is blocked'**
+  String get scannerPermanentlyDeniedTitle;
+
+  /// copy.md scanner.permanentlyDenied.body.
+  ///
+  /// In en, this message translates to:
+  /// **'To scan, turn on the camera for this app in system settings. You can still enter the barcode or search by title.'**
+  String get scannerPermanentlyDeniedBody;
+
+  /// copy.md scanner.restricted.body. iOS parental or device policy; no settings button.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera access is restricted on this device, so scanning is not available. You can still enter the barcode or search by title.'**
+  String get scannerRestrictedBody;
+
+  /// copy.md scanner.unavailable.title.
+  ///
+  /// In en, this message translates to:
+  /// **'Camera not available'**
+  String get scannerUnavailableTitle;
+
+  /// copy.md scanner.unavailable.body.
+  ///
+  /// In en, this message translates to:
+  /// **'The camera could not start. Another app may be using it. You can still enter the barcode or search by title.'**
+  String get scannerUnavailableBody;
+
+  /// copy.md scanner.starting. Shown while the camera starts.
+  ///
+  /// In en, this message translates to:
+  /// **'Starting camera'**
+  String get scannerStarting;
 
   /// copy.md search.actionManual. App bar action on Search that opens manual barcode entry.
   ///

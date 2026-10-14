@@ -55,6 +55,12 @@ GoRoute _rootRoute(AppDestination destination) => switch (destination) {
     path: destination.path,
     builder: (context, state) => ScanScreen(
       onManualEntry: () => context.push<void>(manualEntryPath(destination)),
+      // Same as selecting Search in the bar or rail: Search keeps its stack.
+      onSearch: () =>
+          StatefulNavigationShell.of(context)
+              .goBranch(AppDestination.search.index),
+      onScanned: (barcode) =>
+          context.push<void>(lookupResultPath(destination, barcode)),
     ),
     routes: _lookupRoutes(destination),
   ),

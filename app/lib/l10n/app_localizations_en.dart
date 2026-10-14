@@ -55,7 +55,82 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
+  String get commonRetry => 'Retry';
+
+  @override
+  String get commonOpenSettings => 'Open settings';
+
+  @override
   String get scannerActionManual => 'Enter barcode';
+
+  @override
+  String get scannerActionSearch => 'Search by title';
+
+  @override
+  String get scannerHint => 'Point the camera at the barcode on the box.';
+
+  @override
+  String get scannerHintSlow =>
+      'Hold steady and fill the frame with the barcode. Try the torch in low light.';
+
+  @override
+  String get scannerViewfinderLabel =>
+      'Camera view. Barcode scanning is active.';
+
+  @override
+  String get scannerTorchOn => 'Turn torch on';
+
+  @override
+  String get scannerTorchOff => 'Turn torch off';
+
+  @override
+  String get scannerTorchLabelOn => 'Torch is on';
+
+  @override
+  String get scannerTorchLabelOff => 'Torch is off';
+
+  @override
+  String scannerSuccess(String code) {
+    return 'Barcode $code read. Looking up the game.';
+  }
+
+  @override
+  String get scannerPermissionRequestingTitle => 'Camera access';
+
+  @override
+  String get scannerPermissionRequestingBody =>
+      'The camera reads barcodes on game boxes. Photos and video are never saved or sent anywhere.';
+
+  @override
+  String get scannerDeniedTitle => 'Camera access is off';
+
+  @override
+  String get scannerDeniedBody =>
+      'Without the camera we cannot scan. You can still enter the barcode or search by title.';
+
+  @override
+  String get scannerDeniedAllow => 'Allow camera';
+
+  @override
+  String get scannerPermanentlyDeniedTitle => 'Camera access is blocked';
+
+  @override
+  String get scannerPermanentlyDeniedBody =>
+      'To scan, turn on the camera for this app in system settings. You can still enter the barcode or search by title.';
+
+  @override
+  String get scannerRestrictedBody =>
+      'Camera access is restricted on this device, so scanning is not available. You can still enter the barcode or search by title.';
+
+  @override
+  String get scannerUnavailableTitle => 'Camera not available';
+
+  @override
+  String get scannerUnavailableBody =>
+      'The camera could not start. Another app may be using it. You can still enter the barcode or search by title.';
+
+  @override
+  String get scannerStarting => 'Starting camera';
 
   @override
   String get searchActionManual => 'Enter barcode';

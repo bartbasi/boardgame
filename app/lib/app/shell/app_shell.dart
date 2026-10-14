@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/layout/window_size_class.dart';
@@ -57,6 +58,26 @@ class _AppShellState extends State<AppShell> {
   void dispose() {
     FocusManager.instance.removeListener(_onFocusChanged);
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = navigationShell.currentIndex;
+    if (index != oldWidget.navigationShell.currentIndex) {
+      _announceDestination(AppDestination.values[index]);
+    }
+  }
+
+  /// Announces the screen title of the destination the user switched to,
+  /// however they switched: bar, rail, a button such as "Search by title",
+  /// or Back to Scan (app-shell.md section 7; T-030 AC17).
+  void _announceDestination(AppDestination destination) {
+    SemanticsService.sendAnnouncement(
+      View.of(context),
+      destination.screenTitle(AppLocalizations.of(context)),
+      Directionality.of(context),
+    );
   }
 
   void _onFocusChanged() {

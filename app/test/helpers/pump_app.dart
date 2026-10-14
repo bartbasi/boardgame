@@ -7,6 +7,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fake_scanner.dart';
+
 /// Window sizes from "Shared test definitions" in docs/backlog.md.
 abstract final class WindowSizes {
   static const Size compact = Size(390, 844);
@@ -108,17 +110,28 @@ void installFakeKeyboard(WidgetTester tester, {double? height}) {
   });
 }
 
-/// Pumps the whole app in a fresh [ProviderScope] and renders one frame.
+/// The whole app in a fresh [ProviderScope] with the scanner's camera and
+/// permission replaced by [scanner]'s fakes (T-030), so no test touches a
+/// camera plugin.
+Widget testApp(ScannerFakes scanner) => ProviderScope(
+  overrides: scanner.overrides,
+  child: const BoardGameCollectorApp(),
+);
+
+/// Pumps the whole app ([testApp]) and renders one frame. Returns the
+/// scanner fakes in use: [scanner], or new ones with the permission granted
+/// and a camera with a torch.
 ///
 /// Does not settle, so callers can check what the very first frame shows.
 /// With [keyboard] (the default), focusing a text field opens a fake
 /// on-screen keyboard; see [installFakeKeyboard].
-Future<void> pumpApp(
+Future<ScannerFakes> pumpApp(
   WidgetTester tester, {
   Size size = WindowSizes.compact,
   double textScale = 1,
   Brightness brightness = Brightness.light,
   bool keyboard = true,
+  ScannerFakes? scanner,
 }) async {
   setTestWindow(
     tester,
@@ -129,7 +142,9 @@ Future<void> pumpApp(
   if (keyboard) {
     installFakeKeyboard(tester);
   }
-  await tester.pumpWidget(const ProviderScope(child: BoardGameCollectorApp()));
+  final fakes = scanner ?? ScannerFakes();
+  await tester.pumpWidget(testApp(fakes));
+  return fakes;
 }
 
 /// Taps the destination with the visible [label] in the NavigationBar or

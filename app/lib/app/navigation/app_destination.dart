@@ -52,6 +52,15 @@ enum AppDestination {
     AppDestination.settings => l10n.navSettings,
   };
 
+  /// Title of the destination's root screen, announced when the user
+  /// switches to it (app-shell.md section 7; T-030 AC17).
+  String screenTitle(AppLocalizations l10n) => switch (this) {
+    AppDestination.scan => l10n.scannerTitle,
+    AppDestination.search => l10n.searchTitle,
+    AppDestination.collection => l10n.collectionTitle,
+    AppDestination.settings => l10n.settingsTitle,
+  };
+
   /// Label read by screen readers (copy.md `nav.*Label`).
   String semanticLabel(AppLocalizations l10n) => switch (this) {
     AppDestination.scan => l10n.navScanLabel,
