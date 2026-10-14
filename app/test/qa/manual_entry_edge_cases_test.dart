@@ -224,6 +224,7 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.testTextInput.receiveAction(TextInputAction.search);
       await tester.pumpAndSettle();
+      expect(find.byType(LookupResultScreen, skipOffstage: false), findsOne);
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.byType(LookupResultScreen), findsNothing);

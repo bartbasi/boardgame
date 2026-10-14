@@ -96,9 +96,13 @@ void main() {
         await tester.testTextInput.receiveAction(TextInputAction.search);
       }
       await tester.pumpAndSettle();
+      expect(find.byType(LookupResultScreen), findsOne);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      expect(find.byType(LookupResultScreen), findsNothing);
+      expect(
+        find.byType(LookupResultScreen, skipOffstage: false),
+        findsNothing,
+      );
     });
 
     testWidgets('system back unlocks: submit, system back, submit again', (
@@ -132,7 +136,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.ensureVisible(_submit);
       await _tapFast(tester, _submit, 2);
-      expect(_count(find.byType(LookupResultScreen)), 1);
+      expect(find.byType(LookupResultScreen), findsOne);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(LookupResultScreen, skipOffstage: false),
+        findsNothing,
+      );
     });
 
     testWidgets('pause and resume on manual entry keep the screen usable', (
@@ -316,8 +326,10 @@ void main() {
       expect(find.byType(NavigationBar), findsOne);
     });
 
-    testWidgets('focus lost while the inset is still above 0: bar stays '
-        '(keyboard not tied to a text field)', (tester) async {
+    testWidgets('focus lost with an inset left over: the bar returns at once '
+        '(a keyboard without a focused text field never hides it)', (
+      tester,
+    ) async {
       await pumpApp(tester, keyboard: false);
       await _open(tester);
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -485,5 +497,49 @@ void main() {
         WindowSizes.compact.height - 250,
       );
     });
+  });
+
+  group('Look up is never covered by the keyboard (spec section 7)', () {
+    // Phone landscape is the known exception (open question 4).
+    final cases = <String, (Size, double)>{
+      'compact 1.0': (WindowSizes.compact, 1),
+      'compact 2.0': (WindowSizes.compact, 2),
+      'medium 1.0': (WindowSizes.medium, 1),
+    };
+    for (final entry in cases.entries) {
+      testWidgets('${entry.key}: on arrival the whole button is above the '
+          'keyboard and a plain tap opens the result', (tester) async {
+        final (size, scale) = entry.value;
+        await pumpApp(tester, size: size, textScale: scale);
+        await _open(tester);
+        final top = size.height - fakeKeyboardHeight(size);
+        expect(tester.view.viewInsets.bottom, fakeKeyboardHeight(size));
+
+        // No scrolling: the button is fully visible above the keyboard.
+        final rect = tester.getRect(_submit);
+        expect(rect.top, greaterThanOrEqualTo(0));
+        expect(rect.bottom, lessThanOrEqualTo(top));
+
+        await tester.enterText(_field, '036000291452');
+        await tester.pump();
+        // Typing must not push it under the keyboard either.
+        expect(tester.getRect(_submit).bottom, lessThanOrEqualTo(top));
+        await tester.tap(_submit);
+        await tester.pumpAndSettle();
+        expect(find.byType(LookupResultScreen), findsOne);
+      });
+
+      testWidgets('${entry.key}: with an error showing the button is still '
+          'above the keyboard', (tester) async {
+        final (size, scale) = entry.value;
+        await pumpApp(tester, size: size, textScale: scale);
+        await _open(tester);
+        final top = size.height - fakeKeyboardHeight(size);
+        await tester.tap(_submit);
+        await tester.pumpAndSettle();
+        expect(find.byIcon(Icons.error), findsOne);
+        expect(tester.getRect(_submit).bottom, lessThanOrEqualTo(top));
+      });
+    }
   });
 }
