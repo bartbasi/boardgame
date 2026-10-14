@@ -81,3 +81,8 @@ server + PostgreSQL (T-019):
 - Dev's AC5 pool test uses a fixed 150 ms wait: flaky under load. Embedded COMMIT in a migration escapes the tx (T-019-B1).
 - After Docker work: `docker rm -f`, `docker rmi postgres:18.6-alpine3.24`, remove the untagged dart image by digest.
 - Lexer-style scanners: test every whitespace class the target lexer has (\v bypassed T-019's COMMIT scanner). After Docker runs C: free space dropped ~5 GB (VM disk grows, never shrinks).
+
+App network and data source (T-028):
+- Byte-exact body tests: `bytesBody` in test/qa/response_cap_edge_cases_test.dart (Stream of Uint8List chunks, ResponseBody with headers, optional reset). `runFake` works with real `Future.delayed` inside the stream.
+- Generated check: `flutter gen-l10n` and `dart run build_runner build --delete-conflicting-outputs` in app/, then `git status` must be clean.
+- Cross-endpoint tables: use `Timed<Object>` helpers (`runFake(() => source.fetchGame(..))`); result is already `Result<Object>` so no cast.

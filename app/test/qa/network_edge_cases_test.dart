@@ -369,14 +369,20 @@ void main() {
   });
 
   group('bodies', () {
-    test('a 5 MB valid JSON object body decodes', () {
+    // T-028 AC7 replaced the T-013 rule "a 5 MB body decodes": bodies over
+    // 1 MiB are the unexpected failure after one request, never retried.
+    test('a 5 MB valid JSON object body is the unexpected failure, once', () {
       final big = jsonEncode({
         'status': 'ok',
         'version': 'x' * (5 * 1024 * 1024),
       });
-      final adapter = FakeHttpAdapter([respond(200, body: big)]);
+      final adapter = FakeHttpAdapter([
+        respond(200, body: big),
+        respond(200, body: big),
+      ]);
       final t = _get(adapter);
-      expect(t.result.valueOrNull?.version.length, 5 * 1024 * 1024);
+      expect(t.result.failureOrNull, const UnexpectedFailure());
+      expect(adapter.requests, hasLength(1));
     });
     test('unicode values survive', () {
       final body = jsonEncode({'status': 'ok', 'version': 'Café 世界 🎲'});
