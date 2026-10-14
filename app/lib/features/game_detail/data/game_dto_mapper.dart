@@ -7,13 +7,35 @@ import '../domain/game_details.dart';
 import '../domain/game_search_results.dart';
 import '../domain/game_summary.dart';
 
+/// The only host a BGG page link may point to (decisions.md 2026-10-14,
+/// T-018: `https://boardgamegeek.com/boardgame/{bggId}`, without www).
+const String bggHost = 'boardgamegeek.com';
+
+/// Returns [url] if it is an absolute https URL on [bggHost] with no user
+/// info and the default port, and throws [FormatException] otherwise (the
+/// API client turns that into UnexpectedFailure). The path is not checked:
+/// the backend owns the format and may change it without a contract change
+/// (api_contract README). The app opens this link outside the app, so it
+/// must never point anywhere else (T-028 review R1-S2).
+String checkedBggUrl(String url) {
+  final uri = Uri.tryParse(url);
+  if (uri == null ||
+      !uri.isScheme('https') ||
+      uri.host != bggHost ||
+      uri.userInfo.isNotEmpty ||
+      uri.port != 443) {
+    throw const FormatException('bggUrl must be an https link to BGG');
+  }
+  return url;
+}
+
 /// Maps a game summary DTO. Null stays null (the contract never sends 0 or
 /// an empty string for a missing value).
 GameSummary gameSummaryFromDto(api.GameSummary dto) => GameSummary(
   bggId: dto.bggId,
   name: dto.name,
   yearPublished: dto.yearPublished,
-  bggUrl: dto.bggUrl,
+  bggUrl: checkedBggUrl(dto.bggUrl),
 );
 
 /// Maps a game detail DTO. `fetchedAt` stays in UTC.
@@ -28,7 +50,7 @@ GameDetails gameDetailsFromDto(api.GameDetailResponse dto) => GameDetails(
   designers: dto.designers,
   publishers: dto.publishers,
   description: dto.description,
-  bggUrl: dto.bggUrl,
+  bggUrl: checkedBggUrl(dto.bggUrl),
   fetchedAt: dto.fetchedAt.toUtc(),
 );
 
