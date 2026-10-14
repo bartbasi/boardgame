@@ -102,6 +102,12 @@ services:
       DATABASE_NAME: ${POSTGRES_DB:?set POSTGRES_DB in deploy/.env (copy deploy/.env.example)}
       DATABASE_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/.env (copy deploy/.env.example)}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env (copy deploy/.env.example)}
+      # Per-IP rate limiting on /v1 (T-020). Only Caddy's fixed address on
+      # the `web` network (below) may tell the server the client IP through
+      # X-Forwarded-For; any other peer is limited by its socket address.
+      # RATE_LIMIT_PER_MINUTE and RATE_LIMIT_MAX_TRACKED_IPS keep the
+      # server's defaults (60 and 100000, server/.env.example).
+      TRUSTED_PROXY_ADDRESSES: "10.213.7.10"
     depends_on:
       postgres:
         condition: service_healthy
@@ -151,7 +157,11 @@ services:
     depends_on:
       server:
         condition: service_started
-    networks: [web]
+    networks:
+      web:
+        # Fixed, so the server can trust X-Forwarded-For from this address
+        # only (TRUSTED_PROXY_ADDRESSES above, T-020 AC4).
+        ipv4_address: 10.213.7.10
     # Caddy writes only to the /data and /config volumes; /tmp is a small
     # tmpfs in case it needs scratch space.
     read_only: true
@@ -165,7 +175,16 @@ services:
     logging: *logging
 
 networks:
-  web: {}
+  # A fixed subnet so Caddy's address is fixed (T-020). 10.213.7.0/24 is
+  # outside Docker's default address pools (172.17.0.0/16 to 172.31.0.0/16
+  # and 192.168.0.0/16) and outside Oracle Cloud's default VCN range
+  # (10.0.0.0/16) [ASSUMPTION: checked against defaults only, see
+  # deploy/README.md]. Change it here, in Caddy's ipv4_address, and in
+  # TRUSTED_PROXY_ADDRESSES together.
+  web:
+    ipam:
+      config:
+        - subnet: 10.213.7.0/24
   # No route out of this network: PostgreSQL cannot reach the internet.
   db:
     internal: true
