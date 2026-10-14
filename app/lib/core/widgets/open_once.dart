@@ -15,6 +15,10 @@ mixin OpenOnce<T extends StatefulWidget> on State<T> {
   bool _opening = false;
   bool _wasCurrent = true;
 
+  /// Counts opens, so a late `finally` of an older open cannot release a
+  /// newer one (review R2-G1).
+  int _generation = 0;
+
   /// Whether an open is in flight; further [openOnce] calls are ignored.
   @protected
   bool get isOpening => _opening;
@@ -22,8 +26,8 @@ mixin OpenOnce<T extends StatefulWidget> on State<T> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // ModalRoute.of rebuilds this State when isCurrent changes.
-    final isCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    // Depends only on the route's isCurrent, so this runs when it changes.
+    final isCurrent = ModalRoute.isCurrentOf(context) ?? true;
     if (isCurrent && !_wasCurrent) _opening = false;
     _wasCurrent = isCurrent;
   }
@@ -32,10 +36,11 @@ mixin OpenOnce<T extends StatefulWidget> on State<T> {
   Future<void> openOnce(Future<void> Function() open) async {
     if (_opening) return;
     _opening = true;
+    final generation = ++_generation;
     try {
       await open();
     } finally {
-      if (mounted) _opening = false;
+      if (mounted && generation == _generation) _opening = false;
     }
   }
 }
