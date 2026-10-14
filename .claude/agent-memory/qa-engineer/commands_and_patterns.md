@@ -81,3 +81,8 @@ server + PostgreSQL (T-019):
 - Dev's AC5 pool test uses a fixed 150 ms wait: flaky under load. Embedded COMMIT in a migration escapes the tx (T-019-B1).
 - After Docker work: `docker rm -f`, `docker rmi postgres:18.6-alpine3.24`, remove the untagged dart image by digest.
 - Lexer-style scanners: test every whitespace class the target lexer has (\v bypassed T-019's COMMIT scanner). After Docker runs C: free space dropped ~5 GB (VM disk grows, never shrinks).
+
+Scanner (T-030):
+- Whole-app tests use `pumpApp(tester, scanner: fakes)` and `ScannerFakes` (test/helpers/fake_scanner.dart); drive with `fakes.camera.emit(raw, format: BarcodeFormat.ean13)` (BarcodeFormat is in features/scanner/domain/barcode.dart), `fakes.permissions.current/answer`, and lifecycle via `handleAppLifecycleStateChanged` through inactive, hidden, paused and back.
+- Widget tests use the test font: buttons wrap and stack at 1.0 text. Real-font layout (side by side) is only proved by goldens. Torch node label is the action; "Torch is on/off" are announcements.
+- The golden tag is excluded locally, so local coverage is a bit lower than CI's (95.6 vs 97.0).
