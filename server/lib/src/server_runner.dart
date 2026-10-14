@@ -10,6 +10,8 @@ import 'db/database.dart';
 import 'db/database_health.dart';
 import 'db/migration.dart';
 import 'db/migrations.dart';
+import 'http/rate_limit.dart';
+import 'http/rate_limiter.dart';
 import 'http/routes.dart';
 import 'http/serve.dart';
 import 'logging/logger.dart';
@@ -121,10 +123,23 @@ Future<int> runServer({
           ? logger.info('database available again')
           : logger.warning('database unavailable'),
     );
+    // Per-IP rate limiting (T-020) is the first /v1 guard; attestation
+    // (T-066) goes after it.
+    final limiter = RateLimiter(
+      limit: config.rateLimitPerMinute,
+      maxTracked: config.rateLimitMaxTrackedIps,
+      onFull: logRateLimiterFull(logger, config.rateLimitMaxTrackedIps),
+    );
     final handler = buildApp(
       version: version,
       logger: logger,
       databaseHealth: databaseHealth,
+      v1Middleware: [
+        rateLimit(
+          limiter,
+          ClientAddressResolver(trustedProxies: config.trustedProxies),
+        ),
+      ],
       addTestRoutes: addTestRoutes,
     );
 

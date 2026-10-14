@@ -27,6 +27,24 @@ export 'src/db/migrations.dart' show schemaMigrations;
 export 'src/db/transaction_control.dart' show findTransactionControl;
 export 'src/http/middleware.dart'
     show loggableMethod, otherMethod, unmatchedRoute;
+export 'src/http/rate_limit.dart'
+    show
+        ClientAddressResolver,
+        addressKey,
+        canonicalAddress,
+        connectionInfoContextKey,
+        logRateLimiterFull,
+        rateLimit,
+        rateLimitedResponse,
+        retryAfterSeconds,
+        unknownClientKey;
+export 'src/http/rate_limiter.dart'
+    show
+        RateLimiter,
+        maxRateLimitPerWindow,
+        defaultRateLimitMaxTracked,
+        defaultRateLimitPerWindow,
+        rateLimitWindow;
 export 'src/http/serve.dart' show bindAndServe, serverIdleTimeout;
 export 'src/logging/error_description.dart'
     show describeError, maxErrorDescriptionLength;
