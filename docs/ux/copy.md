@@ -113,6 +113,7 @@ The Powered by BGG logo is an image asset (supplied under T-087, task BGG-41). I
 | manualEntry.searchInstead | Search by title instead |
 | manualEntry.scanInstead | Scan instead |
 | manualEntry.digitCounter | {count} of 13 digits |
+| (reused) itemEdit.clearField | Clear {field}. The barcode field uses it as "Clear Barcode number". Reuse confirmed in the T-031 UX check; there is no manualEntry key. |
 
 ## search
 

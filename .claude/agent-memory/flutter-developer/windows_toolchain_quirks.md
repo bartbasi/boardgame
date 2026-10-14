@@ -8,6 +8,7 @@ metadata:
 Learned on T-012 and T-013 (2026-10-12):
 
 - The worktree guard on the Bash tool refuses commands it cannot verify: multi-file heredocs with `cd`, any command containing the word `.gitkeep` (it sees "git"), `cygpath "$VAR"`, and `cd ..` before git. Use the Write tool for new files and keep Bash commands short, one `cd` to an absolute path.
+- The path guard hook blocks the Write tool outside the repo (including the session scratchpad), and the Bash guard rejects long chained commands mixing git with `&&`/`;`. For temp debug tests, write under app/test/tmp_debug/ and delete before committing; run git commands one per call.
 - Bash guard also refuses commands whose program name is a variable (`ADB=...; $ADB ...`); write the full path each time.
 - Flutter is not on PATH in Bash: prefix `export PATH="/c/dev/flutter/bin:$PATH";`.
 - Python `open(..., 'w')` on Windows writes CRLF; .gitattributes normalizes to LF on commit, but run `sed -i 's/\r$//'` to keep working copies clean.

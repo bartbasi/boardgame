@@ -68,6 +68,13 @@ api_contract M2 (T-018):
 - `dart analyze --fatal-infos` flags untyped `[]`/`{}` literals in tests (inference_failure_on_collection_literal); use `<Object>[]`.
 - Bug pattern: converters built on `DateTime.parse` and `double.toInt()` are lenient (month 13 rolls over, 1e300 clamps to int max).
 
+App manual entry (T-031):
+- Field semantics: use `find.semantics.byLabel('Barcode number').evaluate().single` and visit children; `tester.getSemantics(field).label` is empty. Error removal needs pumpAndSettle (animated), not pump.
+- Double-submit pattern: two `tester.tap` / `receiveAction(search)` without pumping exposes missing guards on push navigation (T-031-B1).
+- `setTestWindow` is sync (no await). Destination label for tab 3 is "Collection".
+- pumpApp installs a fake keyboard (inset 40% of height, max 300 dp) by default; `keyboard: false` turns it off. It drops its inset on window resize. Taps on buttons under the keyboard miss: use `ensureVisible` first, and avoid `warnIfMissed: false` unless you assert the result (that made a round 1 test vacuous).
+- Lifecycle in tests must follow valid transitions: inactive, hidden, paused, hidden, inactive, resumed.
+
 server + PostgreSQL (T-019):
 - Server tests need a DB. Start `docker run -d -p 127.0.0.1:55433:5432 -e POSTGRES_USER=boardgame_test -e POSTGRES_PASSWORD=local-test-only -e POSTGRES_DB=boardgame_test -e "POSTGRES_INITDB_ARGS=--locale-provider=builtin --locale=C.UTF-8" postgres:18.6-alpine3.24`, export TEST_DATABASE_HOST/PORT/USER/PASSWORD/NAME. Docker Desktop may need `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`; ready in ~10 s.
 - Helpers: test/support/database.dart (TestPostgres, createScratch, TcpProxy), ServerRun in server_run.dart. pg_locks and pg_stat_activity are server-wide: filter by database/datname in assertions or parallel test files pollute counts.

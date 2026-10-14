@@ -55,6 +55,66 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
+  String get scannerActionManual => 'Enter barcode';
+
+  @override
+  String get searchActionManual => 'Enter barcode';
+
+  @override
+  String get manualEntryTitle => 'Enter barcode';
+
+  @override
+  String get manualEntryFieldLabel => 'Barcode number';
+
+  @override
+  String get manualEntryHelper =>
+      '8, 12, or 13 digits, printed under the barcode.';
+
+  @override
+  String get manualEntrySubmit => 'Look up';
+
+  @override
+  String manualEntryErrorLength(int count) {
+    return 'A barcode has 8, 12, or 13 digits. You entered $count.';
+  }
+
+  @override
+  String get manualEntryErrorNonDigit => 'Use digits only.';
+
+  @override
+  String get manualEntryErrorCheckDigit =>
+      'That number does not look right. Check the digits against the box.';
+
+  @override
+  String get manualEntryErrorEmpty => 'Enter the barcode number.';
+
+  @override
+  String manualEntryErrorAnnouncement(String message) {
+    return 'Error: $message';
+  }
+
+  @override
+  String get manualEntrySearchInstead => 'Search by title instead';
+
+  @override
+  String get manualEntryScanInstead => 'Scan instead';
+
+  @override
+  String manualEntryDigitCounter(int count) {
+    return '$count of 13 digits';
+  }
+
+  @override
+  String itemEditClearField(String field) {
+    return 'Clear $field';
+  }
+
+  @override
+  String lookupTitle(String code) {
+    return 'Barcode $code';
+  }
+
+  @override
   String get devPlaceholderBody => 'This screen is not built yet.';
 
   @override
