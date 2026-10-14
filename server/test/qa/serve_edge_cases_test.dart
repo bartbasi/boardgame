@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import '../support/harness.dart';
+import '../support/database.dart';
 
 class _Child {
   _Child(this.process, this.port);
@@ -26,7 +27,7 @@ class _Child {
     final process = await Process.start(
       Platform.resolvedExecutable,
       script == 'bin/server.dart' ? [script] : [script, '$port'],
-      environment: {'PORT': '$port', 'LOG_LEVEL': 'debug'},
+      environment: withTestDatabase({'PORT': '$port', 'LOG_LEVEL': 'debug'}),
     );
     final child = _Child(process, port);
     final started = Completer<void>();

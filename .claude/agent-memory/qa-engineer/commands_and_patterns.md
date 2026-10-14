@@ -67,3 +67,9 @@ api_contract M2 (T-018):
 - Strict coverage gate: `dart run ../../server/tool/coverage_gate.dart . 80` after `dart run coverage:test_with_coverage`.
 - `dart analyze --fatal-infos` flags untyped `[]`/`{}` literals in tests (inference_failure_on_collection_literal); use `<Object>[]`.
 - Bug pattern: converters built on `DateTime.parse` and `double.toInt()` are lenient (month 13 rolls over, 1e300 clamps to int max).
+
+server + PostgreSQL (T-019):
+- Server tests need a DB. Start `docker run -d -p 127.0.0.1:55433:5432 -e POSTGRES_USER=boardgame_test -e POSTGRES_PASSWORD=local-test-only -e POSTGRES_DB=boardgame_test -e "POSTGRES_INITDB_ARGS=--locale-provider=builtin --locale=C.UTF-8" postgres:18.6-alpine3.24`, export TEST_DATABASE_HOST/PORT/USER/PASSWORD/NAME. Docker Desktop may need `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`; ready in ~10 s.
+- Helpers: test/support/database.dart (TestPostgres, createScratch, TcpProxy), ServerRun in server_run.dart. pg_locks and pg_stat_activity are server-wide: filter by database/datname in assertions or parallel test files pollute counts.
+- Dev's AC5 pool test uses a fixed 150 ms wait: flaky under load. Embedded COMMIT in a migration escapes the tx (T-019-B1).
+- After Docker work: `docker rm -f`, `docker rmi postgres:18.6-alpine3.24`, remove the untagged dart image by digest.

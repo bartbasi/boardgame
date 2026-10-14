@@ -33,6 +33,7 @@ void main() {
       handler = buildApp(
         version: 'v',
         logger: logs.logger(),
+        databaseHealth: DatabaseHealth.alwaysUp(),
         v1Middleware: [first.middleware, second.middleware],
         addTestRoutes: (v1) => v1.get('/games/<bggId>', (_) {
           return jsonResponse(200, {'ok': true});

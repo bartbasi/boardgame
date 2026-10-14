@@ -60,6 +60,27 @@ jobs:
       run:
         shell: bash
         working-directory: ${{ matrix.package }}
+    # T-019 AC7: the server tests run against a real PostgreSQL, never a
+    # mocked driver. Same image (tag and digest) and initdb settings as
+    # deploy/docker-compose.yml; change them together. The password is a
+    # throwaway for a database that exists only during this job. The
+    # api_contract leg does not use it.
+    services:
+      postgres:
+        image: postgres:18.6-alpine3.24@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873
+        env:
+          POSTGRES_USER: boardgame_test
+          POSTGRES_PASSWORD: ci-only-throwaway
+          POSTGRES_DB: boardgame_test
+          POSTGRES_INITDB_ARGS: --locale-provider=builtin --locale=C.UTF-8
+        ports:
+          - 127.0.0.1:5432:5432
+        # TCP check, as in Compose (deploy/README.md, health checks).
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U boardgame_test -d boardgame_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -99,7 +120,21 @@ jobs:
           fi
 
       - name: Tests with coverage
-        run: dart run coverage:test_with_coverage
+        env:
+          TEST_DATABASE_HOST: 127.0.0.1
+          TEST_DATABASE_PORT: "5432"
+          TEST_DATABASE_USER: boardgame_test
+          TEST_DATABASE_PASSWORD: ci-only-throwaway
+          TEST_DATABASE_NAME: boardgame_test
+          PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          if [ "$GITHUB_WORKSPACE/server" = "$PWD" ]; then
+            # Proof for T-019 AC7 in the run log: the PostgreSQL version and
+            # locale the tests run against.
+            docker exec "$PG_CONTAINER" psql -At -U boardgame_test -d boardgame_test \
+              -c "SELECT 'PostgreSQL ' || current_setting('server_version') || ', locale provider ' || datlocprovider::text || ', locale ' || coalesce(datlocale, datcollate) FROM pg_database WHERE datname = current_database()"
+          fi
+          dart run coverage:test_with_coverage
 
       # Fails below MIN_LINE_COVERAGE, and when any lib/ file with executable
       # lines is missing from lcov.info: test_with_coverage reports only

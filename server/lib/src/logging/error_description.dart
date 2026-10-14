@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:postgres/postgres.dart';
+
 /// The longest error description written to the log.
 const maxErrorDescriptionLength = 300;
 
@@ -14,6 +16,10 @@ final _urlUserInfo = RegExp(r'(://)[^/\s@]+@');
 ///   source is the raw input: a barcode, a query, a response body).
 /// - HttpException and SocketException: only their message, never the URI
 ///   or address they carry (a URI holds the path and query string).
+/// - PostgreSQL server errors (ServerException): only the severity and the
+///   SQLSTATE code (https://www.postgresql.org/docs/18/errcodes-appendix.html).
+///   Their message, detail, and hint can quote the values of a query (for
+///   example "Key (bgg_id)=(13) already exists" or an invalid input value).
 /// - Anything else: `toString()` with URL query strings and user info
 ///   replaced by `<redacted>`.
 /// - The result is cut to [maxErrorDescriptionLength] characters.
@@ -26,6 +32,8 @@ String describeError(Object error) {
     FormatException(:final message) => 'FormatException: $message',
     HttpException(:final message) => 'HttpException: $message',
     SocketException(:final message) => 'SocketException: $message',
+    ServerException(:final severity, :final code) =>
+      'ServerException: ${severity.name} ${code ?? 'no SQLSTATE'}',
     _ =>
       error
           .toString()
