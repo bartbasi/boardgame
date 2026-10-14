@@ -1,4 +1,6 @@
 // T-031: manual barcode entry (docs/ux/screens/manual-entry.md).
+import 'dart:math' as math;
+
 import 'package:board_game_collector/app/app.dart';
 import 'package:board_game_collector/app/navigation/app_router.dart';
 import 'package:board_game_collector/core/data/network/api_client_provider.dart';
@@ -50,6 +52,10 @@ Future<void> _typeEach(WidgetTester tester, String text) async {
 Future<void> _submitWith(WidgetTester tester, String text) async {
   await tester.enterText(_field, text);
   await tester.pump();
+  // With large text in phone landscape the (fake) keyboard can cover the
+  // button; a user scrolls to it.
+  await tester.ensureVisible(_submit);
+  await tester.pumpAndSettle();
   await tester.tap(_submit);
   await tester.pumpAndSettle();
 }
@@ -529,25 +535,115 @@ void main() {
       });
     }
 
-    testWidgets('medium and expanded center a column of at most 600 dp', (
-      tester,
-    ) async {
-      await pumpApp(tester, size: WindowSizes.expanded);
-      await _openFromScan(tester);
-      final rect = tester.getRect(_submit);
-      expect(rect.width, lessThanOrEqualTo(600));
-      final content = tester.getRect(find.byType(SingleChildScrollView).last);
-      expect(rect.center.dx, closeTo(content.center.dx, 1));
-    });
+    for (final entry in {
+      'medium': WindowSizes.medium,
+      'expanded': WindowSizes.expanded,
+    }.entries) {
+      testWidgets('${entry.key} centers a column of at most 600 dp', (
+        tester,
+      ) async {
+        await pumpApp(tester, size: entry.value);
+        await _openFromScan(tester);
+        final rect = tester.getRect(_submit);
+        final content = tester.getRect(find.byType(SingleChildScrollView).last);
+        // 16 dp padding each side, then at most 600 dp.
+        expect(rect.width, math.min(600, content.width - 32));
+        expect(rect.center.dx, closeTo(content.center.dx, 1));
+      });
+    }
 
-    testWidgets('phone landscape keeps the column on the leading 55%', (
+    testWidgets('phone landscape puts the column on the leading 55%', (
       tester,
     ) async {
       await pumpApp(tester, size: WindowSizes.landscape);
       await _openFromScan(tester);
       final content = tester.getRect(find.byType(SingleChildScrollView).last);
       final rect = tester.getRect(_submit);
-      expect(rect.right, lessThanOrEqualTo(content.left + content.width * 0.6));
+      // 24 dp padding, then 55% of the padded width (manual-entry.md
+      // section 2), review R1-S3.
+      expect(rect.left, closeTo(content.left + 24, 1));
+      expect(
+        rect.right,
+        closeTo(content.left + 24 + 0.55 * (content.width - 48), 1),
+      );
+    });
+  });
+
+  group('one screen per tap (review R1-M1, R1-S2)', () {
+    testWidgets('submit, Back, submit again opens exactly one result', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await _openFromScan(tester);
+      await _submitWith(tester, '036000291452');
+      expect(find.byType(LookupResultScreen), findsOne);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(LookupResultScreen), findsNothing);
+
+      // The guard is released after Back: a second submit works, and it
+      // opens one result, so one Back returns to manual entry.
+      await tester.tap(_submit);
+      await tester.tap(_submit, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(LookupResultScreen), findsOne);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(LookupResultScreen), findsNothing);
+      expect(find.byType(ManualEntryScreen), findsOne);
+    });
+
+    testWidgets('a double tap on Scan "Enter barcode" opens one manual entry', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      final action = find.widgetWithText(OutlinedButton, 'Enter barcode');
+      await tester.tap(action);
+      await tester.tap(action, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(ManualEntryScreen), findsOne);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(ManualEntryScreen), findsNothing);
+      expect(find.byType(ScanScreen), findsOne);
+    });
+
+    testWidgets('a double tap on the Search action opens one manual entry', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      await tester.pumpAndSettle();
+      await tapDestination(tester, 'Search');
+      final action = find.byTooltip('Enter barcode');
+      await tester.tap(action);
+      await tester.tap(action, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.byType(ManualEntryScreen), findsOne);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.byType(ManualEntryScreen), findsNothing);
+      expect(find.byType(SearchScreen), findsOne);
+    });
+
+    testWidgets('the entry point works again after its screen was dropped '
+        'without a pop', (tester) async {
+      await pumpApp(tester);
+      await _openFromScan(tester);
+      // Leave the field so the bar shows, then tap the selected
+      // destination: go_router replaces the stack with a go, which never
+      // completes the push future of manual entry.
+      tester.binding.focusManager.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+      await tapDestination(tester, 'Scan');
+      expect(find.byType(ManualEntryScreen), findsNothing);
+      expect(find.byType(ScanScreen), findsOne);
+
+      await _openFromScan(tester);
+      expect(find.byType(ManualEntryScreen), findsOne);
     });
   });
 
