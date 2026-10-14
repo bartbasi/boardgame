@@ -40,7 +40,7 @@ UI and backend tickets refer to these so that every ticket uses the same values.
 - **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5). Since PRD Q5 was answered on 2026-10-12 (no images for now), no-image mode is the only mode the app ships with until BGG answers: the API contract has no image URL fields (T-018).
 - **BGG attribution:** screens that show BGG data use the BggAttribution component from docs/ux/components.md (`common.bggCredit`, `common.bggLogoLabel`) where the screen spec places it (BGG-40, BGG-41). Until the official logo file arrives from T-087, the spec's placeholder box is used. The ticket records the swap as a follow-up, and the official logo must be in place before release (T-082).
 - **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
-- **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B11 point to its "Blocking risks" table.
+- **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B13 point to its "Blocking risks" table.
 - **Barcode vectors** (check digits verified by hand):
   - Valid UPC-A: `036000291452`, `012345678905`
   - Valid EAN-13: `4006381333931`, `0036000291452` (the EAN-13 form of `036000291452`)
@@ -619,7 +619,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-027 App: local database foundation with Drift
 - Milestone: M2
 - Owner: flutter-developer
-- Status: ready
+- Status: done
 - Depends on: T-012 (done). Windows Developer Mode is on since 2026-10-13, so Flutter plugins build on the dev machine (docs/decisions.md).
 - UX spec: n/a
 - Linked files: app/lib/core/ (database), the schema export folder Drift's tooling uses
@@ -853,13 +853,33 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 
 ## M3 Collection (stubs)
 
+### T-102 App: keep the game details cache in its own database file
+- Milestone: M3 (before T-037; can run any time after T-029, in parallel with M2 UI tickets because it touches only app/lib/core/data/database/ and the games repository's wiring)
+- Owner: flutter-developer
+- Status: todo
+- Depends on: T-027 (done), T-029; PRD Q39 answered yes. If the user answers no, PM closes this ticket and T-037 drops the dependency.
+- UX spec: n/a
+- Linked files: app/lib/core/data/database/, app/drift_schemas/, app/test/drift/, app/README.md ("On-device database")
+- Source: T-027 review R1-S5 and blocking risk B13. v1 has not shipped, so both files can start at schema version 1 with no data migration.
+- Acceptance criteria:
+  1. Given a fresh install, then two database files exist after first use: a user data file in the application support directory (as today) holding the games identity rows (internal id, `bgg_id`) and confirmed barcode matches, and a cache file in the platform cache directory (Android `getCacheDir()`, iOS `Library/Caches`, through path_provider's temporary or cache directory as the developer documents) holding the cached details JSON, fetchedAt, and lastViewedAt. Neither file uses `bgg_id` as a key (docs/decisions.md 2026-10-11, "Storage keys") (proved by: unit with injected directories, checking each file's tables by PRAGMA).
+  2. Given 500 games with cached details of 10 KB each and 50 confirmed matches, then the user data file is smaller than 1 MB [ASSUMPTION] and the details live only in the cache file (proved by: unit with real files in a temp directory).
+  3. Given a confirmed match from `0036000291452` to bggId 13 and cached details for 13, when the cache file is deleted while the database is closed (an OS purge) and the app opens again, then reading the match returns 13, reading the details returns "no cached copy" (not `StorageFailure`), the cache file is recreated empty, and saving details for 13 works (proved by: unit with real files).
+  4. Given a cache file that is corrupt, truncated, or zero bytes, or has a newer schema version than the app, when the app opens it, then the cache file alone is deleted and recreated, details reads return "no cached copy", and the user data file is byte-identical to before (proved by: unit with real files, one case per file state).
+  5. Given T-027's AC2, AC3, AC6, and AC8 tests, then they pass unchanged against the two-file store (eviction now clears rows in the cache file; a game a match points to keeps its identity row) (proved by: unit, the existing T-027 tests and QA's `app/test/qa/local_database_edge_cases_test.dart`).
+  6. Given both files, then both open through drift_flutter's background isolate as in T-027 AC5 [ASSUMPTION] (proved by: manual review).
+  7. Given both schemas, then each is exported for Drift's migration tooling with its own migration test, and app/README.md "On-device database" names both files, which data each holds, and that only re-downloadable data may go in the cache file (proved by: unit; manual, reviewer reads the README).
+  8. Given the database code, then line coverage is at least 80% (proved by: unit, coverage report).
+
 ### T-037 Collection data model and database tables
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Depends on: PRD Q38 (Android Auto Backup and iOS iCloud backup of app data; must be answered before this ticket starts)
+- Depends on: PRD Q38 (Android Auto Backup and iOS iCloud backup of app data; must be answered before this ticket starts); T-102 if PRD Q39 is answered yes
 - Goal: Drift tables and a tested migration from schema v1 for Owned, Wanted, and Evaluating items with their fields, one list per game at a time. Items point to games by internal id, not `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys").
-- Carry-over from T-012 review R1-G4 (becomes criteria when scoped): apply the Q38 answer. Android sets `android:allowBackup` explicitly in the main manifest (GPLAY-14); if backups are off, add `dataExtractionRules` for Android 12+, including the `device-transfer` section (GPLAY-16, GPLAY-17), and rules for Android 11 and lower; on iOS, mark the database and photo files excluded on every save (APPLE-17). If backups stay on, check the 25 MB limit against a 2,000-game collection (GPLAY-15).
+- Carry-over from T-012 review R1-G4 (becomes criteria when scoped): apply the Q38 answer. Android sets `android:allowBackup` explicitly in the main manifest (GPLAY-14); if backups are off, add `dataExtractionRules` for Android 12+, including the `device-transfer` section (GPLAY-16, GPLAY-17), and rules for Android 11 and lower; on iOS, mark the database and photo files excluded on every save (APPLE-17). If backups stay on, check the 25 MB limit against a 2,000-game collection (GPLAY-15). Over 25 MB Android backs up nothing at all (GPLAY-28, B13), so the check counts every file Auto Backup would copy, and the manifest must not set `android:restoreAnyVersion="true"`, so a backup from a newer app version is not restored (GPLAY-29).
+- Carried forward from T-027 review R1-G3 (becomes a criterion when scoped): `LocalGameStore` deletes games in two places, the cache eviction step and the delete of games that nothing references (today: no details and no confirmed match). Both must also skip games that a collection item references. Draft criterion: given bggId 13 in Owned with no confirmed match, when its details are evicted (501 cached games, 13 the least recently viewed) and when a confirmed match that pointed to it is replaced by one to bggId 822, then both operations return success (not `StorageFailure` from a foreign key violation), the games row for 13 keeps its internal id and `bgg_id`, and the Owned item still resolves to bggId 13 (proved by: unit).
+- Carried forward from T-027 QA: a database file with a newer schema version than the app gives `StorageFailure` on every call and is left untouched (drift's default). Keep that behavior: no automatic delete-and-recreate of the user data file once it holds the collection (T-027 review R1-G4).
 
 ### T-038 Add to collection and move between lists
 - Milestone: M3
@@ -921,6 +941,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: flutter-developer
 - Status: todo
 - Goal: Save and restore the whole collection in one versioned file, including photos if PRD Q12 says so, and restore backups from older schema versions.
+- Carried forward from T-027 (review R1-G4 and R2-G2, QA open question 3); draft criteria, refined when the ticket is scoped. Copy keys are in docs/ux/copy.md.
+  1. Given a backup file of 0 bytes, a valid backup truncated to half its size, and a file that is not a backup from this app, when the user restores it, then the restore is refused with `backup.restoreFailedFile`, the live database file is byte-identical to before, and the collection counts are unchanged. A zero-byte SQLite file opens as a new empty database without any error (T-027 QA round 2), so the size check runs before anything opens the file (proved by: unit with real files).
+  2. Given a backup that contains a SQLite database, then `PRAGMA integrity_check` must return `ok` on a copy before the swap; otherwise the restore is refused as in 1 (proved by: unit with a corrupted copy).
+  3. Given a backup whose schema version is higher than the app's `schemaVersion`, then the restore is refused with `backup.restoreFailedNewer` and the live file is unchanged; no downgrade is attempted (proved by: unit).
+  4. Given a backup from an older schema version (v1 and every later exported version), then it is migrated on a copy, passes checks 1 to 3, and only then replaces the live data (proved by: unit, using the exported schemas in app/drift_schemas/).
+  5. Given the restore fails or the app is killed at any step before the swap completes, then at the next open the previous collection is intact and opens without `StorageFailure` (proved by: unit with a failing fake at each step).
+  6. Given PRD Q39 is answered yes (T-102), then the backup file contains only the user data file's content, not the re-downloadable details cache [ASSUMPTION], and after a restore the details cache is emptied so it cannot point at games the restored data lacks (proved by: unit).
 
 ### T-048 Settings screen with backup, export, and import
 - Milestone: M3
