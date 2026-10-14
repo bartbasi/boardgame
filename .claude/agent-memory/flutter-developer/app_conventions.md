@@ -26,5 +26,10 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - Gotcha: anything with a Completer (for example a dio CancelToken) must be created INSIDE the fakeAsync callback; one created outside completes on the real microtask queue and never fires in fake time.
 - App tests read api_contract JSON fixtures via `contractFixture('error/not_found.json')` (path ../packages/api_contract/test/fixtures). Note `variants/error_extra_field.json` has code not_found.
 
+- T-031 (2026-10-13): manual entry and lookup result are sub-routes of BOTH Scan and Search (`manualEntryPath(from)`, `lookupResultPath(from, barcode)` in app_router.dart; `/scan/manual`, `/search/lookup/<digits>`), pushed so the bar or rail stays. Lookup path re-parses the code and redirects invalid ones to the branch root. LookupResultScreen is a placeholder until T-033. Screens take callbacks; the router wires navigation.
+- Shell hides the compact NavigationBar while `AppShell.isTextFieldFocus(primaryFocus)` (FocusManager listener). go_router's navigators requestFocus on branch switch, so a field left in an offstage branch loses focus by itself (mutation-checked; no extra unfocus code needed).
+- Text field tests: InputDecorator fades helper/error (pumpAndSettle, not pump, before checking they vanished). IconButton tap size: measure the IconButton, not `find.byTooltip` (Tooltip is 40 dp). A field's semantics node: `find.semantics.byLabel(label)`; its error and counter are child nodes. Errors announced with `SemanticsService.sendAnnouncement` + `tester.takeAnnouncements()`. Goldens with a focused field set `EditableText.debugDeterministicCursor = true` in setUp.
+- LengthLimitingTextInputFormatter keeps the OLD value when the field is already full, so a paste over 13 digits does nothing; clear first in tests.
+
 **Why:** the reviewer and the strings and architecture tests enforce these, and later tickets (T-013, T-032, T-039) build on them.
 **How to apply:** follow these when adding screens, providers, strings, network calls, or domain code. Related: [[windows-toolchain-quirks]].
