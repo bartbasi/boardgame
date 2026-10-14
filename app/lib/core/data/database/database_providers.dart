@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -13,8 +15,25 @@ part 'database_providers.g.dart';
 @Riverpod(keepAlive: true)
 AppDatabase appDatabase(Ref ref) {
   final db = openAppDatabase();
-  ref.onDispose(db.close);
+  // onDispose cannot await, so the close is fire-and-forget on purpose
+  // (T-027-B1); closeAppDatabase keeps a close error from going unhandled.
+  ref.onDispose(
+    () => unawaited(closeAppDatabase(db, log: kDebugMode ? debugPrint : null)),
+  );
   return db;
+}
+
+/// Closes [db] and never fails: a close error is reported to [log] by type
+/// only (T-027 R2-G1), because nothing can act on it during disposal.
+Future<void> closeAppDatabase(
+  AppDatabase db, {
+  void Function(String message)? log,
+}) async {
+  try {
+    await db.close();
+  } on Object catch (error) {
+    log?.call('AppDatabase.close failed: ${storageErrorType(error)}');
+  }
 }
 
 /// The store of cached game details and confirmed barcode matches.

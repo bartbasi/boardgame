@@ -58,7 +58,7 @@ final class AppDatabaseProvider
   }
 }
 
-String _$appDatabaseHash() => r'da094d91db39d2711d8d54d5b40adb8b720bca6e';
+String _$appDatabaseHash() => r'f95a13c7df9192f499f20ac5b96c500cae43eb3d';
 
 /// The store of cached game details and confirmed barcode matches.
 
