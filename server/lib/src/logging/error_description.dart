@@ -20,6 +20,10 @@ final _urlUserInfo = RegExp(r'(://)[^/\s@]+@');
 ///   SQLSTATE code (https://www.postgresql.org/docs/18/errcodes-appendix.html).
 ///   Their message, detail, and hint can quote the values of a query (for
 ///   example "Key (bgg_id)=(13) already exists" or an invalid input value).
+/// - Other errors of the PostgreSQL driver (PgException): only the type and
+///   the severity. The driver puts query parameter values into some messages
+///   (for example "Could not infer type of value '...'"), and a parameter
+///   will be a barcode or search text.
 /// - Anything else: `toString()` with URL query strings and user info
 ///   replaced by `<redacted>`.
 /// - The result is cut to [maxErrorDescriptionLength] characters.
@@ -34,6 +38,7 @@ String describeError(Object error) {
     SocketException(:final message) => 'SocketException: $message',
     ServerException(:final severity, :final code) =>
       'ServerException: ${severity.name} ${code ?? 'no SQLSTATE'}',
+    PgException(:final severity) => '${error.runtimeType}: ${severity.name}',
     _ =>
       error
           .toString()

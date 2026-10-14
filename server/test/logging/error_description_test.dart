@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:boardgame_server/boardgame_server.dart';
+import 'package:postgres/postgres.dart';
 import 'package:test/test.dart';
 
 import '../support/harness.dart';
@@ -77,6 +78,24 @@ void main() {
 
       expect(text.length, maxErrorDescriptionLength + 3);
       expect(text, endsWith('...'));
+    });
+
+    test('a driver PgException keeps only its type and severity, never the '
+        'parameter value its message quotes (T-019 review R1-S2)', () {
+      // postgres 3.5.20 text_codec.dart and type_registry.dart throw this
+      // text with the parameter value in it.
+      final error = PgException(
+        "Could not infer type of value 'secret-barcode-0123'.",
+      );
+      expect(error.toString(), contains('secret-barcode-0123'));
+
+      expect(describeError(error), 'PgException: error');
+      expect(
+        describeError(
+          PgException('connection lost: secret', severity: Severity.fatal),
+        ),
+        'PgException: fatal',
+      );
     });
 
     test('Logger.error writes errorType, the description, and the stack', () {
