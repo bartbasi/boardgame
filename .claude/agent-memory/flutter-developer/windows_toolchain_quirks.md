@@ -25,6 +25,7 @@ Learned on T-012 and T-013 (2026-10-12):
 - The Linux Flutter archive's bin/cache/artifacts/material_fonts has only MaterialIcons-Regular.otf; the Windows cache here also has Roboto (lowercase names). Tests must not rely on SDK Roboto.
 - Windows Developer Mode was OFF at T-012; plugin packages may need it for symlinks. Raise it in the handoff rather than working around it.
 - Widget tests use a font where every glyph is a square, so widths (for example the NavigationRail, 141 dp) are wider than on device.
+- Worktree isolation (T-027, 2026-10-14): the harness refuses git in any worktree but my own (no `cd`, no `git -C`). When told to resume work in another agent's worktree, copy its uncommitted files (plain `cp` with relative `../../agent-x/...` paths works) into my worktree on a new branch from main, and say so in the handoff. My own worktree may start on a stale non-main commit: check `git log main..HEAD` first.
 
 **Why:** each of these cost a retry or a cleanup during T-012 and T-013.
 **How to apply:** check this list before running builds, emulators, writing files via Bash, or judging layout sizes in tests. Related: [[app-conventions]].

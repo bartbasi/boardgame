@@ -25,6 +25,7 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - Reviewer expects exact assertions (failure type, request count, elapsed) in timing tests, using `FixedRandom`, not loose bounds.
 - Gotcha: anything with a Completer (for example a dio CancelToken) must be created INSIDE the fakeAsync callback; one created outside completes on the real microtask queue and never fires in fake time.
 - App tests read api_contract JSON fixtures via `contractFixture('error/not_found.json')` (path ../packages/api_contract/test/fixtures). Note `variants/error_extra_field.json` has code not_found.
+- T-027 (2026-10-14): Drift database in `lib/core/data/database/` (AppDatabase schema v1, `LocalGameStore` returning Result with `StorageFailure`, `appDatabaseProvider`/`localGameStoreProvider`). Tests use `inMemoryDatabase()` and `FailingInterceptor` from `test/helpers/test_database.dart`. Schema change = bump version, `build_runner build`, `dart run drift_dev make-migrations` (export in drift_schemas/, helpers in test/drift/), extend migration_test (app/README.md). Table DSL getters never run, so app_database.dart sits near 44% line coverage; do not add ignore markers.
 
 **Why:** the reviewer and the strings and architecture tests enforce these, and later tickets (T-013, T-032, T-039) build on them.
 **How to apply:** follow these when adding screens, providers, strings, network calls, or domain code. Related: [[windows-toolchain-quirks]].
