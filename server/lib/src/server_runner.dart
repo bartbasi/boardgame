@@ -67,7 +67,8 @@ const databaseRetryInterval = Duration(seconds: 1);
 /// database pool, and returns 0.
 ///
 /// [address] defaults to all IPv4 interfaces, as needed inside a container.
-/// [onListening] and [addTestRoutes] are test hooks.
+/// [onListening], [addTestRoutes], and [periodicTimer] (creates the rate
+/// limiter's sweep timer) are test hooks.
 Future<int> runServer({
   required Map<String, String> environment,
   required Stream<ProcessSignal> shutdownSignals,
@@ -81,6 +82,7 @@ Future<int> runServer({
   DateTime Function() clock = DateTime.now,
   void Function(HttpServer server)? onListening,
   void Function(Routes v1)? addTestRoutes,
+  PeriodicTimerFactory periodicTimer = Timer.periodic,
 }) async {
   final Config config;
   final DatabaseConfig databaseConfig;
@@ -107,6 +109,7 @@ Future<int> runServer({
   });
 
   final database = Database.open(databaseConfig);
+  Timer? sweep;
   try {
     final startup = await _prepareDatabase(
       database,
@@ -130,6 +133,9 @@ Future<int> runServer({
       maxTracked: config.rateLimitMaxTrackedIps,
       onFull: logRateLimiterFull(logger, config.rateLimitMaxTrackedIps),
     );
+    // Removes expired entries even when no request arrives (T-020 AC6);
+    // cancelled in `finally`.
+    sweep = startRateLimitSweep(limiter, periodic: periodicTimer);
     final handler = buildApp(
       version: version,
       logger: logger,
@@ -137,7 +143,10 @@ Future<int> runServer({
       v1Middleware: [
         rateLimit(
           limiter,
-          ClientAddressResolver(trustedProxies: config.trustedProxies),
+          ClientAddressResolver(
+            trustedProxies: config.trustedProxies,
+            onUnusableForwarded: logUnusableForwarded(logger),
+          ),
         ),
       ],
       addTestRoutes: addTestRoutes,
@@ -185,6 +194,7 @@ Future<int> runServer({
     logger.info('shutdown complete');
     return 0;
   } finally {
+    sweep?.cancel();
     await signalSubscription.cancel();
     await _closeDatabase(database, logger);
   }

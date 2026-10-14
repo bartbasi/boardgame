@@ -9,6 +9,9 @@ import '../support/harness.dart';
 
 /// T-020: runServer reads the rate limit settings and mounts the limiter as
 /// the first /v1 guard.
+final sweepTimers = <Timer>[];
+final sweepIntervals = <Duration>[];
+
 void main() {
   Future<(Future<int>, Completer<HttpServer>, LogCapture, LogCapture)> start(
     Map<String, String> environment,
@@ -26,9 +29,20 @@ void main() {
       clock: () => fixedNow,
       onListening: listening.complete,
       addTestRoutes: (v1) => v1.get('/ok', (_) => jsonResponse(200, {})),
+      periodicTimer: (interval, callback) {
+        sweepIntervals.add(interval);
+        final timer = Timer.periodic(interval, callback);
+        sweepTimers.add(timer);
+        return timer;
+      },
     );
     return (exit, listening, out, err);
   }
+
+  setUp(() {
+    sweepTimers.clear();
+    sweepIntervals.clear();
+  });
 
   test('an invalid rate limit setting stops startup with exit 78, naming '
       'the variable', () async {
@@ -81,15 +95,32 @@ void main() {
       for (var i = 0; i < 5; i++)
         (await get('/health', '203.0.113.61')).statusCode,
     ];
+    // R1-G2: an unusable entry from the trusted proxy is warned about.
+    final unusable = await get('/v1/ok', 'not-an-address');
 
     expect(codes, [200, 200, 429]);
     expect(limited.statusCode, 429);
     expect(int.parse(limited.headers.value('retry-after')!), greaterThan(0));
     expect(other.statusCode, 200);
     expect(health, everyElement(200));
+    expect(unusable.statusCode, 200);
+    expect(
+      out.records.where(
+        (r) =>
+            r['level'] == 'warning' &&
+            '${r['msg']}'.contains('trusted proxy sent no usable client'),
+      ),
+      hasLength(1),
+    );
+
+    // R1-S2: the sweep timer runs while serving and stops at shutdown.
+    expect(sweepIntervals, [rateLimitSweepInterval]);
+    expect(sweepTimers.single.isActive, isTrue);
 
     signals.add(ProcessSignal.sigterm);
     expect(await exit, 0);
+    expect(sweepTimers.single.isActive, isFalse);
+    expect(out.lines.join(), isNot(contains('not-an-address')));
     for (final line in out.lines) {
       expect(line, isNot(contains('203.0.113')));
       expect(line, isNot(contains('127.0.0.1')));

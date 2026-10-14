@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:api_contract/api_contract.dart';
@@ -31,15 +32,40 @@ const unknownClientKey = -1;
 /// address, the peer's own address is used (all such requests share Caddy's
 /// bucket, which fails safe: it limits more, never less).
 ///
+/// Because that shared bucket would make all users share one limit, such a
+/// request calls [onUnusableForwarded] (at most once per [warnEvery], with no
+/// value), so the operator sees it (T-020 review R1-G2).
+///
 /// The key comes from [addressKey]. It is used only in memory and never
 /// logged.
 class ClientAddressResolver {
   /// Creates a resolver that trusts X-Forwarded-For only from
-  /// [trustedProxies], compared by exact address.
-  ClientAddressResolver({Iterable<InternetAddress> trustedProxies = const []})
-    : _trusted = {for (final a in trustedProxies) canonicalAddress(a)};
+  /// [trustedProxies], compared by exact address. [now] is a monotonic clock
+  /// for the warning's rate limit (default a [Stopwatch]).
+  ClientAddressResolver({
+    Iterable<InternetAddress> trustedProxies = const [],
+    this.onUnusableForwarded,
+    this.warnEvery = rateLimitWindow,
+    Duration Function()? now,
+  }) : _trusted = {for (final a in trustedProxies) canonicalAddress(a)},
+       _now = now ?? _stopwatchClock();
 
   final Set<String> _trusted;
+
+  /// Called when a trusted proxy sends no usable X-Forwarded-For entry, at
+  /// most once per [warnEvery]. Gets no value, so its log line holds none.
+  final void Function()? onUnusableForwarded;
+
+  /// Least time between two [onUnusableForwarded] calls.
+  final Duration warnEvery;
+
+  final Duration Function() _now;
+  Duration? _lastWarning;
+
+  static Duration Function() _stopwatchClock() {
+    final stopwatch = Stopwatch()..start();
+    return () => stopwatch.elapsed;
+  }
 
   /// The rate limit key of [request]'s client, or [unknownClientKey].
   int clientKey(Request request) {
@@ -48,13 +74,53 @@ class ClientAddressResolver {
     final peer = info.remoteAddress;
     if (!_trusted.contains(canonicalAddress(peer))) return addressKey(peer);
     final forwarded = request.headers['x-forwarded-for'];
-    if (forwarded == null) return addressKey(peer);
     // shelf joins repeated header lines with ",", so the last entry of the
     // joined value is the last entry of the last line.
-    final last = InternetAddress.tryParse(forwarded.split(',').last.trim());
-    return addressKey(last ?? peer);
+    final last = forwarded == null
+        ? null
+        : InternetAddress.tryParse(forwarded.split(',').last.trim());
+    if (last == null) {
+      _warnUnusable();
+      return addressKey(peer);
+    }
+    return addressKey(last);
+  }
+
+  void _warnUnusable() {
+    final now = _now();
+    final last = _lastWarning;
+    if (last != null && now - last < warnEvery) return;
+    _lastWarning = now;
+    onUnusableForwarded?.call();
   }
 }
+
+/// The warning [ClientAddressResolver.onUnusableForwarded] writes: no value
+/// and no address.
+void Function() logUnusableForwarded(Logger logger) =>
+    () => logger.warning(
+      'trusted proxy sent no usable client address, limiting by the proxy '
+      'address',
+    );
+
+/// Default interval of [startRateLimitSweep] [ASSUMPTION: 10 s].
+const rateLimitSweepInterval = Duration(seconds: 10);
+
+/// Creates a periodic timer; [Timer.periodic] in production, a fake in tests.
+typedef PeriodicTimerFactory = Timer Function(
+  Duration interval,
+  void Function(Timer timer) callback,
+);
+
+/// Removes expired limiter entries every [interval] even when no request
+/// arrives (T-020 AC6, review R1-S2), so an address is held at most
+/// [interval] after its window passes. Cancel the returned timer at
+/// shutdown.
+Timer startRateLimitSweep(
+  RateLimiter limiter, {
+  Duration interval = rateLimitSweepInterval,
+  PeriodicTimerFactory periodic = Timer.periodic,
+}) => periodic(interval, (_) => limiter.removeExpired());
 
 /// The rate limit key of [address], an integer so the limiter holds no
 /// per-entry objects:
