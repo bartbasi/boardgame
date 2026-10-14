@@ -1,0 +1,16 @@
+# Code generation settings (build_runner).
+#
+# drift_dev: the on-device database (T-027). `databases` and `schema_dir`
+# are read by `dart run drift_dev make-migrations`, which exports each schema
+# version to drift_schemas/ and writes the migration test helpers to
+# test/drift/. Run it after every schema change, together with
+# `dart run build_runner build` (app/README.md, "On-device database").
+targets:
+  $default:
+    builders:
+      drift_dev:
+        options:
+          databases:
+            app_database: lib/core/data/database/app_database.dart
+          schema_dir: drift_schemas/
+          test_dir: test/drift/

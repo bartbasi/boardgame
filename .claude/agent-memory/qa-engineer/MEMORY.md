@@ -1,1 +1,2 @@
 - [Commands and patterns](commands_and_patterns.md): suite commands for app, api_contract, and server, test helpers, Docker and shell gotchas on Windows
+- [Drift database testing](drift_database_testing.md): file/lock/corrupt DB tests, matcher import clash, schema dump check

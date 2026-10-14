@@ -198,6 +198,7 @@ void main() {
     );
     expect(isRetryable(const AccessDeniedFailure()), isFalse);
     expect(isRetryable(const CancelledFailure()), isFalse);
+    expect(isRetryable(const StorageFailure()), isFalse);
     expect(
       isRetryable(
         const ConfigurationFailure(ConfigurationProblem.missingBaseUrl),
