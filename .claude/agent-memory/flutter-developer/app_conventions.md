@@ -38,5 +38,8 @@ Set in T-012 (2026-10-12), proposed as decisions in docs/handoffs/T-012.md; chec
 - `tester.ensureVisible` scrolls the target to the TOP whenever the page can scroll; use `Scrollable.ensureVisible(..., alignmentPolicy: keepVisibleAtEnd)` for a minimal scroll.
 - SingleChildScrollView shrink-wraps: its rect is the content height, not the visible body; measure the Scaffold for the visible area.
 
+- T-028 (2026-10-14): shared game entities (freezed, no JSON) in `features/game_detail/domain/` (GameSummary, GameDetails, BarcodeLookup + BarcodeLookupStatus incl. unknown, GameSearchResults); `GamesRemoteDataSource` + mappers + `gamesRemoteDataSourceProvider` in `features/game_detail/data/`. Import api_contract `as api` (name clash with entity GameSummary). AC5 test `test/architecture/api_contract_imports.dart`: api_contract only under features/*/data or core/data, never exported. `contract_fixtures_test.dart` fails when a new api_contract fixture file is not handled: add it there.
+- T-028: ApiClient reads bodies as `ResponseType.stream` with a 1 MiB cap (`maxResponseBytes`). dio's stream handler listens EAGERLY and buffers, so cap tests must deliver chunks with a Timer gap (1 ms), or the whole body is buffered before the client subscribes. Cancelling the attempt CancelToken is what makes dio close the source; cancelling only the downstream subscription does not. Mid-body errors arrive raw (not DioException): wrap before failureForError.
+
 **Why:** the reviewer and the strings and architecture tests enforce these, and later tickets (T-013, T-032, T-039) build on them.
 **How to apply:** follow these when adding screens, providers, strings, network calls, or domain code. Related: [[windows-toolchain-quirks]].
