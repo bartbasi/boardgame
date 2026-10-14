@@ -13,7 +13,7 @@ environment:
 # The lists with licenses live in docs/handoffs/T-012.md, T-013.md, and
 # T-027.md (drift, drift_flutter, path_provider, drift_dev), and T-030.md
 # (mobile_scanner BSD-3-Clause; permission_handler and its platform
-# packages MIT).
+# packages MIT). permission_handler stays on 12.x: 13.x needs compileSdk 37.
 # api_contract is a path dependency (docs/decisions.md 2026-10-12, T-004).
 dependencies:
   api_contract:
@@ -31,7 +31,7 @@ dependencies:
   intl: ^0.20.3
   mobile_scanner: ^7.4.2
   path_provider: ^2.1.6
-  permission_handler: ^13.0.2
+  permission_handler: 12.0.1
   riverpod_annotation: ^4.0.7
 
 dev_dependencies:
