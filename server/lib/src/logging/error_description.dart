@@ -5,18 +5,23 @@ import 'package:postgres/postgres.dart';
 /// The longest error description written to the log.
 const maxErrorDescriptionLength = 300;
 
-/// A query string outside an absolute URL, such as `?q=...` in prose.
-final _urlQuery = RegExp(r'\?[^\s,;)\]}"]*');
+/// A query string outside an absolute URL, such as `?q=...` in prose: from
+/// `?` up to whitespace.
+final _proseQuery = RegExp(r'\?\S*');
 
-/// An absolute URL: scheme, authority (user info and host), then an optional
-/// path, query string, and fragment. Each part stops at whitespace and at
-/// characters that usually close a URL in prose.
-final _url = RegExp(
-  r'([A-Za-z][A-Za-z0-9+.\-]*://)'
-  r'([^/\s?#,;)\]}"]*)'
-  r'([^\s?#,;)\]}"]*)'
-  r'(\?[^\s#,;)\]}"]*)?'
-  r'(#[^\s,;)\]}"]*)?',
+/// An absolute URL: a scheme, `://`, and everything up to whitespace.
+///
+/// Deliberately not a URL grammar (T-020 review R1-M1): `,` `;` `)` and
+/// similar characters are legal in hosts and paths, so any rule that stops
+/// at "prose punctuation" lets the rest of a path through. Punctuation after
+/// a URL in prose is redacted with it, which loses nothing that matters.
+final _url = RegExp(r'([A-Za-z][A-Za-z0-9+.\-]*://)(\S*)');
+
+/// A host that is safe to keep: a name or IPv4 address, or a bracketed IPv6
+/// literal, each with an optional port. Anything else (a client-chosen Host
+/// such as `x;y`) is redacted too.
+final _safeHost = RegExp(
+  r'^(?:[A-Za-z0-9.\-]+|\[[0-9A-Fa-f:.]+\])(?::[0-9]{1,5})?$',
 );
 
 /// Describes [error] for the log without the input that caused it.
@@ -40,9 +45,13 @@ final _url = RegExp(
 ///   invalid value is often raw input, such as a path parameter.
 /// - Anything else: `toString()`.
 /// - Then, in every case, absolute URLs keep only their scheme and host:
-///   user info, path, query string, and fragment each become `<redacted>`
-///   (a path holds parameters such as a bggId, T-020 AC8). A query string
-///   outside a URL, such as `?q=...`, is redacted too.
+///   from `scheme://` up to whitespace, user info and everything after the
+///   host (path, query string, fragment) become `<redacted>` (a path holds
+///   parameters such as a bggId, T-020 AC8). The host is kept only if it is
+///   a plain name, IPv4 address, or bracketed IPv6 literal with an optional
+///   port; otherwise it is redacted too (the Host header is client
+///   controlled). A query string outside a URL, from `?` up to whitespace,
+///   is redacted too.
 /// - The result is cut to [maxErrorDescriptionLength] characters.
 ///
 /// Code that wraps upstream errors must not put request data, tokens, or
@@ -70,16 +79,39 @@ String describeError(Object error) {
 }
 
 String _redactUrls(String text) => text
-    .replaceAllMapped(_url, (m) {
-      final authority = m[2]!;
-      final at = authority.lastIndexOf('@');
-      final host = at < 0
-          ? authority
-          : '<redacted>@${authority.substring(at + 1)}';
-      final path = m[3]!;
-      return '${m[1]}$host'
-          '${path.isEmpty || path == '/' ? path : '/<redacted>'}'
-          '${m[4] == null ? '' : '?<redacted>'}'
-          '${m[5] == null ? '' : '#<redacted>'}';
-    })
-    .replaceAll(_urlQuery, '?<redacted>');
+    .replaceAllMapped(_url, (m) => '${m[1]}${_redactAfterScheme(m[2]!)}')
+    .replaceAll(_proseQuery, '?<redacted>');
+
+/// Redacts what follows `scheme://` up to whitespace: user info always, the
+/// host unless it matches [_safeHost], and the path, query, and fragment
+/// whole (each shown as one `<redacted>` marker if present).
+String _redactAfterScheme(String rest) {
+  final authorityEnd = rest.indexOf(RegExp('[/?#]'));
+  final authority = authorityEnd < 0 ? rest : rest.substring(0, authorityEnd);
+  final tail = authorityEnd < 0 ? '' : rest.substring(authorityEnd);
+
+  final at = authority.lastIndexOf('@');
+  final host = at < 0 ? authority : authority.substring(at + 1);
+  final out = StringBuffer()
+    ..write(at < 0 ? '' : '<redacted>@')
+    ..write(host.isEmpty || _safeHost.hasMatch(host) ? host : '<redacted>');
+
+  final queryAt = tail.indexOf('?');
+  final fragmentAt = tail.indexOf('#');
+  final pathEnd = [
+    queryAt,
+    fragmentAt,
+  ].where((i) => i >= 0).fold(tail.length, (a, b) => a < b ? a : b);
+  final path = tail.substring(0, pathEnd);
+  if (path == '/') {
+    out.write('/');
+  } else if (path.isNotEmpty) {
+    out.write('/<redacted>');
+  }
+  if (queryAt >= 0 && (fragmentAt < 0 || queryAt < fragmentAt)) {
+    out.write('?<redacted>');
+  } else if (fragmentAt >= 0) {
+    out.write('#<redacted>');
+  }
+  return out.toString();
+}

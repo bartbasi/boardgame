@@ -62,12 +62,55 @@ void main() {
       expect(text, isNot(contains('token=abc')));
       expect(text, isNot(contains('user:pass')));
       // T-020 AC8: the path is redacted too (it was kept before T-020).
+      // Since round 2 (R1-M1) a URL runs to whitespace, so the comma after
+      // the second URL is redacted with it.
       expect(text, isNot(contains('xmlapi2')));
       expect(
         text,
         'Bad state: GET https://<redacted>@boardgamegeek.com/<redacted>'
-        '?<redacted> failed; retry https://x.example/<redacted>?<redacted>, '
+        '?<redacted> failed; retry https://x.example/<redacted>?<redacted> '
         'then stop',
+      );
+    });
+
+    test('characters legal in a host or path cannot end the redaction early '
+        '(T-020 R1-M1)', () {
+      final cases = {
+        'http://h.example/a,secret-123': 'http://h.example/<redacted>',
+        'http://h.example/a;secret-123': 'http://h.example/<redacted>',
+        'http://h.example/a)secret-123': 'http://h.example/<redacted>',
+        'http://h.example/a"secret-123': 'http://h.example/<redacted>',
+        'http://[2001:db8::1]:8080/v1/games/secret-123':
+            'http://[2001:db8::1]:8080/<redacted>',
+        'http://[::1]/v1/games/secret-123': 'http://[::1]/<redacted>',
+        // A client-chosen Host that is not a plain name is redacted too.
+        'http://x;y/v1/games/secret-123': 'http://<redacted>/<redacted>',
+        'http://secret-123,x': 'http://<redacted>',
+        'http://h.example?q=a,secret-123': 'http://h.example?<redacted>',
+        'http://h.example/a?q=1#x,secret-123':
+            'http://h.example/<redacted>?<redacted>',
+        'http://h.example#a,secret-123': 'http://h.example#<redacted>',
+        'http://h.example/?q=secret-123': 'http://h.example/?<redacted>',
+        'http://h.example:8080': 'http://h.example:8080',
+        'http://u:secret-123@h.example': 'http://<redacted>@h.example',
+      };
+      for (final MapEntry(:key, :value) in cases.entries) {
+        expect(
+          describeError(StateError('failed $key now')),
+          'Bad state: failed $value now',
+          reason: key,
+        );
+      }
+    });
+
+    test('a query string in prose runs to whitespace (T-020 R1-M1)', () {
+      expect(
+        describeError(StateError('guard failed ?q=a,secret-123 later')),
+        'Bad state: guard failed ?<redacted> later',
+      );
+      expect(
+        describeError(StateError('x ?q=a;secret-123')),
+        'Bad state: x ?<redacted>',
       );
     });
 
