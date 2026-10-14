@@ -319,8 +319,10 @@ void main() {
       await pumpApp(tester, size: const Size(800, 360), textScale: 2);
       await _open(tester);
       await tester.enterText(_field, '1' * 11);
-      await tester.tap(_submit, warnIfMissed: false);
+      await tester.ensureVisible(_submit);
+      await tester.tap(_submit);
       await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.error), findsOne);
       expect(tester.takeException(), isNull);
     });
 

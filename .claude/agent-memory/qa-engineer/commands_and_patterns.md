@@ -72,3 +72,5 @@ App manual entry (T-031):
 - Field semantics: use `find.semantics.byLabel('Barcode number').evaluate().single` and visit children; `tester.getSemantics(field).label` is empty. Error removal needs pumpAndSettle (animated), not pump.
 - Double-submit pattern: two `tester.tap` / `receiveAction(search)` without pumping exposes missing guards on push navigation (T-031-B1).
 - `setTestWindow` is sync (no await). Destination label for tab 3 is "Collection".
+- pumpApp installs a fake keyboard (inset 40% of height, max 300 dp) by default; `keyboard: false` turns it off. It drops its inset on window resize. Taps on buttons under the keyboard miss: use `ensureVisible` first, and avoid `warnIfMissed: false` unless you assert the result (that made a round 1 test vacuous).
+- Lifecycle in tests must follow valid transitions: inactive, hidden, paused, hidden, inactive, resumed.
