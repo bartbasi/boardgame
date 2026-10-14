@@ -50,6 +50,24 @@ void main() {
     expect(caddy.sublist(0, 3), network.sublist(0, 3));
     expect(caddy[3], inInclusiveRange(2, 254), reason: '.1 is the gateway');
 
+    // R1-S1: dynamic addresses come only from ip_range, which lies inside
+    // the subnet and excludes Caddy's fixed address.
+    final ipRange = RegExp(
+      r'^\s+ip_range:\s*(\S+)\s*$',
+      multiLine: true,
+    ).allMatches(text).toList();
+    expect(ipRange, hasLength(1));
+    final range = ipRange.single[1]!.split('/');
+    final prefix = int.parse(range[1]);
+    expect(prefix, inInclusiveRange(25, 30));
+    final rangeStart = InternetAddress(range[0]).rawAddress;
+    expect(rangeStart.sublist(0, 3), network.sublist(0, 3));
+    final size = 1 << (32 - prefix);
+    expect(rangeStart[3] % size, 0, reason: 'range start is aligned');
+    final inRange =
+        caddy[3] >= rangeStart[3] && caddy[3] < rangeStart[3] + size;
+    expect(inRange, isFalse, reason: 'Caddy must be outside ip_range');
+
     // The ipv4_address belongs to the caddy service.
     final caddyService = text.indexOf('\n  caddy:');
     expect(caddyService, greaterThan(0));

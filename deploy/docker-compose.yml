@@ -181,10 +181,14 @@ networks:
   # (10.0.0.0/16) [ASSUMPTION: checked against defaults only, see
   # deploy/README.md]. Change it here, in Caddy's ipv4_address, and in
   # TRUSTED_PROXY_ADDRESSES together.
+  # ip_range: Docker hands out dynamic addresses (the server's) only from
+  # .128 to .255, so no other container can take Caddy's fixed .10 while
+  # Caddy is stopped (T-020 review R1-S1).
   web:
     ipam:
       config:
         - subnet: 10.213.7.0/24
+          ip_range: 10.213.7.128/25
   # No route out of this network: PostgreSQL cannot reach the internet.
   db:
     internal: true
