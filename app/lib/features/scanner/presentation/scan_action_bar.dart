@@ -8,7 +8,10 @@ import '../../../l10n/app_localizations.dart';
 /// [stacked] puts the buttons in a full-width column (phone landscape, and
 /// large text). Otherwise they sit side by side with equal width, each at
 /// most [maxButtonWidth] wide, and switch to a column by themselves when a
-/// label would wrap past 2 lines (scanner.md section 2, 200% text).
+/// label would wrap. scanner.md section 2 says "past 2 lines", but its
+/// golden list wants the actions stacked at 200% text, where Roboto wraps
+/// them to exactly 2 lines; stacking on any wrap satisfies both (open
+/// question in docs/handoffs/T-030.md).
 class ScanActionBar extends StatelessWidget {
   const ScanActionBar({
     required this.onManualEntry,
@@ -36,7 +39,7 @@ class ScanActionBar extends StatelessWidget {
   /// 24 dp end padding, an 18 dp icon, and an 8 dp gap.
   static const double _buttonChrome = 16 + 24 + 18 + 8;
 
-  /// Whether both labels fit in at most 2 lines on a button [width] wide.
+  /// Whether both labels fit on one line on a button [width] wide.
   static bool labelsFit(
     BuildContext context,
     double width,
@@ -54,7 +57,7 @@ class ScanActionBar extends StatelessWidget {
       )..layout(maxWidth: textWidth);
       final lines = painter.computeLineMetrics().length;
       painter.dispose();
-      if (lines > 2) return false;
+      if (lines > 1) return false;
     }
     return true;
   }
