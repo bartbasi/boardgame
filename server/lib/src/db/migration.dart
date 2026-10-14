@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:postgres/postgres.dart';
 
 import '../logging/logger.dart';
+import 'transaction_control.dart';
 
 /// One schema change, applied once, in its own transaction (T-019 AC1).
 ///
@@ -15,6 +16,16 @@ import '../logging/logger.dart';
 /// - It runs inside a transaction, so it must not use statements that refuse
 ///   to run in one (for example `CREATE INDEX CONCURRENTLY`, `VACUUM`,
 ///   `CREATE DATABASE`).
+/// - It must not control that transaction: no BEGIN, START TRANSACTION,
+///   COMMIT (or COMMIT AND CHAIN, COMMIT PREPARED), END, ROLLBACK (or
+///   ROLLBACK TO, ROLLBACK PREPARED), ABORT, SAVEPOINT, RELEASE, or
+///   PREPARE TRANSACTION as a statement. In the simple query protocol a
+///   COMMIT would end the migration's transaction, so a later failure could
+///   no longer roll back the statements before it (T-019 AC3, QA T-019-B1).
+///   [validateMigrations] refuses them at the start of any statement, after
+///   comments, and ignores quoted and dollar-quoted text, so a PL/pgSQL body
+///   (`$$ BEGIN ... END; $$`) or a `BEGIN ATOMIC ... END` function body is
+///   fine.
 /// - It may hold several statements separated by semicolons. It is sent with
 ///   the simple query protocol and takes no parameters.
 /// - Never edit a migration once it has been merged: the checksum of every
@@ -110,7 +121,8 @@ const migrationsTable = 'schema_migrations';
 const migrationLockKey = 7019019;
 
 /// Checks that [migrations] are numbered 1, 2, 3, ... with snake_case names
-/// and non-empty SQL. Throws [MigrationStateException] otherwise.
+/// and non-empty SQL without transaction control statements (see
+/// [Migration]). Throws [MigrationStateException] otherwise.
 void validateMigrations(List<Migration> migrations) {
   final namePattern = RegExp(r'^[a-z][a-z0-9_]{0,62}$');
   for (var i = 0; i < migrations.length; i++) {
@@ -129,6 +141,13 @@ void validateMigrations(List<Migration> migrations) {
     }
     if (m.sql.trim().isEmpty) {
       throw MigrationStateException('migration ${m.version} has no SQL');
+    }
+    final control = findTransactionControl(m.sql);
+    if (control != null) {
+      throw MigrationStateException(
+        'migration ${m.version} (${m.name}) contains a $control statement; '
+        'every migration already runs in its own transaction, so remove it',
+      );
     }
   }
 }

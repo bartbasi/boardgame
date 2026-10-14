@@ -345,6 +345,69 @@ void main() {
       },
     );
 
+    test('R1-M1: a migration with an embedded COMMIT is refused before '
+        'anything runs, so nothing leaks past a later failure', () async {
+      final db = await _scratch();
+      final run = ServerRun(
+        await _env(db),
+        migrations: const [
+          Migration(
+            version: 1,
+            name: 'sneaky_commit',
+            sql: 'CREATE TABLE sneaky (i int); COMMIT; SELECT 1/0;',
+          ),
+        ],
+      ).start();
+      expect(await run.exitCode, migrationFailedExitCode);
+      expect(
+        run.out.withMessage('migrations cannot run').single['reason'],
+        contains('COMMIT statement'),
+      );
+      expect(run.listening.isCompleted, isFalse);
+      expect(await _tableExists(db, 'sneaky'), isFalse);
+      expect(await _tableExists(db, 'schema_migrations'), isFalse);
+    });
+
+    test('R1-M1: PL/pgSQL, DO, and BEGIN ATOMIC bodies pass validation and '
+        'apply on real PostgreSQL', () async {
+      final db = await _scratch();
+      final run = ServerRun(
+        await _env(db),
+        migrations: const [
+          Migration(
+            version: 1,
+            name: 'function_bodies',
+            sql: r'''
+CREATE TABLE t (i int, updated_at timestamptz);
+CREATE FUNCTION touch() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.updated_at := now();
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER t_touch BEFORE INSERT ON t
+  FOR EACH ROW EXECUTE FUNCTION touch();
+DO $$
+BEGIN
+  INSERT INTO t (i) VALUES (1);
+END
+$$;
+CREATE FUNCTION plus_one(x int) RETURNS int LANGUAGE sql
+BEGIN ATOMIC
+  SELECT CASE WHEN x > 0 THEN x + 1 ELSE 0 END;
+END;
+''',
+          ),
+        ],
+      ).start();
+      await run.port;
+      final rows = await db.query(
+        'SELECT plus_one(i), updated_at IS NOT NULL FROM t',
+      );
+      expect(rows.single, [2, true]);
+      expect(await run.stop(), 0);
+    });
+
     test(
       'the database ready line reports the server version and locale',
       () async {
