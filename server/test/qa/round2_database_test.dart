@@ -21,6 +21,8 @@ void main() {
           r"CREATE TABLE leak (i int); SELECT '\'; COMMIT; SELECT 1/0;",
       'COMMIT after a closed nested comment':
           'CREATE TABLE leak (i int); /* a /* b */ c */ COMMIT; SELECT 1/0;',
+      'comment ended by CR before COMMIT':
+          'CREATE TABLE leak (i int); -- note\rCOMMIT; SELECT 1/0;',
       'END': 'CREATE TABLE leak (i int); END; SELECT 1/0;',
       'ABORT': 'CREATE TABLE leak (i int); ABORT; SELECT 1/0;',
       'ROLLBACK then more DDL':
