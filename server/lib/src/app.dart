@@ -61,10 +61,12 @@ Handler buildApp({
 /// GET /health: 200 with `status` and `database` "ok" when PostgreSQL
 /// answers, otherwise 503 with both "unavailable" (T-019 AC6).
 ///
-/// The body is HealthResponse plus a `database` field. HealthResponse in
-/// packages/api_contract has no such field yet (T-018 owns the package in
-/// parallel; requested in docs/handoffs/T-019.md). Clients ignore unknown
-/// fields, so the addition is backward compatible.
+/// The body is HealthResponse plus a `database` field, built here and not in
+/// packages/api_contract on purpose: /health is an operations endpoint for
+/// Docker's health check and the operator, and the app never calls it
+/// (orchestrator decision, T-019 round 2), so the field is not added to the
+/// shared contract. Decoders ignore unknown fields, so the extra field is
+/// backward compatible.
 Response healthResponse({required String version, required bool databaseUp}) {
   final state = databaseUp ? 'ok' : 'unavailable';
   return jsonResponse(databaseUp ? 200 : 503, {

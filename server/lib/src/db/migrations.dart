@@ -10,8 +10,8 @@ import 'migration.dart';
 ///
 /// Append only: never edit, reorder, or remove a merged entry. Reviewers and
 /// PM read this file for T-019 AC8 (no column for a user id, device id, IP
-/// address, or user agent); test/db/schema_privacy_test.dart also checks the
-/// migrated schema.
+/// address, or user agent); test/db/migrations_test.dart also checks the SQL
+/// and the migrated schema.
 const List<Migration> schemaMigrations = [
   Migration(version: 1, name: 'create_games', sql: _createGames),
 ];
