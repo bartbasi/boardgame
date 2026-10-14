@@ -25,55 +25,55 @@ void main() {
         'time left', () {
       final l = limiter(limit: 3);
 
-      expect(l.hit('a'), isNull);
+      expect(l.hit(1), isNull);
       clock.advance(const Duration(seconds: 10));
-      expect(l.hit('a'), isNull);
-      expect(l.hit('a'), isNull);
-      expect(l.hit('a'), const Duration(seconds: 50));
+      expect(l.hit(1), isNull);
+      expect(l.hit(1), isNull);
+      expect(l.hit(1), const Duration(seconds: 50));
       clock.advance(const Duration(seconds: 20));
-      expect(l.hit('a'), const Duration(seconds: 30));
+      expect(l.hit(1), const Duration(seconds: 30));
     });
 
     test('AC3: a limited key is allowed again once a full minute has passed '
         'on the fake clock, and not a microsecond earlier', () {
       final l = limiter(limit: 2);
-      l.hit('a');
-      l.hit('a');
-      expect(l.hit('a'), isNotNull);
+      l.hit(1);
+      l.hit(1);
+      expect(l.hit(1), isNotNull);
 
       clock.advance(rateLimitWindow - const Duration(microseconds: 1));
-      expect(l.hit('a'), const Duration(microseconds: 1));
+      expect(l.hit(1), const Duration(microseconds: 1));
 
       clock.advance(const Duration(microseconds: 1));
-      expect(l.hit('a'), isNull);
-      expect(l.hit('a'), isNull);
-      expect(l.hit('a'), isNotNull);
+      expect(l.hit(1), isNull);
+      expect(l.hit(1), isNull);
+      expect(l.hit(1), isNotNull);
     });
 
     test('keys are counted separately (AC2 at unit level)', () {
       final l = limiter(limit: 1);
 
-      expect(l.hit('a'), isNull);
-      expect(l.hit('a'), isNotNull);
-      expect(l.hit('b'), isNull);
+      expect(l.hit(1), isNull);
+      expect(l.hit(1), isNotNull);
+      expect(l.hit(2), isNull);
     });
 
     test('refused requests do not extend the window', () {
       final l = limiter(limit: 1);
-      l.hit('a');
+      l.hit(1);
       for (var i = 0; i < 59; i++) {
         clock.advance(const Duration(seconds: 1));
-        expect(l.hit('a'), isNotNull);
+        expect(l.hit(1), isNotNull);
       }
       clock.advance(const Duration(seconds: 1));
-      expect(l.hit('a'), isNull);
+      expect(l.hit(1), isNull);
     });
 
     test('the default clock is a real stopwatch', () {
       final l = RateLimiter(limit: 1);
 
-      expect(l.hit('a'), isNull);
-      final wait = l.hit('a')!;
+      expect(l.hit(1), isNull);
+      final wait = l.hit(1)!;
       expect(wait, greaterThan(const Duration(seconds: 59)));
       expect(wait, lessThanOrEqualTo(rateLimitWindow));
     });
@@ -99,10 +99,10 @@ void main() {
     test('every entry is removed once its window passes: the tracked count '
         'is 0 after expiry', () {
       final l = limiter(limit: 1);
-      l.hit('203.0.113.1');
+      l.hit(0xCB007101);
       clock.advance(const Duration(seconds: 30));
-      l.hit('203.0.113.2');
-      l.hit('203.0.113.2');
+      l.hit(0xCB007102);
+      l.hit(0xCB007102);
       expect(l.trackedCount, 2);
 
       clock.advance(const Duration(seconds: 30));
@@ -117,11 +117,11 @@ void main() {
     test('a request for any key also removes expired entries', () {
       final l = limiter();
       for (var i = 0; i < 1000; i++) {
-        l.hit('k$i');
+        l.hit(i);
       }
       clock.advance(rateLimitWindow);
 
-      l.hit('other');
+      l.hit(-5);
 
       expect(l.trackedCount, 1);
     });
@@ -155,7 +155,9 @@ void main() {
         now: clock.call,
         onFull: () => fullCalls++,
       );
-      String ip(int i) => '10.${i >> 16}.${(i >> 8) & 255}.${i & 255}';
+      int ip(int i) => addressKey(
+        InternetAddress('10.${i >> 16}.${(i >> 8) & 255}.${i & 255}'),
+      );
 
       var highest = 0;
       for (var i = 0; i < 200000; i++) {
@@ -189,16 +191,16 @@ void main() {
         onFull: logRateLimiterFull(logger, 2),
       );
 
-      l.hit('198.51.100.1');
-      l.hit('198.51.100.2');
-      l.hit('198.51.100.3');
-      l.hit('198.51.100.4');
+      l.hit(addressKey(InternetAddress('198.51.100.1')));
+      l.hit(addressKey(InternetAddress('198.51.100.2')));
+      l.hit(addressKey(InternetAddress('198.51.100.3')));
+      l.hit(addressKey(InternetAddress('198.51.100.4')));
       expect(logs, hasLength(1));
       clock.advance(rateLimitWindow);
-      l.hit('198.51.100.5');
-      l.hit('198.51.100.6');
+      l.hit(addressKey(InternetAddress('198.51.100.5')));
+      l.hit(addressKey(InternetAddress('198.51.100.6')));
       expect(logs, hasLength(1), reason: 'expired entries made room');
-      l.hit('198.51.100.7');
+      l.hit(addressKey(InternetAddress('198.51.100.7')));
       expect(logs, hasLength(2));
 
       for (final line in logs) {

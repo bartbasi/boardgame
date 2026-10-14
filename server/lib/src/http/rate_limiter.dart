@@ -1,22 +1,30 @@
 import 'dart:collection';
 
-/// Default requests allowed per client IP in one window
+/// Default requests allowed per client in one window
 /// [ASSUMPTION: 60 per minute, T-020 AC1].
 const defaultRateLimitPerWindow = 60;
 
-/// Default most client IPs tracked at once
+/// Default most clients tracked at once
 /// [ASSUMPTION: 100,000, T-020 AC7].
 const defaultRateLimitMaxTracked = 100000;
 
 /// The rate limit window (T-020: "per minute").
 const rateLimitWindow = Duration(minutes: 1);
 
-/// Counts requests per key (a client IP) in fixed windows, in memory only.
+/// Largest per-window limit the packed counter supports.
+const maxRateLimitPerWindow = _countMask;
+
+const _countBits = 14;
+const _countMask = (1 << _countBits) - 1;
+
+/// Counts requests per client key in fixed windows, in memory only.
 ///
-/// A key's window starts with its first request and lasts [window]. Up to
-/// [limit] requests in that window are allowed; later ones are refused with
-/// the time left until the window ends. When the window has passed, the key's
-/// entry is removed, and its next request starts a new window.
+/// A key is an integer derived from the client address (see
+/// `ClientAddressResolver.clientKey`). A key's window starts with its first
+/// request and lasts [window]. Up to [limit] requests in that window are
+/// allowed; later ones are refused with the time left until the window ends.
+/// When the window has passed, the key's entry is removed, and its next
+/// request starts a new window.
 ///
 /// Privacy (T-020 AC6): keys live only in this object's memory. Nothing here
 /// logs, persists, or exposes a key; only [trackedCount] is visible. An entry
@@ -27,7 +35,8 @@ const rateLimitWindow = Duration(minutes: 1);
 /// arrives and the table is full, the oldest entry (the one whose window
 /// started first) is evicted. An evicted key starts over with a fresh window,
 /// which favours bounded memory over strictness during a flood of distinct
-/// addresses.
+/// addresses. Each entry is two small integers in a map plus one in a queue
+/// (no per-entry objects), about 5 MB at 100,000 entries (server/README.md).
 ///
 /// Every window has the same length and the clock never goes back, so
 /// insertion order is also expiry order: expired and evicted entries are
@@ -43,7 +52,13 @@ class RateLimiter {
     Duration Function()? now,
     this.onFull,
   }) : _now = now ?? _stopwatchClock() {
-    if (limit < 1) throw ArgumentError.value(limit, 'limit', 'must be >= 1');
+    if (limit < 1 || limit > maxRateLimitPerWindow) {
+      throw ArgumentError.value(
+        limit,
+        'limit',
+        'must be from 1 to $maxRateLimitPerWindow',
+      );
+    }
     if (maxTracked < 1) {
       throw ArgumentError.value(maxTracked, 'maxTracked', 'must be >= 1');
     }
@@ -62,13 +77,18 @@ class RateLimiter {
   final Duration window;
 
   /// Called when an entry is evicted because the table is full, at most once
-  /// per [window]. It gets no key, so a log line it writes holds no IP.
+  /// per [window]. It gets no key, so a log line it writes holds no address.
   final void Function()? onFull;
 
   final Duration Function() _now;
-  final Map<String, _Entry> _entries = HashMap();
-  final Queue<_Entry> _order = ListQueue();
-  Duration? _lastFullCall;
+
+  /// Key to (window end in microseconds << [_countBits]) | count.
+  final Map<int, int> _entries = {};
+
+  /// Keys in the order their windows started (and end).
+  final Queue<int> _order = ListQueue();
+
+  int? _lastFullCallMicros;
 
   static Duration Function() _stopwatchClock() {
     final stopwatch = Stopwatch()..start();
@@ -81,48 +101,42 @@ class RateLimiter {
 
   /// Records one request for [key]. Returns null if it is allowed, or how
   /// long until [key]'s window ends if it is refused.
-  Duration? hit(String key) {
-    final now = _now();
+  Duration? hit(int key) {
+    final now = _now().inMicroseconds;
     _removeExpired(now);
-    final entry = _entries[key];
-    if (entry == null) {
+    final packed = _entries[key];
+    if (packed == null) {
       if (_entries.length >= maxTracked) {
-        _entries.remove(_order.removeFirst().key);
+        _entries.remove(_order.removeFirst());
         _reportFull(now);
       }
-      final created = _Entry(key, now + window);
-      _entries[key] = created;
-      _order.addLast(created);
+      _entries[key] = ((now + window.inMicroseconds) << _countBits) | 1;
+      _order.addLast(key);
       return null;
     }
-    if (entry.count < limit) {
-      entry.count++;
+    final count = packed & _countMask;
+    if (count < limit) {
+      _entries[key] = packed + 1;
       return null;
     }
-    return entry.endsAt - now;
+    return Duration(microseconds: (packed >> _countBits) - now);
   }
 
-  void _reportFull(Duration now) {
-    final last = _lastFullCall;
-    if (last != null && now - last < window) return;
-    _lastFullCall = now;
+  void _reportFull(int now) {
+    final last = _lastFullCallMicros;
+    if (last != null && now - last < window.inMicroseconds) return;
+    _lastFullCallMicros = now;
     onFull?.call();
   }
 
   /// Removes every entry whose window has passed.
-  void removeExpired() => _removeExpired(_now());
+  void removeExpired() => _removeExpired(_now().inMicroseconds);
 
-  void _removeExpired(Duration now) {
-    while (_order.isNotEmpty && _order.first.endsAt <= now) {
-      _entries.remove(_order.removeFirst().key);
+  void _removeExpired(int now) {
+    while (_order.isNotEmpty) {
+      final key = _order.first;
+      if ((_entries[key]! >> _countBits) > now) return;
+      _entries.remove(_order.removeFirst());
     }
   }
-}
-
-final class _Entry {
-  _Entry(this.key, this.endsAt);
-
-  final String key;
-  final Duration endsAt;
-  int count = 1;
 }

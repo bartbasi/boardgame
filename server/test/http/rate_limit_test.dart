@@ -31,6 +31,8 @@ class _Clock {
 
 const _caddy = '10.213.7.10';
 
+int ip(String address) => addressKey(InternetAddress(address));
+
 /// The app with the rate limiter as its first /v1 guard, a fake clock, and
 /// captured logs.
 class _LimitedApp {
@@ -264,7 +266,7 @@ void main() {
     final resolver = ClientAddressResolver(
       trustedProxies: [InternetAddress(_caddy), InternetAddress('fd00::10')],
     );
-    String key({String? peer, String? forwardedFor}) => resolver.clientKey(
+    int key({String? peer, String? forwardedFor}) => resolver.clientKey(
       Request(
         'GET',
         Uri.parse('http://localhost/v1/x'),
@@ -277,17 +279,17 @@ void main() {
 
     test('a trusted peer without a usable X-Forwarded-For is limited by its '
         'own address', () {
-      expect(key(peer: _caddy), _caddy);
-      expect(key(peer: _caddy, forwardedFor: 'unknown'), _caddy);
-      expect(key(peer: _caddy, forwardedFor: '203.0.113.1, '), _caddy);
-      expect(key(peer: _caddy, forwardedFor: '203.0.113.1:443'), _caddy);
+      expect(key(peer: _caddy), ip(_caddy));
+      expect(key(peer: _caddy, forwardedFor: 'unknown'), ip(_caddy));
+      expect(key(peer: _caddy, forwardedFor: '203.0.113.1, '), ip(_caddy));
+      expect(key(peer: _caddy, forwardedFor: '203.0.113.1:443'), ip(_caddy));
     });
 
     test('repeated header lines, joined by shelf with a comma, use the last '
         'entry of the last line', () {
       expect(
         key(peer: _caddy, forwardedFor: '1.1.1.1,2.2.2.2,203.0.113.5'),
-        '203.0.113.5',
+        ip('203.0.113.5'),
       );
     });
 
@@ -297,15 +299,43 @@ void main() {
         key(peer: 'fd00::10', forwardedFor: '2001:DB8::1'),
         key(peer: _caddy, forwardedFor: '2001:db8:0:0::1'),
       );
-      expect(key(peer: '::ffff:198.51.100.3'), '198.51.100.3');
+      expect(key(peer: '::ffff:198.51.100.3'), ip('198.51.100.3'));
       expect(
         key(peer: '::ffff:10.213.7.10', forwardedFor: '203.0.113.9'),
-        '203.0.113.9',
+        ip('203.0.113.9'),
         reason: 'the mapped form of a trusted address is trusted',
       );
       expect(
         canonicalAddress(InternetAddress('2001:db8::1')),
         '2001:db8:0:0:0:0:0:1',
+      );
+    });
+
+    test('IPv6 clients are keyed by their /64 prefix [ASSUMPTION]; IPv4 by '
+        'the full address', () {
+      expect(ip('2001:db8:1:2::a'), ip('2001:db8:1:2:ffff:ffff:ffff:ffff'));
+      expect(ip('2001:db8:1:2::a'), isNot(ip('2001:db8:1:3::a')));
+      expect(ip('2001:db8:1:2::a'), 0x20010db800010002);
+      expect(ip('198.51.100.3'), 0xC6336403);
+      expect(ip('198.51.100.3'), isNot(ip('198.51.100.4')));
+      expect(ip('0.0.0.0'), 0);
+      expect(ip('255.255.255.255'), 0xFFFFFFFF);
+      // Global unicast IPv6 (2000::/3) keys lie above the IPv4 range, and
+      // the unknown key matches no address a client can have.
+      expect(ip('2000::'), greaterThan(0xFFFFFFFF));
+      expect(ip('3fff:ffff:ffff:ffff::'), greaterThan(0xFFFFFFFF));
+      expect(ip('fd00::1'), lessThan(0), reason: 'wraps into the sign bit');
+      expect(ip('ff02::1'), isNot(unknownClientKey));
+    });
+
+    test('a trusted IPv6 proxy must match exactly, not just by /64', () {
+      expect(
+        key(peer: 'fd00::11', forwardedFor: '203.0.113.9'),
+        ip('fd00::11'),
+      );
+      expect(
+        key(peer: 'fd00::10', forwardedFor: '203.0.113.9'),
+        ip('203.0.113.9'),
       );
     });
 
