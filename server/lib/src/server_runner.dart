@@ -270,6 +270,14 @@ int _stoppedDuringStartup(Logger logger) {
   return 0;
 }
 
+/// SQLSTATE codes that make the startup wait for PostgreSQL give up at once
+/// instead of retrying (https://www.postgresql.org/docs/18/errcodes-appendix.html):
+/// 28P01 invalid_password, 28000 invalid_authorization_specification (for
+/// example no such role, or pg_hba.conf refuses it), and 3D000
+/// invalid_catalog_name (no such database). Other errors, such as a refused
+/// socket or 57P03 cannot_connect_now while PostgreSQL starts, are retried.
+const permanentStartupSqlStates = {'28P01', '28000', '3D000'};
+
 Future<bool> _waitForDatabase(
   Database database,
   Logger logger,
@@ -289,6 +297,18 @@ Future<bool> _waitForDatabase(
       return true;
     } on Object catch (e) {
       if (stopRequested()) return false;
+      if (e is ServerException && permanentStartupSqlStates.contains(e.code)) {
+        // Retrying cannot help: the settings are wrong. Fail at once so the
+        // operator does not wait for the whole startup timeout. Same message
+        // as the timeout case, so alerts and tests match one line;
+        // `permanent` tells them apart.
+        logger.error(
+          'database unreachable',
+          error: e,
+          fields: {'attempts': attempts, 'permanent': true},
+        );
+        return false;
+      }
       if (elapsed.elapsed + databaseRetryInterval >= timeout) {
         logger.error(
           'database unreachable',

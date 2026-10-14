@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:boardgame_server/boardgame_server.dart';
 import 'package:test/test.dart';
@@ -110,6 +111,57 @@ void main() {
     }
   });
 
+  group('permanent login errors fail at once instead of retrying for the '
+      'startup timeout (T-019 round 2, R1-G2)', () {
+    Future<void> expectFailsFast(
+      Map<String, String> override,
+      String sqlState,
+    ) async {
+      final watch = Stopwatch()..start();
+      final run = ServerRun({
+        'PORT': '${await freePort()}',
+        'LOG_LEVEL': 'debug',
+        ...pg.serverEnvironment(),
+        ...override,
+      }, databaseStartupTimeout: const Duration(seconds: 30)).start();
+
+      expect(await run.exitCode, databaseUnavailableExitCode);
+      // One attempt, well under the 30 s timeout and under one retry
+      // interval plus the connect timeout.
+      expect(watch.elapsed, lessThan(const Duration(seconds: 10)));
+      final gaveUp = run.out.withMessage('database unreachable').single;
+      expect(gaveUp['error'], contains(sqlState));
+      expect(gaveUp['attempts'], 1);
+      expect(gaveUp['permanent'], isTrue);
+      expect(
+        run.out.withMessage('database not reachable yet, retrying'),
+        isEmpty,
+      );
+      expect(run.listening.isCompleted, isFalse);
+      for (final line in run.allLines) {
+        expect(line, isNot(contains(pg.password)));
+        for (final value in override.values) {
+          expect(line, isNot(contains(value)));
+        }
+      }
+    }
+
+    test('28P01: a wrong password', () async {
+      await expectFailsFast({
+        'DATABASE_PASSWORD': fakePassword('fast'),
+      }, '28P01');
+    });
+
+    test('3D000: a database that does not exist', () async {
+      await expectFailsFast({'DATABASE_NAME': 'no_such_db_r2'}, '3D000');
+    });
+
+    test('the list holds exactly invalid_password, '
+        'invalid_authorization_specification, and invalid_catalog_name', () {
+      expect(permanentStartupSqlStates, {'28P01', '28000', '3D000'});
+    });
+  });
+
   test('AC4: invalid database settings exit 78 naming each variable, '
       'never the password or another value', () async {
     final secret = fakePassword('config');
@@ -180,19 +232,33 @@ void main() {
       final database = Database.open(config);
       addTearDown(database.close);
 
-      // Five slow queries at once; at most two may run.
-      final queries = [
+      // Five slow queries at once; at most two may run. Sample
+      // pg_stat_activity until all five are done and keep the largest count:
+      // it must reach the cap (the pool does run two at once) and never
+      // exceed it. No fixed sleep, so a slow connection setup cannot make
+      // the test miss the overlap.
+      var done = false;
+      final queries = Future.wait([
         for (var i = 0; i < 5; i++)
-          database.pool.execute('SELECT pg_sleep(0.3)'),
-      ];
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      final rows = await db.query(
-        'SELECT count(*)::int FROM pg_stat_activity '
-        "WHERE application_name = 'boardgame-server' "
-        'AND datname = current_database()',
+          database.pool.execute('SELECT pg_sleep(0.5)'),
+      ]).whenComplete(() => done = true);
+      final counts = <int>[];
+      while (!done) {
+        final rows = await db.query(
+          'SELECT count(*)::int FROM pg_stat_activity '
+          "WHERE application_name = 'boardgame-server' "
+          'AND datname = current_database()',
+        );
+        counts.add(rows.single.single! as int);
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      await queries;
+      expect(counts, isNotEmpty);
+      expect(
+        counts.reduce(math.max),
+        2,
+        reason: 'connections seen while the queries ran: $counts',
       );
-      await Future.wait(queries);
-      expect(rows.single.single, 2);
     },
   );
 

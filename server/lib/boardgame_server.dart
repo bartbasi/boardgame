@@ -43,5 +43,6 @@ export 'src/server_runner.dart'
         defaultShutdownGrace,
         listenErrorExitCode,
         migrationFailedExitCode,
+        permanentStartupSqlStates,
         runServer;
 export 'src/version.dart' show appVersion;
