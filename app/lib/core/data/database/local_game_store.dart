@@ -57,7 +57,7 @@ class LocalGameStore {
     this._db, {
     this.maxCachedDetails = defaultMaxCachedDetails,
     this.log,
-  });
+  }) : assert(maxCachedDetails >= 1, 'keep at least the game just saved');
 
   /// The default cap on games with cached details [ASSUMPTION].
   static const int defaultMaxCachedDetails = 500;
@@ -101,7 +101,7 @@ class LocalGameStore {
           target: [games.bggId],
         ),
       );
-      await _evictDetails();
+      await _evictDetails(keep: bggId);
     });
   });
 
@@ -181,8 +181,10 @@ class LocalGameStore {
       });
 
   /// Clears the details of the least recently viewed games beyond
-  /// [maxCachedDetails], then deletes games nothing points to.
-  Future<void> _evictDetails() async {
+  /// [maxCachedDetails], then deletes games nothing points to. The game
+  /// [keep] was just saved and is never evicted, even when its fetch time
+  /// is older than every other game's.
+  Future<void> _evictDetails({required int keep}) async {
     final games = _db.games;
     final hasDetails = games.detailsJson.isNotNull();
     final count = countAll(filter: hasDetails);
@@ -195,7 +197,7 @@ class LocalGameStore {
     final recency = coalesce<int>([games.lastViewedAt, games.fetchedAt]);
     final oldest = _db.selectOnly(games)
       ..addColumns([games.id])
-      ..where(hasDetails)
+      ..where(hasDetails & games.bggId.equals(keep).not())
       ..orderBy([OrderingTerm.asc(recency), OrderingTerm.asc(games.id)])
       ..limit(excess);
     final ids = await oldest.map((row) => row.read(games.id)!).get();

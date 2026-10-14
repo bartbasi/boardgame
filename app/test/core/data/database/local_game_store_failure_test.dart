@@ -62,6 +62,26 @@ void main() {
     expect(await db.select(db.games).get(), isEmpty);
   });
 
+  test('a BGG id below 1 is a StorageFailure and stores nothing', () async {
+    interceptor.failing = false;
+    for (final bggId in [0, -1]) {
+      final match = await store.saveConfirmedMatch(
+        gtin13: '0036000291452',
+        bggId: bggId,
+        confirmedAt: DateTime.utc(2026, 10, 13),
+      );
+      expect(match.failureOrNull, const StorageFailure(), reason: '$bggId');
+      final details = await store.saveDetails(
+        bggId: bggId,
+        detailsJson: '{}',
+        fetchedAt: DateTime.utc(2026, 10, 13),
+      );
+      expect(details.failureOrNull, const StorageFailure(), reason: '$bggId');
+    }
+    expect(await db.select(db.games).get(), isEmpty);
+    expect(await db.select(db.barcodeMatches).get(), isEmpty);
+  });
+
   test('a closed database is a StorageFailure, not a thrown error', () async {
     interceptor.failing = false;
     await db.close();

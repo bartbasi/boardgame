@@ -406,6 +406,39 @@ void main() {
       expect(_ok(await small.readDetails(3)), isNotNull);
     });
 
+    test(
+      'the game just saved is kept even with the oldest fetch time',
+      () async {
+        final small = LocalGameStore(db, maxCachedDetails: 1);
+        _ok(
+          await small.saveDetails(
+            bggId: 7,
+            detailsJson: _json(7),
+            fetchedAt: _at(10),
+            viewedAt: _at(10),
+          ),
+        );
+        // Details fetched earlier (for example a slow response) and never
+        // viewed: by recency alone it would be evicted the moment it is saved.
+        _ok(
+          await small.saveDetails(
+            bggId: 3,
+            detailsJson: _json(3),
+            fetchedAt: _at(1),
+          ),
+        );
+        expect(_ok(await small.readDetails(3)), isNotNull);
+        expect(_ok(await small.readDetails(7)), isNull);
+      },
+    );
+
+    test('a cap below 1 is rejected', () {
+      expect(
+        () => LocalGameStore(db, maxCachedDetails: 0),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+
     test('rows without details do not count toward the cap', () async {
       final small = LocalGameStore(db, maxCachedDetails: 1);
       for (var bggId = 10; bggId < 13; bggId++) {
