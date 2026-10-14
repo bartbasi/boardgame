@@ -12,12 +12,16 @@ ContentColumn, max 600 dp, centered on medium and expanded.
 
 | Size | Layout |
 |---|---|
-| Compact portrait | App bar with Back and `manualEntry.title`. Below: BarcodeField (full width), helper or error text, digit counter on the right, then the primary button `manualEntry.submit` (full width, 48 dp, FilledButton). Below the button, two TextButtons: `manualEntry.scanInstead` and `manualEntry.searchInstead`. Keyboard is open on arrival with the numeric keypad. |
+| Compact portrait | App bar with Back and `manualEntry.title`. Below: BarcodeField (full width), the helper or error text at the full field width, the digit counter on its own line below that (right-aligned), then the primary button `manualEntry.submit` (full width, 48 dp, FilledButton). Below the button, two TextButtons: `manualEntry.scanInstead` and `manualEntry.searchInstead`. Keyboard is open on arrival with the numeric keypad. |
 | Phone landscape | Field and buttons in one column at the left 55%; the right side is empty space so the keyboard does not hide the submit button. The page scrolls so the focused field and the button stay visible above the keyboard. |
 | Medium | Same as compact, in the 600 dp column. |
 | Expanded | Same, column centered. |
 
-On a small keyboard-open screen, the submit button sits above the keyboard (the content scrolls; the button is also the keyboard's "Search" action).
+On a small keyboard-open screen, the submit button sits above the keyboard (the content scrolls). On Android the button is also the keyboard's "Search" action. The iOS number pad has no Search or Done key, so on iOS Look up is the only way to submit.
+
+Phone landscape with the keyboard open (T-031 UX check, accepted): the field and Look up do not both fit above the keyboard (about 178 dp visible). The user scrolls to the button; Android users can also use the keyboard action. Do not move the button beside the field for v1. T-103 may revisit this after an on-device check.
+
+The helper and the error text never share a line with the counter. They get the full field width at every text size, and the counter sits below them. Helper and error swap in place (no fade or slide).
 
 ## 3. Components
 
@@ -45,7 +49,7 @@ The error appears only after submit, not while typing (so a half-typed number is
 - Valid codes include 8-digit (EAN-8), 12-digit (UPC-A), and 13-digit (EAN-13) numbers with a correct check digit. Spaces around the number are trimmed.
 - `manualEntry.scanInstead`: pop back to the scanner. `manualEntry.searchInstead`: switch to Search.
 - Back: returns to the previous screen; the typed text is not kept.
-- Clear button inside the field when it has text.
+- Clear button inside the field when it has text. Its label reuses `itemEdit.clearField` with the field name `manualEntry.fieldLabel` ("Clear Barcode number"). Reuse is confirmed; no separate key.
 
 ## 6. Copy
 
@@ -66,10 +70,10 @@ Total: 6. Other error messages differ only in text and are covered by widget tes
 
 | File | Notes |
 |---|---|
-| manual_entry_initial_light_compact.png | Helper, counter 0 of 13, keyboard not drawn |
+| manual_entry_initial_light_compact.png | Helper, counter 0 of 13 on its own right-aligned line, keyboard not drawn. The NavigationBar shows because the golden has focus but no keyboard (app-shell.md section 2) |
 | manual_entry_initial_dark_compact.png | |
 | manual_entry_initial_light_expanded.png | Centered column |
-| manual_entry_error_checkdigit_light_compact.png | Error text and icon |
+| manual_entry_error_checkdigit_light_compact.png | Error text and icon at full width (two lines), counter below |
 | manual_entry_error_checkdigit_dark_compact.png | Error container roles |
 | manual_entry_initial_text200_light_compact.png | Wrapped helper |
 
@@ -79,4 +83,5 @@ Total: 6. Other error messages differ only in text and are covered by widget tes
 - `036000291453` and `12345` give plain errors with focus kept and announced.
 - No network indicator on this screen.
 - Scan and search alternatives are on the screen.
+- Phone landscape with the keyboard open scrolls to the button (accepted, see section 2).
 - Open question: should 14-digit GTIN-14 codes be accepted? The spec says no (T-026 says a 14-digit string is invalid).
