@@ -271,8 +271,8 @@ void main() {
       expect(report.applied, isEmpty);
     });
 
-    test('a migration with an embedded COMMIT still rolls back everything '
-        'when a later statement fails (atomicity)', () async {
+    test('a migration with an embedded COMMIT is refused up front and '
+        'nothing leaks', () async {
       await expectLater(
         migrate(database.pool, const [
           Migration(
@@ -281,7 +281,7 @@ void main() {
             sql: 'CREATE TABLE sneaky (i int); COMMIT; SELECT 1/0;',
           ),
         ], logs.logger()),
-        throwsA(isA<MigrationFailedException>()),
+        throwsA(isA<MigrationException>()),
       );
       final rows = await db.query(
         "SELECT to_regclass('public.sneaky') IS NOT NULL",
