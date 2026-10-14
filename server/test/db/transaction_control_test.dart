@@ -157,6 +157,48 @@ COMMIT;
     });
   });
 
+  group('whitespace and comment ends match the PostgreSQL lexer '
+      '(T-019 round 3, QA T-019-R2-B1)', () {
+    // scan.l: space [ \t\n\r\f\v], newline [\n\r].
+    const spaces = {
+      'space (0x20)': 0x20,
+      'tab (0x09)': 0x09,
+      'line feed (0x0A)': 0x0A,
+      'carriage return (0x0D)': 0x0D,
+      'form feed (0x0C)': 0x0C,
+      'vertical tab (0x0B)': 0x0B,
+    };
+    for (final MapEntry(key: label, value: code) in spaces.entries) {
+      final ws = String.fromCharCode(code);
+      test('$label before and after the word is whitespace', () {
+        expect(
+          findTransactionControl('CREATE TABLE a (i int);${ws}COMMIT;$ws'),
+          'COMMIT',
+        );
+        expect(findTransactionControl('${ws}ROLLBACK'), 'ROLLBACK');
+        expect(
+          findTransactionControl('SELECT 1;${ws}START${ws}TRANSACTION'),
+          'START TRANSACTION',
+        );
+      });
+    }
+
+    test('a -- comment ends at a carriage return as well as a line feed', () {
+      expect(findTransactionControl('SELECT 1; -- note\rCOMMIT;'), 'COMMIT');
+      expect(findTransactionControl('SELECT 1; -- note\nCOMMIT;'), 'COMMIT');
+      expect(findTransactionControl('SELECT 1; -- note\r\nCOMMIT;'), 'COMMIT');
+      expect(findTransactionControl('SELECT 1; -- note\fCOMMIT;'), isNull);
+      expect(findTransactionControl('SELECT 1; -- note\vCOMMIT;'), isNull);
+    });
+
+    test('characters PostgreSQL does not treat as whitespace keep the word '
+        'part of another token, as in the lexer', () {
+      // A no-break space is an identifier character (>= 0x80) for
+      // PostgreSQL, so " COMMIT" is one unknown word there too.
+      expect(findTransactionControl('SELECT 1; COMMIT;'), isNull);
+    });
+  });
+
   group('validateMigrations (T-019 round 2, R1-M1)', () {
     test('refuses a migration with a transaction control statement and '
         'names the migration and the statement', () {

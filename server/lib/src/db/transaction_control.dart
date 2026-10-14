@@ -53,8 +53,12 @@ String? findTransactionControl(String sql) {
     final next = i + 1 < s.length ? s.codeUnitAt(i + 1) : -1;
 
     if (c == _minus && next == _minus) {
-      final end = s.indexOf('\n', i);
-      i = end < 0 ? s.length : end + 1;
+      // PostgreSQL's lexer ends a `--` comment at LF or CR
+      // (scan.l: comment ("--"{non_newline}*), newline [\n\r]).
+      i += 2;
+      while (i < s.length && !_isNewline(s.codeUnitAt(i))) {
+        i++;
+      }
       continue;
     }
     if (c == _slash && next == _star) {
@@ -147,8 +151,14 @@ const _lowerE = 0x65;
 /// contain a dollar sign.
 final _dollarTag = RegExp(r'\$(?:[A-Za-z_\u0080-￿][A-Za-z0-9_\u0080-￿]*)?\$');
 
+/// PostgreSQL's lexer whitespace, exactly: `space [ \t\n\r\f\v]` in
+/// src/backend/parser/scan.l (REL_18_STABLE, checked 2026-10-14): space,
+/// tab, line feed, carriage return, form feed, and vertical tab.
 bool _isSpace(int c) =>
-    c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D || c == 0x0C;
+    c == 0x20 || c == 0x09 || c == 0x0A || c == 0x0D || c == 0x0C || c == 0x0B;
+
+/// `newline [\n\r]` in scan.l.
+bool _isNewline(int c) => c == 0x0A || c == 0x0D;
 
 bool _isIdentifierStart(int c) =>
     (c >= 0x41 && c <= 0x5A) ||
