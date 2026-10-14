@@ -42,14 +42,22 @@ void setTestWindow(
     ..platformBrightnessTestValue = brightness;
   addTearDown(tester.view.reset);
   addTearDown(tester.platformDispatcher.clearAllTestValues);
+  // A phone keeps its keyboard open across a rotation, at the new size
+  // (review R2-G2).
+  _refreshFakeKeyboard?.call();
 }
+
+/// Re-applies the fake keyboard's inset for the current window size; set
+/// while a fake keyboard is installed in the running test.
+void Function()? _refreshFakeKeyboard;
 
 /// Height of the fake on-screen keyboard for a window of [size]: 40% of the
 /// window height, at most 300 dp (about a phone keyboard).
 double fakeKeyboardHeight(Size size) => math.min(300, size.height * 0.4);
 
 /// Makes the test window act like a phone with an on-screen keyboard: the
-/// bottom view inset is [height] dp while the text input is shown
+/// bottom view inset is [height] dp (default: [fakeKeyboardHeight] of the
+/// current window, updated when [setTestWindow] resizes it) while the text input is shown
 /// (`TextInput.show`) and 0 once it is hidden or its client is cleared
 /// (for example when the field loses focus).
 ///
@@ -59,13 +67,16 @@ double fakeKeyboardHeight(Size size) => math.min(300, size.height * 0.4);
 /// focus and the keyboard is open (T-031 round 2, review R1-S1). To close
 /// the keyboard while focus stays (Android Back), set
 /// `tester.view.viewInsets = FakeViewPadding.zero`.
-void installFakeKeyboard(WidgetTester tester, {required double height}) {
+void installFakeKeyboard(WidgetTester tester, {double? height}) {
   final messenger = tester.binding.defaultBinaryMessenger;
   var active = true;
   void apply() {
     if (!active) return;
+    final view = tester.view;
+    final keyboard =
+        height ?? fakeKeyboardHeight(view.physicalSize / view.devicePixelRatio);
     final inset = tester.testTextInput.isVisible
-        ? height * tester.view.devicePixelRatio
+        ? keyboard * view.devicePixelRatio
         : 0.0;
     if (tester.view.viewInsets.bottom != inset) {
       tester.view.viewInsets = FakeViewPadding(bottom: inset);
@@ -89,8 +100,10 @@ void installFakeKeyboard(WidgetTester tester, {required double height}) {
     }
     return result;
   };
+  _refreshFakeKeyboard = apply;
   addTearDown(() {
     active = false;
+    _refreshFakeKeyboard = null;
     messenger.allMessagesHandler = null;
   });
 }
@@ -114,7 +127,7 @@ Future<void> pumpApp(
     brightness: brightness,
   );
   if (keyboard) {
-    installFakeKeyboard(tester, height: fakeKeyboardHeight(size));
+    installFakeKeyboard(tester);
   }
   await tester.pumpWidget(const ProviderScope(child: BoardGameCollectorApp()));
 }

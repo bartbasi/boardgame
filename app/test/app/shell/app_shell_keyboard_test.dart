@@ -67,6 +67,24 @@ void main() {
       expect(find.byType(NavigationBar), findsNothing);
     });
 
+    testWidgets('a resize with the keyboard open keeps it open at the new '
+        'size (fake keyboard, review R2-G2)', (tester) async {
+      await pumpApp(tester);
+      await _openManualEntry(tester);
+      expect(
+        tester.view.viewInsets.bottom,
+        fakeKeyboardHeight(WindowSizes.compact),
+      );
+
+      // Same compact class, shorter window: the inset follows the size.
+      const shorter = Size(390, 600);
+      setTestWindow(tester, size: shorter);
+      await tester.pumpAndSettle();
+      expect(tester.testTextInput.isVisible, isTrue);
+      expect(tester.view.viewInsets.bottom, fakeKeyboardHeight(shorter));
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
     testWidgets('focus without a keyboard keeps the bar (for example a '
         'hardware keyboard, or the iOS number pad dismissed)', (tester) async {
       await pumpApp(tester, keyboard: false);
