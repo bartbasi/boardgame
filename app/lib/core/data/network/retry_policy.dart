@@ -85,3 +85,17 @@ Duration? parseRetryAfter(String? value, {required DateTime now}) {
   final wait = date.difference(now);
   return wait.isNegative ? Duration.zero : wait;
 }
+
+/// Reads the Retry-After header from all its [values] (dio keeps one entry
+/// per header line). The header should appear once, but a misconfigured
+/// proxy can repeat it. The first value that [parseRetryAfter] can read
+/// wins: the backend asked us to wait, and honoring a wait is safer than
+/// retrying at once, while an unreadable extra line must not hide a good
+/// one. Returns null when no value can be read.
+Duration? firstRetryAfter(List<String>? values, {required DateTime now}) {
+  for (final value in values ?? const <String>[]) {
+    final wait = parseRetryAfter(value, now: now);
+    if (wait != null) return wait;
+  }
+  return null;
+}

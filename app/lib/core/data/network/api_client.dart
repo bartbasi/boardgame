@@ -18,6 +18,22 @@ import 'retry_policy.dart';
 /// Named to avoid a clash with `JsonDecoder` from dart:convert.
 typedef JsonObjectDecoder<T> = T Function(Map<String, dynamic> json);
 
+/// The body size a response declares in its Content-Length [values], or
+/// null when none can be read. dio keeps one entry per header line, and a
+/// repeated header is possible from a misconfigured proxy; the largest
+/// readable value is used, so a body is refused when any line declares too
+/// much. Unreadable values are ignored, and the bytes are counted instead.
+int? declaredContentLength(List<String>? values) {
+  int? largest;
+  for (final value in values ?? const <String>[]) {
+    final length = int.tryParse(value.trim());
+    if (length != null && (largest == null || length > largest)) {
+      largest = length;
+    }
+  }
+  return largest;
+}
+
 /// The app's only HTTP client. It talks to our backend and nothing else.
 ///
 /// Every method returns a [Result] and never throws: transport errors,
@@ -150,12 +166,12 @@ final class ApiClient {
         final Failure failure;
         Duration? retryAfter;
         switch (outcome) {
-          case _Response(:final status, :final text, :final retryAfterHeader):
+          case _Response(:final status, :final text, :final retryAfterValues):
             if (status >= 200 && status < 300) {
               return _decode(text, decode);
             }
             // Retry-After may be an HTTP date, which needs the wall clock.
-            retryAfter = parseRetryAfter(retryAfterHeader, now: clock.now());
+            retryAfter = firstRetryAfter(retryAfterValues, now: clock.now());
             failure = failureForStatus(
               status,
               body: text,
@@ -214,6 +230,25 @@ final class ApiClient {
       if (!result.isCompleted) result.complete(outcome);
     }
 
+    // Ends the attempt with UnexpectedFailure and stops reading the body.
+    void abandon() {
+      unawaited(reading?.cancel());
+      attemptToken.cancel();
+      finish(const _Failed(UnexpectedFailure()));
+    }
+
+    // Runs a callback of the response or the body stream. Anything it
+    // throws ends the attempt at once instead of escaping as an uncaught
+    // error and leaving the attempt to hang until the deadline (T-028
+    // review R1-S1).
+    void guarded(void Function() callback) {
+      try {
+        callback();
+      } on Object {
+        abandon();
+      }
+    }
+
     scope.onEnd = (failure) {
       finish(_Failed(failure));
       unawaited(reading?.cancel());
@@ -229,35 +264,31 @@ final class ApiClient {
             cancelToken: attemptToken,
           )
           .then(
-            (response) {
+            (response) => guarded(() {
               final responseBody = response.data;
               if (result.isCompleted || responseBody == null) {
-                attemptToken.cancel();
-                finish(const _Failed(UnexpectedFailure()));
+                abandon();
                 return;
               }
-              final declared = int.tryParse(
-                response.headers.value(Headers.contentLengthHeader) ?? '',
+              final declared = declaredContentLength(
+                response.headers[Headers.contentLengthHeader],
               );
               if (declared != null && declared > maxResponseBytes) {
                 // Refused before reading; cancelling closes the stream.
-                attemptToken.cancel();
-                finish(const _Failed(UnexpectedFailure()));
+                abandon();
                 return;
               }
               final bytes = BytesBuilder(copy: false);
               reading = responseBody.stream.listen(
-                (chunk) {
+                (chunk) => guarded(() {
                   if (bytes.length + chunk.length > maxResponseBytes) {
                     // Stop reading at once: no more chunks are taken.
-                    unawaited(reading?.cancel());
-                    attemptToken.cancel();
-                    finish(const _Failed(UnexpectedFailure()));
+                    abandon();
                     return;
                   }
                   bytes.add(chunk);
-                },
-                onError: (Object error) {
+                }),
+                onError: (Object error) => guarded(() {
                   // dio wraps errors raised before the body, not those
                   // raised while it streams (a reset connection), so wrap
                   // them the same way before mapping.
@@ -273,8 +304,8 @@ final class ApiClient {
                       ),
                     ),
                   );
-                },
-                onDone: () {
+                }),
+                onDone: () => guarded(() {
                   finish(
                     _Response(
                       status: response.statusCode ?? 0,
@@ -282,16 +313,16 @@ final class ApiClient {
                         bytes.takeBytes(),
                         allowMalformed: true,
                       ),
-                      retryAfterHeader: response.headers.value('retry-after'),
+                      retryAfterValues: response.headers['retry-after'],
                     ),
                   );
-                },
+                }),
                 cancelOnError: true,
               );
-            },
-            onError: (Object error) {
+            }),
+            onError: (Object error) => guarded(() {
               finish(_Failed(failureForError(error)));
-            },
+            }),
           ),
     );
     return result.future.whenComplete(() => scope.onEnd = null);
@@ -379,12 +410,14 @@ final class _Response extends _Outcome {
   const _Response({
     required this.status,
     required this.text,
-    required this.retryAfterHeader,
+    required this.retryAfterValues,
   });
 
   final int status;
   final String? text;
-  final String? retryAfterHeader;
+
+  /// Every Retry-After value, or null when there is none.
+  final List<String>? retryAfterValues;
 }
 
 final class _Failed extends _Outcome {
