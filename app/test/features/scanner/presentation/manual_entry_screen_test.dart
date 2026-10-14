@@ -52,9 +52,14 @@ Future<void> _typeEach(WidgetTester tester, String text) async {
 Future<void> _submitWith(WidgetTester tester, String text) async {
   await tester.enterText(_field, text);
   await tester.pump();
-  // With large text in phone landscape the (fake) keyboard can cover the
-  // button; a user scrolls to it.
-  await tester.ensureVisible(_submit);
+  // Only in phone landscape (open question 4) can the (fake) keyboard cover
+  // the button; a user then scrolls just far enough to reach it. Everywhere
+  // else this does not scroll at all, and the QA round 2 tests prove the
+  // button is above the keyboard without scrolling.
+  await Scrollable.ensureVisible(
+    tester.element(_submit),
+    alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+  );
   await tester.pumpAndSettle();
   await tester.tap(_submit);
   await tester.pumpAndSettle();
@@ -566,6 +571,51 @@ void main() {
         rect.right,
         closeTo(content.left + 24 + 0.55 * (content.width - 48), 1),
       );
+    });
+  });
+
+  group('error layout (T-031-B2)', () {
+    for (final scale in [1.0, 1.3, largeTextScale]) {
+      testWidgets('compact $scale: the longest error gets the full width, the '
+          'counter its own line, and Look up stays above the keyboard', (
+        tester,
+      ) async {
+        await pumpApp(tester, textScale: scale);
+        await _openFromScan(tester);
+        await tester.enterText(_field, '036000291453');
+        await tester.pump();
+        // No scrolling: the button is above the keyboard before and after.
+        await tester.tap(_submit);
+        await tester.pumpAndSettle();
+
+        final error = tester.getRect(find.text(_errorCheckDigit));
+        final counter = tester.getRect(find.text('12 of 13 digits'));
+        final field = tester.getRect(_field);
+        // The error starts after the 16 dp icon and runs to the counter's
+        // right edge, which is the field's content edge.
+        expect(error.right, counter.right);
+        expect(error.width, greaterThan(field.width - 80));
+        // The counter is on its own line under the error.
+        expect(counter.top, greaterThanOrEqualTo(error.bottom));
+
+        final keyboardTop =
+            WindowSizes.compact.height -
+            fakeKeyboardHeight(WindowSizes.compact);
+        expect(tester.getRect(_submit).bottom, lessThanOrEqualTo(keyboardTop));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('helper and counter: the helper gets the full width too', (
+      tester,
+    ) async {
+      await pumpApp(tester, textScale: largeTextScale);
+      await _openFromScan(tester);
+      final helper = tester.getRect(find.text(_helper));
+      final counter = tester.getRect(find.text('0 of 13 digits'));
+      expect(helper.left, counter.left);
+      expect(helper.right, counter.right);
+      expect(counter.top, greaterThanOrEqualTo(helper.bottom));
     });
   });
 

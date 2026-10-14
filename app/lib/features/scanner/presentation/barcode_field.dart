@@ -55,6 +55,9 @@ class BarcodeField extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final error = errorText;
+    final helperStyle = theme.textTheme.bodySmall?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+    );
     return ValueListenableBuilder<TextEditingValue>(
       valueListenable: controller,
       builder: (context, value, _) {
@@ -77,18 +80,30 @@ class BarcodeField extends StatelessWidget {
           decoration: InputDecoration(
             border: const OutlineInputBorder(),
             labelText: l10n.manualEntryFieldLabel,
-            helperText: l10n.manualEntryHelper,
-            helperMaxLines: 4,
-            error: error == null
-                ? null
-                : _ErrorLine(
-                    message: error,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.error,
+            // Helper or error, and the digit counter, are drawn together in
+            // the counter slot (see _Subtext). The decorator would put them
+            // side by side and give the message only the width the counter
+            // leaves, which at large text is almost nothing (T-031-B2). The
+            // empty error widget keeps the error border and colors.
+            error: error == null ? null : const SizedBox.shrink(),
+            counter: _Subtext(
+              message: error == null
+                  ? Text(l10n.manualEntryHelper, style: helperStyle)
+                  : _ErrorLine(
+                      message: error,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.error,
+                      ),
+                      iconColor: theme.colorScheme.error,
                     ),
-                    iconColor: theme.colorScheme.error,
-                  ),
-            counterText: l10n.manualEntryDigitCounter(count),
+              isError: error != null,
+              counter: Text(
+                l10n.manualEntryDigitCounter(count),
+                style: helperStyle,
+                textAlign: TextAlign.end,
+              ),
+              announceCount: focusNode.hasFocus,
+            ),
             suffixIcon: count == 0
                 ? null
                 : IconButton(
@@ -104,6 +119,48 @@ class BarcodeField extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// The line under the field: the helper or the error at the full width of
+/// the field, then the digit counter on its own line at the end.
+///
+/// Each part is its own semantics node, so screen readers read the helper or
+/// error and the counter as parts of the field, as with the decorator's own
+/// helper and counter.
+class _Subtext extends StatelessWidget {
+  const _Subtext({
+    required this.message,
+    required this.isError,
+    required this.counter,
+    required this.announceCount,
+  });
+
+  final Widget message;
+  final bool isError;
+  final Widget counter;
+
+  /// Whether counter changes are announced (while the field has focus, as
+  /// the decorator does for its counter).
+  final bool announceCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          container: true,
+          // The screen announces a new error itself (manual entry); where
+          // announcements are not supported, the error is a live region,
+          // as the decorator's own error is.
+          liveRegion: isError && !MediaQuery.supportsAnnounceOf(context),
+          child: message,
+        ),
+        Semantics(container: true, liveRegion: announceCount, child: counter),
+      ],
     );
   }
 }
