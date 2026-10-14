@@ -54,14 +54,14 @@ GoRoute _rootRoute(AppDestination destination) => switch (destination) {
   AppDestination.scan => GoRoute(
     path: destination.path,
     builder: (context, state) => ScanScreen(
-      onManualEntry: () => context.push(manualEntryPath(destination)),
+      onManualEntry: () => context.push<void>(manualEntryPath(destination)),
     ),
     routes: _lookupRoutes(destination),
   ),
   AppDestination.search => GoRoute(
     path: destination.path,
     builder: (context, state) => SearchScreen(
-      onManualEntry: () => context.push(manualEntryPath(destination)),
+      onManualEntry: () => context.push<void>(manualEntryPath(destination)),
     ),
     routes: _lookupRoutes(destination),
   ),
@@ -90,7 +90,8 @@ List<RouteBase> _lookupRoutes(AppDestination from) => [
   GoRoute(
     path: 'manual',
     builder: (context, state) => ManualEntryScreen(
-      onSubmit: (barcode) => context.push(lookupResultPath(from, barcode)),
+      onSubmit: (barcode) =>
+          context.push<void>(lookupResultPath(from, barcode)),
       onScanInstead: () => _leaveManualEntry(context, AppDestination.scan),
       onSearchInstead: () => _leaveManualEntry(context, AppDestination.search),
     ),

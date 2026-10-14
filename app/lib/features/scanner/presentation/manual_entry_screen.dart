@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
 import '../../../core/domain/result.dart';
+import '../../../core/widgets/open_once.dart';
 import '../../../l10n/app_localizations.dart';
 import '../domain/barcode.dart';
 import 'barcode_field.dart';
@@ -21,8 +24,10 @@ class ManualEntryScreen extends StatefulWidget {
     super.key,
   });
 
-  /// Opens the lookup result for a valid barcode.
-  final ValueChanged<Barcode> onSubmit;
+  /// Opens the lookup result for a valid barcode. Returns the push future,
+  /// which completes when the lookup result is closed; submits are ignored
+  /// until then, so a double submit opens one result (T-031 R1-M1).
+  final Future<void> Function(Barcode barcode) onSubmit;
 
   /// `manualEntry.scanInstead`: back to the scanner.
   final VoidCallback onScanInstead;
@@ -52,7 +57,7 @@ String manualEntryErrorMessage(
   InvalidBarcodeReason.badCheckDigit => l10n.manualEntryErrorCheckDigit,
 };
 
-class _ManualEntryScreenState extends State<ManualEntryScreen> {
+class _ManualEntryScreenState extends State<ManualEntryScreen> with OpenOnce {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
   InvalidBarcodeFailure? _error;
@@ -81,9 +86,11 @@ class _ManualEntryScreenState extends State<ManualEntryScreen> {
   }
 
   void _submit() {
+    // A lookup result opened by an earlier submit is still opening or open.
+    if (isOpening) return;
     switch (Barcode.parse(_controller.text)) {
       case Ok(:final value):
-        widget.onSubmit(value);
+        unawaited(openOnce(() => widget.onSubmit(value)));
       case Err(:final failure):
         // Barcode.parse fails only with InvalidBarcodeFailure.
         final invalid = failure as InvalidBarcodeFailure;

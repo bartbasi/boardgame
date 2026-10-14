@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import '../../../core/widgets/open_once.dart';
 import '../../../core/widgets/placeholder_body.dart';
 import '../../../l10n/app_localizations.dart';
 
@@ -9,12 +12,18 @@ import '../../../l10n/app_localizations.dart';
 ///
 /// Lives in the scanner feature with the rest of the lookup flow (scan,
 /// manual entry, title search, lookup result).
-class SearchScreen extends StatelessWidget {
+class SearchScreen extends StatefulWidget {
   const SearchScreen({required this.onManualEntry, super.key});
 
-  /// Opens manual barcode entry.
-  final VoidCallback onManualEntry;
+  /// Opens manual barcode entry. Returns the push future; a double tap
+  /// opens one screen (T-031 R1-S2).
+  final Future<void> Function() onManualEntry;
 
+  @override
+  State<SearchScreen> createState() => _SearchScreenState();
+}
+
+class _SearchScreenState extends State<SearchScreen> with OpenOnce {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -23,7 +32,7 @@ class SearchScreen extends StatelessWidget {
         title: Text(l10n.searchTitle),
         actions: [
           IconButton(
-            onPressed: onManualEntry,
+            onPressed: () => unawaited(openOnce(widget.onManualEntry)),
             tooltip: l10n.searchActionManual,
             icon: const Icon(Icons.dialpad),
           ),
