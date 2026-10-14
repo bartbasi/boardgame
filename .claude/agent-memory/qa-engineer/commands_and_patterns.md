@@ -74,3 +74,10 @@ App manual entry (T-031):
 - `setTestWindow` is sync (no await). Destination label for tab 3 is "Collection".
 - pumpApp installs a fake keyboard (inset 40% of height, max 300 dp) by default; `keyboard: false` turns it off. It drops its inset on window resize. Taps on buttons under the keyboard miss: use `ensureVisible` first, and avoid `warnIfMissed: false` unless you assert the result (that made a round 1 test vacuous).
 - Lifecycle in tests must follow valid transitions: inactive, hidden, paused, hidden, inactive, resumed.
+
+server + PostgreSQL (T-019):
+- Server tests need a DB. Start `docker run -d -p 127.0.0.1:55433:5432 -e POSTGRES_USER=boardgame_test -e POSTGRES_PASSWORD=local-test-only -e POSTGRES_DB=boardgame_test -e "POSTGRES_INITDB_ARGS=--locale-provider=builtin --locale=C.UTF-8" postgres:18.6-alpine3.24`, export TEST_DATABASE_HOST/PORT/USER/PASSWORD/NAME. Docker Desktop may need `Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"`; ready in ~10 s.
+- Helpers: test/support/database.dart (TestPostgres, createScratch, TcpProxy), ServerRun in server_run.dart. pg_locks and pg_stat_activity are server-wide: filter by database/datname in assertions or parallel test files pollute counts.
+- Dev's AC5 pool test uses a fixed 150 ms wait: flaky under load. Embedded COMMIT in a migration escapes the tx (T-019-B1).
+- After Docker work: `docker rm -f`, `docker rmi postgres:18.6-alpine3.24`, remove the untagged dart image by digest.
+- Lexer-style scanners: test every whitespace class the target lexer has (\v bypassed T-019's COMMIT scanner). After Docker runs C: free space dropped ~5 GB (VM disk grows, never shrinks).

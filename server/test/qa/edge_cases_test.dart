@@ -7,6 +7,7 @@ import 'package:shelf/shelf.dart';
 import 'package:test/test.dart';
 
 import '../support/harness.dart';
+import '../support/database.dart';
 
 /// QA edge cases for T-008 (round 1).
 void main() {
@@ -243,7 +244,10 @@ void main() {
         final out = LogCapture();
         final listening = Completer<HttpServer>();
         final exit = runServer(
-          environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'},
+          environment: withTestDatabase({
+            'PORT': '${await freePort()}',
+            'LOG_LEVEL': 'info',
+          }),
           shutdownSignals: signals.stream,
           stdoutLine: out.call,
           stderrLine: (_) {},
@@ -295,7 +299,10 @@ void main() {
       final signals = StreamController<ProcessSignal>();
       final listening = Completer<HttpServer>();
       final exit = runServer(
-        environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'},
+        environment: withTestDatabase({
+          'PORT': '${await freePort()}',
+          'LOG_LEVEL': 'info',
+        }),
         shutdownSignals: signals.stream,
         stdoutLine: (_) {},
         stderrLine: (_) {},
@@ -314,7 +321,10 @@ void main() {
       final signals = StreamController<ProcessSignal>();
       final listening = Completer<HttpServer>();
       final exit = runServer(
-        environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'error'},
+        environment: withTestDatabase({
+          'PORT': '${await freePort()}',
+          'LOG_LEVEL': 'error',
+        }),
         shutdownSignals: signals.stream,
         stdoutLine: out.call,
         stderrLine: (_) {},
@@ -336,7 +346,10 @@ void main() {
     test('a port already in use returns exit code 1', () async {
       final blocker = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
       final code = await runServer(
-        environment: {'PORT': '${blocker.port}', 'LOG_LEVEL': 'info'},
+        environment: withTestDatabase({
+          'PORT': '${blocker.port}',
+          'LOG_LEVEL': 'info',
+        }),
         shutdownSignals: const Stream.empty(),
         stdoutLine: (_) {},
         stderrLine: (_) {},

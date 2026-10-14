@@ -10,6 +10,7 @@ Future<void> main(List<String> args) async {
   final handler = buildApp(
     version: 'guard-test',
     logger: logger,
+    databaseHealth: DatabaseHealth.alwaysUp(),
     v1Middleware: [
       (inner) => (request) async {
         final path = request.requestedUri.path;
