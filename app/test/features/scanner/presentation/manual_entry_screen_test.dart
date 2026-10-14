@@ -551,6 +551,41 @@ void main() {
     });
   });
 
+  group('accessibility (manual-entry.md section 7)', () {
+    testWidgets('focus order: Back, field, clear, submit, scan instead, '
+        'search instead', (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpApp(tester);
+        await _openFromScan(tester);
+        await tester.enterText(_field, '12345');
+        await tester.pump();
+
+        final order = tester.semantics
+            .simulatedAccessibilityTraversal()
+            .map((node) => node.tooltip.isNotEmpty ? node.tooltip : node.label)
+            .toList();
+        int indexOf(String label) {
+          final index = order.indexWhere((text) => text == label);
+          expect(index, isNot(-1), reason: '$label not in $order');
+          return index;
+        }
+
+        final expected = [
+          'Back',
+          'Barcode number',
+          'Clear Barcode number',
+          'Look up',
+          'Scan instead',
+          'Search by title instead',
+        ].map(indexOf).toList();
+        expect(expected, orderedEquals([...expected]..sort()));
+      } finally {
+        semantics.dispose();
+      }
+    });
+  });
+
   group('alternatives', () {
     testWidgets('Scan instead, from Scan, returns to the scanner', (
       tester,
