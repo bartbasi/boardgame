@@ -33,7 +33,7 @@ Top app bar: small (center-aligned off), title is the destination or screen name
 
 Safe areas and cutouts are respected on all edges. The NavigationBar never overlaps content. The scanner draws the camera behind the status bar but keeps controls inside safe areas.
 
-Keyboard: on compact the NavigationBar hides while a text field has focus so the keyboard does not squeeze content [ASSUMPTION]; it returns when focus leaves.
+Keyboard: on compact the NavigationBar hides only while a text field has focus AND the on-screen keyboard is open, so the keyboard does not squeeze content [ASSUMPTION, PRD Q32]. It comes back when the keyboard closes, even if focus stays in the field (Android system Back, a dismissed iOS number pad, a hardware keyboard), and when focus leaves. It hides again when the keyboard reopens. Focus without a keyboard never hides it. Medium, expanded, and phone landscape keep the rail at all times. The rule is in the shell, so every later text field gets it.
 
 ## 3. Components
 
@@ -94,4 +94,4 @@ Total: 10 (8 in M1 from T-015, 2 in M2 from T-032). The other states are covered
 - Switching tabs keeps scroll position.
 - Nothing appears between launch and the scanner.
 - Offline banner appears only on network-dependent screens and never replaces content.
-- Open questions: (seed color answered: PRD Q31, 2026-10-12, `0xFF1F6B5C`), the fourth `landscape` test size (user), hiding the bar when the keyboard is open.
+- Open questions: (seed color answered: PRD Q31, 2026-10-12, `0xFF1F6B5C`), the fourth `landscape` test size (user), hiding the bar when the keyboard is open (PRD Q32, still [ASSUMPTION]).

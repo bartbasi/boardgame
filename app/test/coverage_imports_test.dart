@@ -15,6 +15,7 @@ import 'package:board_game_collector/core/domain/result.dart';
 import 'package:board_game_collector/core/layout/window_size_class.dart';
 import 'package:board_game_collector/core/theme/app_theme.dart';
 import 'package:board_game_collector/core/theme/theme_mode_controller.dart';
+import 'package:board_game_collector/core/widgets/open_once.dart';
 import 'package:board_game_collector/core/widgets/placeholder_body.dart';
 import 'package:board_game_collector/features/scanner/domain/barcode.dart';
 
