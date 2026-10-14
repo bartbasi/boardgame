@@ -19,6 +19,8 @@ Patterns set up in the first backlog (T-001, 2026-10-11):
 - At sign-off, manual device evidence from an earlier round still counts if later rounds did not touch what it proves; say so in the verdict line.
 - Size proofs from build logs need the measurement condition, not a number: "about 2 kB" in T-011 AC8 was a warm-builder figure (real context 87 kB). Write "measured on a fresh builder, below the allowlisted size plus a margin".
 - When a confirmed [ASSUMPTION] loses its marker, cite the docs/decisions.md entry in its place.
+- Contract criteria that say "only fields research confirms" cannot be met before the upstream token exists (BGG field names, T-018). PM reading used at T-018 sign-off: our own DTO fields are fine if all nullable and disclosed in open questions, with a later ticket criterion that confirms them from recorded responses. Write such criteria that way from the start.
+- "No field X" criteria need an exact-keys test (toJson key set equals a listed set), or a field can be added unnoticed (T-018 R2-M1, R3-S1).
 
 Lesson from round 2 (2026-10-11): the PRD's 48-hour stale threshold was a PM guess, and UX built it into copy and specs before research showed eBay limits listings to 6 hours (EBAY-20). Mark numbers that depend on partner terms as "pending research", and check the research before UX specs rely on them.
 

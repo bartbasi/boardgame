@@ -1,0 +1,19 @@
+{
+  "bggId": 13,
+  "name": "Catan",
+  "yearPublished": 1995,
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "minPlayTimeMinutes": 60,
+  "maxPlayTimeMinutes": 120,
+  "designers": [
+    "Example Designer"
+  ],
+  "publishers": [
+    "Example Publisher A",
+    "Example Publisher B"
+  ],
+  "description": 42,
+  "bggUrl": "https://boardgamegeek.com/boardgame/13",
+  "fetchedAt": "2026-10-13T08:15:30.000Z"
+}

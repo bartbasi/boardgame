@@ -37,7 +37,7 @@ UI and backend tickets refer to these so that every ticket uses the same values.
 - **Large text:** text scale factor 2.0. Goldens rendered at 2.0 add the suffix `text200` to the state, for example `scanner_denied_text200_light_compact.png`.
 - **Accessibility guidelines pass** means flutter_test's `androidTapTargetGuideline`, `iOSTapTargetGuideline`, `labeledTapTargetGuideline`, and `textContrastGuideline` all pass for the screen, in light and dark themes.
 - **Offline** in app tests: the fake data source returns the no-connection failure.
-- **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5).
+- **No-image mode:** every screen ticket that shows game images includes a widget test with the `showCoverImages` setting off (docs/ux/components.md). Rows lose the thumbnail and headers lose the cover, with no empty gaps or broken layout (BGG-42, PRD Q5). Since PRD Q5 was answered on 2026-10-12 (no images for now), no-image mode is the only mode the app ships with until BGG answers: the API contract has no image URL fields (T-018).
 - **BGG attribution:** screens that show BGG data use the BggAttribution component from docs/ux/components.md (`common.bggCredit`, `common.bggLogoLabel`) where the screen spec places it (BGG-40, BGG-41). Until the official logo file arrives from T-087, the spec's placeholder box is used. The ticket records the swap as a follow-up, and the official logo must be in place before release (T-082).
 - **Golden names:** `<screen>_<state>_<theme>_<size>.png` under app/test/goldens/, as listed in each screen spec. Screen names use underscores (app_shell, game_detail), and the state may carry a suffix after a second underscore (`price_success`, `longtitle_text200`). Every golden a spec lists is required unless PM removes it from the spec.
 - **Fact ids** such as BGG-21 or EBAY-20 point to rows in docs/api-research.md. Blocking risk ids B1 to B11 point to its "Blocking risks" table.
@@ -64,7 +64,8 @@ T-014 and T-015 both edit app.yml, and T-011 and T-019 both edit server.yml, so 
 
 ### M2
 
-Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen specs, and has answered PRD Q5 (images). PRD Q4 (ML Kit) was answered on 2026-10-11 (approved), and the BGG application is in progress (T-087; not yet submitted as of 2026-10-12). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b). T-021 and T-024 can be built against recorded fixtures before those arrive, but nothing ships without them.
+Gate before M2 starts: met. The user answered PRD Q5 on 2026-10-12 (no images for now) and Q4 on 2026-10-11 (ML Kit approved), and submitted the BGG application on 2026-10-13 (T-087, waiting for BGG). M2 resumed on 2026-10-13 with the tickets not blocked by BGG, GameUPC, store accounts, or a deployment (docs/decisions.md). The BGG token comes from T-087 and GameUPC production details from T-088 (PRD Q10b), so T-021 to T-025 stay blocked until those arrive. T-036 is blocked on PRD Q6b (store accounts) and Q8 (a deployment).
+- Ready on 2026-10-13: T-018, T-019, T-020 (backend), and T-026, T-027 (app). T-030 and T-031 become ready when T-026 is done; T-028 when T-018 is done.
 
 - Backend lane: T-018 first, because the app's T-028 needs the contract. Then T-019, T-021, T-022, T-023, T-024, T-025. T-020 fits anywhere after T-008.
 - App lane: T-026 and T-027 start right away (no backend dependency) and can run in parallel worktrees because they touch separate folders. Then T-030 and T-031, then T-028 (after T-018 is merged), T-029, T-032, T-033, T-034, T-035. T-036 when its blockers clear.
@@ -77,7 +78,7 @@ Gate before M2 starts: the user has reviewed T-002's facts and T-003's M2 screen
 
 ### User tasks
 
-T-087 is in progress (the user plans to submit the BGG application; not yet submitted as of 2026-10-12; approval can take a week or more after submission, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
+T-087 was submitted on 2026-10-13 and is waiting for BGG (approval can take a week or more after submission, BGG-04). T-088 should start now. T-091 any time. T-089 and T-090 before M4. T-092 and T-094 at launch. T-095 only if the eBay budget runs short.
 
 ---
 
@@ -444,27 +445,29 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-018 API contract: M2 DTOs and error codes
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-007, T-002 (BGG and GameUPC fields), T-003 (what the screens show), PRD Q5 (where image URLs point)
+- Status: done
+- Depends on: T-007, T-002 (BGG and GameUPC fields), T-003 (what the screens show), all done. PRD Q5 is satisfied: answered 2026-10-12, no cover images or listing photos for now (docs/decisions.md).
 - UX spec: n/a (reads search.md, lookup-result.md, game-detail.md)
 - Linked files: packages/api_contract/
+- Images (PRD Q5): the contract has no image URL fields at all: no thumbnail URL in game summaries and no image URL in game detail. The no-image decision needs none, because every screen runs in no-image mode. If BGG later allows images (T-087), a follow-up ticket adds optional image fields as an additive /v1 change, after the direct-or-proxy decision. The handoff states that no image fields were added.
 - Acceptance criteria:
   1. Given the barcode lookup response, then it has the normalized code (a GTIN-13 string), a status of `matched`, `candidates`, `none`, or `unavailable`, and a list of game summaries that is empty for `none` and `unavailable` (proved by: unit, a fixture round trip for each status).
-  2. Given a game summary, then it has bggId (a positive integer), name, a nullable year published, a nullable thumbnail URL, and any other field the T-003 specs need that docs/api-research.md confirms BGG provides and lets us show (proved by: unit, fixture round trip).
+  2. Given a game summary, then it has bggId (a positive integer), name, a nullable year published, and any other field the T-003 specs need that docs/api-research.md confirms BGG provides and lets us show. It has no thumbnail or other image URL field (PRD Q5) (proved by: unit, fixture round trip).
   3. Given the search response, then it has the query as the server normalized it and a list of game summaries (proved by: unit).
-  4. Given the game detail response, then it has the fields game-detail.md needs that docs/api-research.md confirms (for example name, year, image, player count, play time, designers, publishers, description), each nullable where BGG may omit it, plus `fetchedAt` as an ISO 8601 UTC timestamp (proved by: unit, including a fixture with every optional field missing).
+  4. Given the game detail response, then it has the fields game-detail.md needs that docs/api-research.md confirms (for example name, year, player count, play time, designers, publishers, description), each nullable where BGG may omit it, plus `fetchedAt` as an ISO 8601 UTC timestamp. It has no image URL field (PRD Q5) (proved by: unit, including a fixture with every optional field missing).
   5. Given a field the specs want that docs/api-research.md does not confirm, then it is left out and listed under "Open questions" in the handoff (proved by: manual).
   6. Given the error codes `invalid_barcode`, `invalid_query`, `invalid_bgg_id`, `not_found`, `rate_limited`, `upstream_unavailable`, and `internal_error`, then each decodes from a fixture, and an unknown code decodes to `unknown` (proved by: unit).
   7. Given packages/api_contract/test/fixtures/, then there is one example JSON file per response type and status, and the app's data layer tests in T-028 reuse them (proved by: unit).
   8. Given the handoff, then it lists every DTO and field added, for the flutter-developer (proved by: manual).
   9. Given the game detail and game summary responses, then they carry the URL of the game's BGG page, built by the backend, so the app's "Powered by BGG" link (BGG-41) never builds BGG URLs itself. The handoff notes how the URL format was confirmed on BGG's site (proved by: unit, fixture round trip).
-- Decision needed before work starts (T-008 open question 4): should the contract add a `bad_request` error code (400) as an additive /v1 change for requests whose URL the server cannot parse (bad Host or X-Forwarded-Host)? Today those get 404 `not_found`. If yes, add it to AC6's list with a fixture, note it for the flutter-developer (the app treats it as a generic error), and change the server's rejection path in the same ticket or a follow-up. The orchestrator records the answer in docs/decisions.md.
+- Decision (T-008 open question 4), answered: no `bad_request` code; unparseable request URLs keep 404 `not_found`, and the app's ErrorCode switch stays exhaustive (docs/decisions.md 2026-10-13).
+- Outcome: PM sign-off round 3 (docs/handoffs/T-018.md). BGG field names and the BGG page URL format are carried into T-021 AC12; the exact-keys test for game detail is carried into T-022 AC11.
 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-008, T-010, T-011
+- Status: ready
+- Depends on: T-008, T-010, T-011 (all done)
 - UX spec: n/a
 - Linked files: server/ (database access, migrations), server/.env.example, .github/workflows/server.yml (PostgreSQL service for tests)
 - Acceptance criteria:
@@ -481,8 +484,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-020 Server: per-IP rate limiting on /v1
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
-- Depends on: T-008
+- Status: ready
+- Depends on: T-008 (done)
 - UX spec: n/a
 - Linked files: server/ (middleware), server/.env.example
 - Acceptance criteria:
@@ -499,7 +502,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-021 Server: BGG XML API client and shared request queue
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (waiting for BGG's answer to T-087, submitted 2026-10-13)
 - Depends on: T-002, T-008, T-087 (a BGG token needs an approved app registration, BGG-01, BGG-02, BGG-04; until then the client is built against recorded fixtures)
 - UX spec: n/a
 - Linked files: server/ (BGG client and queue), server/test/fixtures/bgg/, server/.env.example
@@ -515,11 +518,12 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   9. Given search and thing fixtures recorded from real BGG responses with the token scrubbed, then the parser maps them to internal models, including Unicode names such as "Café International" and HTML entities in descriptions decoded to plain text. Field names come from the recorded fixtures and are listed in the handoff, not taken from memory (docs/api-research.md section 1.4). Apart from entity decoding and trimming whitespace, BGG values are not changed (BGG-15) (proved by: unit).
   10. Given the expected wait for a new request (requests already waiting times the interval) is more than 20 s [ASSUMPTION], then the request fails fast with a busy failure, so endpoints can answer 503 with Retry-After instead of hanging (proved by: unit).
   11. Given each upstream call, then one log line records the BGG operation name, status, and duration, with no token and no search text (proved by: unit with log capture).
+  12. Carried from T-018 (Open questions 1 and 3). Given recorded real `thing` and `search` responses for at least bggId 13 (a base game) and one expansion, then the handoff lists, for each api_contract game field (name, year, players, play time, designers, publishers, description), the BGG XML element or attribute it comes from and whether BGG always sends it, and the PM adds these facts to docs/api-research.md section 1.4. Given a person opens `https://boardgamegeek.com/boardgame/13` and the expansion's page in a browser, then the handoff records whether each loads (or redirects) without `www`, and the server builds `bggUrl` in the confirmed form, including any separate expansion path. Given a field BGG always provides, then it becomes non-nullable in the api_contract DTO only as a compatible /v1 change (the server already always sends it, old app builds still decode it); a field BGG may omit stays nullable, and a field BGG does not provide is reported to the PM, not invented (proved by: unit, parser tests over the recorded fixtures; manual, the browser check).
 
 ### T-022 Server: GET /v1/games/{bggId} with 7-day cache
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021, which waits for BGG)
 - Depends on: T-018, T-019, T-021
 - UX spec: n/a
 - Linked files: server/ (games route, game cache, migration)
@@ -534,12 +538,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   8. Given any 200 response, then it decodes with the api_contract game detail DTO (proved by: endpoint).
   9. Given the stored and returned data, then it holds only fields that docs/api-research.md confirms and BGG's terms allow (proved by: manual, reviewer and PM compare).
   10. Given the migration, then the games table has an internal surrogate primary key and a `bgg_id` column that is unique and nullable (so a game from another source can exist later without one), and no other table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys"). The route still takes `{bggId}` and finds the game through the `bgg_id` column, and responses keep the api_contract field `bggId`; the internal id never appears in a response (proved by: integration against real PostgreSQL, where inserting a second row with bgg_id 13 fails, plus endpoint check of the response body).
+  11. Carried from T-018 review R3-S1. Given packages/api_contract/test/fixtures/game_detail/full.json, when it is decoded with `GameDetailResponse.fromJson` and encoded with `toJson()`, then the key set equals exactly `bggId`, `name`, `yearPublished`, `minPlayers`, `maxPlayers`, `minPlayTimeMinutes`, `maxPlayTimeMinutes`, `designers`, `publishers`, `description`, `bggUrl`, `fetchedAt` (or the set as amended by T-021 AC12), so no image URL field (PRD Q5) or other field can be added unnoticed (proved by: unit in packages/api_contract/test/game_detail_response_test.dart).
 - Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC7), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
 
 ### T-023 Server: GET /v1/games/search
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021, which waits for BGG)
 - Depends on: T-018, T-019, T-021
 - UX spec: n/a
 - Linked files: server/ (search route, search cache, migration)
@@ -558,7 +563,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-024 Server: GameUPC client
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (waiting for the GameUPC operator's answer, T-088)
 - Depends on: T-002, T-008, T-088 (production base URL, key, limits, and permission are UNVERIFIED until the operator answers, GUPC-07)
 - UX spec: n/a
 - Linked files: server/ (GameUPC client), server/test/fixtures/gameupc/, server/.env.example
@@ -575,13 +580,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-025 Server: GET /v1/lookup/barcode/{code}
 - Milestone: M2
 - Owner: backend-developer
-- Status: todo
+- Status: blocked (on T-021 and T-024, which wait for BGG and GameUPC)
 - Depends on: T-018, T-019, T-021, T-022, T-024
 - UX spec: n/a
 - Linked files: server/ (lookup route, barcode validation, mapping store, migration)
 - Acceptance criteria:
   1. Given `036000291452`, `4006381333931`, and `96385074`, then they pass validation; given `036000291453`, `12345`, and `03600029145A`, then the endpoint returns 400 `invalid_barcode` and makes no upstream call (proved by: endpoint, table-driven).
-  2. Given `036000291452` and `0036000291452`, then both normalize to the GTIN-13 `0036000291452` and share one stored mapping [ASSUMPTION: GTIN-13 is the storage key] (proved by: unit and endpoint).
+  2. Given `036000291452` and `0036000291452`, then both normalize to the GTIN-13 `0036000291452` and share one stored mapping; given `96385074`, then its key is `0000096385074`. The 13-digit key rule (UPC-A gets one leading zero, EAN-8 five, EAN-13 unchanged) is the same as the app's in T-026 (docs/decisions.md 2026-10-13, GS1-03 to GS1-08) (proved by: unit and endpoint).
   3. Given GameUPC returns status `verified` with exactly one BGG id (GUPC-02), then the endpoint returns 200 with status `matched` and one game summary (proved by: endpoint).
   4. Given GameUPC returns several BGG ids, then the endpoint returns 200 with status `candidates` and up to 10 summaries [ASSUMPTION], ordered by GameUPC's `confidence` (GUPC-02) (proved by: endpoint).
   5. Given GameUPC returns no BGG id, then the endpoint returns 200 with status `none` and an empty list, not 404 (proved by: endpoint).
@@ -593,12 +598,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   11. Given any 200 response, then it decodes with the api_contract lookup DTO (proved by: endpoint).
   12. Given the migration, then the mapping table stores each GTIN-13 once and points to its games by their internal id (a foreign key to the games table from T-022), not by `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys"). A BGG id from GameUPC that has no games row yet gets a row with only `bgg_id` set, which the game cache fills in later. Responses still carry `bggId`, never the internal id (proved by: integration against real PostgreSQL, storing a mapping for `0036000291452` to a BGG id with no cached game, then reading it back by barcode).
 - Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC8), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
+- Carried forward from T-026: the server validates in the same order as the app's `Barcode.parse` (app/lib/features/scanner/domain/barcode.dart): trim surrounding whitespace, then ASCII digits `0` to `9` only (other Unicode digits are rejected), then length 8, 12, or 13 (14-digit GTIN-14 is rejected), then the GS1 check digit; any failure is 400 `invalid_barcode`. It uses the same 13-digit key as AC2. UPC-E is not supported in v1 (docs/decisions.md 2026-10-13; T-100). The server reviewer checks the rules against the app's barcode.dart.
 
 ### T-026 App: barcode value object and validation
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-012
+- Status: done
+- Depends on: T-012 (done)
 - UX spec: n/a
 - Linked files: app/lib/features/scanner/domain/
 - Acceptance criteria:
@@ -611,8 +617,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-027 App: local database foundation with Drift
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-012
+- Status: ready
+- Depends on: T-012 (done). Windows Developer Mode is on since 2026-10-13, so Flutter plugins build on the dev machine (docs/decisions.md).
 - UX spec: n/a
 - Linked files: app/lib/core/ (database), the schema export folder Drift's tooling uses
 - Acceptance criteria:
@@ -628,8 +634,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-028 App: games remote data source
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-013, T-018
+- Status: ready
+- Depends on: T-013, T-018 (both done)
 - UX spec: n/a
 - Linked files: app/lib/features/*/data/ (the developer records in the handoff which feature folder holds the shared games data source)
 - Acceptance criteria:
@@ -662,8 +668,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-030 App: scanner screen
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-003, T-012, T-026. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
+- Status: ready
+- Depends on: T-003 (done), T-012 (done), T-026 (done). Windows Developer Mode is on since 2026-10-13. Google ML Kit on Android was approved on 2026-10-11 with disclosure (PRD Q4, docs/decisions.md, MLKIT-01 to MLKIT-08), so this ticket is no longer blocked by it.
 - UX spec: docs/ux/screens/scanner.md
 - Linked files: app/lib/features/scanner/presentation/, app/android/ (camera permission), app/ios/Runner/Info.plist (camera usage text)
 - Acceptance criteria:
@@ -685,12 +691,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   16. Given Android, then the bundled ML Kit model is used [ASSUMPTION], so the first scan works offline without a Google Play services download (MLKIT-06). The handoff records the change in APK size (proved by: manual).
   17. Given a screen reader is on, when the user changes destination with the bar (compact) or the rail (expanded), then the new destination's screen title is announced, for all four destinations, not only Scan (app-shell.md section 7; a T-012 gap, built here because Scan is the first real destination screen) (proved by: widget that captures the announcement; manual with TalkBack).
   18. Given this ticket replaces the Scan placeholder, then the Scan destination no longer uses `devPlaceholderBody`, and any `dev*` key in app_en.arb that no screen uses anymore is deleted. `dev*` keys must not ship (docs/decisions.md 2026-10-12, T-012) (proved by: unit, the strings test; manual grep of lib/).
+- Carried forward from T-026: filter detections by symbology before calling `Barcode.parse`. A UPC-E raw value is 8 digits and can pass the EAN-8 check digit, which would give a wrong key (GS1-11; UPC-E not in v1, docs/decisions.md 2026-10-13, T-100). The AC4 test must include a UPC-E detection whose 8-digit raw value is EAN-8 valid (for example `96385074` reported as UPC-E) and show that nothing happens. Use the `digits` of the instance `parse` returned for navigation, not a value from a deduplicated set.
 
 ### T-031 App: manual barcode entry
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-003, T-026
+- Status: ready
+- Depends on: T-003 (done), T-026 (done)
 - UX spec: docs/ux/screens/manual-entry.md
 - Linked files: app/lib/features/scanner/presentation/
 - Acceptance criteria:
@@ -702,12 +709,13 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given both themes at text scale 2.0 in compact and expanded sizes, then nothing overflows and the accessibility guidelines pass (proved by: widget).
   7. Given the golden list in manual-entry.md, then every listed golden exists and passes (proved by: golden).
   8. Given a compact window, when the barcode field gets focus, then the NavigationBar hides, and when focus leaves the field, then it returns; given a medium or expanded window, then the rail stays. This is the first text field in the app, so the shell behavior is built here and reused by later screens (app-shell.md section 2 [ASSUMPTION]; PRD Q32: if the user vetoes it, drop this criterion and note it in the handoff) (proved by: widget).
+- Carried forward from T-026: the digit filter in AC2 keeps ASCII `0` to `9` only (`Barcode.parse` rejects other Unicode digits as non-digit). An empty or whitespace-only submit gives `InvalidBarcodeFailure` with reason `wrongLength` and `length` 0: show `manualEntry.errorEmpty` for it, and `manualEntry.errorLength` with `{count}` set to `length` for other wrong lengths. The AC4 test also submits an empty field and checks `manualEntry.errorEmpty`. Show `length` only for `wrongLength`.
 
 ### T-032 App: title search screen
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029; PRD Q5 (thumbnails)
+- Depends on: T-003, T-029. PRD Q5 is answered (2026-10-12, no images for now): the contract has no thumbnail field (T-018), so only no-image mode is built and tested. The thumbnail part of AC2 is deferred to the follow-up ticket that adds images, and the handoff says so.
 - UX spec: docs/ux/screens/search.md
 - Linked files: app/lib/features/*/presentation/ (search screen)
 - Acceptance criteria:
@@ -733,7 +741,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-032; PRD Q5 (thumbnails)
+- Depends on: T-003, T-029, T-032. PRD Q5 is answered (2026-10-12, no images for now): the contract has no thumbnail field (T-018), so only no-image mode is built and tested. The thumbnail part of AC2 is deferred to the follow-up ticket that adds images, and the handoff says so.
 - UX spec: docs/ux/screens/lookup-result.md
 - Linked files: app/lib/features/scanner/presentation/ (lookup result)
 - Acceptance criteria:
@@ -754,7 +762,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-003, T-029, T-033; PRD Q5 (cover images). The official "Powered by BGG" logo comes from T-087 (BGG-41); a placeholder is used until then, per "Shared test definitions".
+- Depends on: T-003, T-029, T-033. PRD Q5 is answered (2026-10-12, no images for now): the contract has no image field (T-018), so only the no-image header is built and tested (AC15). The cover image in AC1 and the image loading and failure states in AC9 are deferred to the follow-up ticket that adds images, and the handoff says so. The official "Powered by BGG" logo comes from T-087 (BGG-41); a placeholder is used until then, per "Shared test definitions".
 - UX spec: docs/ux/screens/game-detail.md (the M2 part)
 - Linked files: app/lib/features/game_detail/presentation/
 - Acceptance criteria:
@@ -791,8 +799,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-036 App: test builds for TestFlight and Play internal testing
 - Milestone: M2
 - Owner: flutter-developer
-- Status: blocked
-- Depends on: T-014; PRD Q1 (ids), Q6 (Apple Developer and Play Console accounts), Q8 (a backend reachable from a phone). Uploading a build needs the orchestrator to get the user's approval first.
+- Status: blocked (on PRD Q6b and Q8)
+- Depends on: T-014 (done); PRD Q1 part (a), answered 2026-10-13: the ids are `com.bartbasi.boardgamecollection`; Q6b (individual or company publisher, then the Apple Developer and Play Console accounts; none exists yet as of 2026-10-13); Q8 (a backend reachable from a phone). The final store name (Q1b) is not needed for test builds; the working title "Board Game Collection" is used. Uploading a build needs the orchestrator to get the user's approval first.
 - UX spec: n/a
 - Linked files: .github/workflows/app.yml, app/ios/, app/android/
 - Acceptance criteria:
@@ -802,8 +810,23 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given two runs in a row, then the second has a higher build number, set automatically (proved by: manual).
   5. Given the test build, then API_BASE_URL points to the backend chosen in PRD Q8 (proved by: manual).
   6. Given the handoff, then it lists every secret by name with how to create it, for the orchestrator to put in README.md (proved by: manual).
-  7. Given PRD Q1 is answered, then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it (proved by: manual, the T-082 checklist search).
+  7. Given the ids from PRD Q1 part (a), then the rename checklist on T-082 is applied before the first upload, unless T-082 already applied it: ids become `com.bartbasi.boardgamecollection`, and the name becomes the working title "Board Game Collection" until Q1b is answered (proved by: manual, the T-082 checklist search).
   8. Given the Android test build installed from the internal testing track on a phone, when the user runs a title search, then results come from the backend chosen in Q8. This proves a store-signed release build reaches the API (T-012 review R1-G5) (proved by: manual on device).
+
+### T-100 App: UPC-E barcode support (low priority)
+- Milestone: unscheduled, low priority (not in v1 per docs/decisions.md 2026-10-13)
+- Owner: flutter-developer
+- Status: todo
+- Depends on: T-026 (done), T-030; GS1-10 confirmed in docs/api-research.md (the official UPC-E to UPC-A expansion rules from the GS1 General Specifications; UNVERIFIED as of 2026-10-13). The PM confirms GS1-10 before step 2 starts.
+- UX spec: n/a (no new screens; scanner.md and manual-entry.md get a note if behavior changes)
+- Linked files: app/lib/features/scanner/
+- Acceptance criteria:
+  1. Step 1, before any code change: given a printed UPC-E label, when it is scanned with mobile_scanner on an Android phone (ML Kit) and on an iPhone (Apple Vision), then the handoff records, per platform, the reported format and the exact raw value (8 digits, 6 digits, or already expanded to 12), and the PM adds the result to docs/api-research.md (closing GS1-11) (proved by: manual on an Android phone and an iPhone).
+  2. Step 2, only after GS1-10 is confirmed: given a scanner detection reported as UPC-E, then it is expanded to UPC-A using only the confirmed GS1 rules and then goes through `Barcode.parse`, so it gets the same 13-digit key as its UPC-A form. Test vectors come from a GS1 source cited in api-research, not from memory or a blog (proved by: unit, table-driven).
+  3. Given an 8-digit value from manual entry, then it is still treated as EAN-8, because typed digits carry no symbology (GS1-11) (proved by: unit).
+  4. Given a UPC-E detection that does not expand to a valid UPC-A (bad check digit, or a number system other than the ones GS1 allows), then nothing happens, as for any invalid scan in T-030 AC5 (proved by: widget with a fake scanner).
+  5. Given T-030 AC4, then its UPC-E row is changed from "nothing happens" to the expanded lookup, and no other format changes (proved by: widget with a fake scanner).
+  6. Given the server, then no change is needed because the app sends the expanded UPC-A; the handoff confirms T-025 still treats every 8-digit code as EAN-8 and never as UPC-E (proved by: manual, reviewer reads both rules).
 
 ---
 
@@ -1119,7 +1142,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: product-manager
 - Status: todo
-- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (PRD Q5), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q38, which absorbs Q13), and opening eBay listings.
+- Goal: Drafts in docs/legal/ that match what the app and backend actually do and meet both stores' content rules (APPLE-02, GPLAY-03). They cover image hosts (none while PRD Q5's no-image answer stands), the App Attest per-install record if adopted (PRD Q26), cached search text, operating system backups (PRD Q38, which absorbs Q13), and opening eBay listings.
 - Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
   1. Given the privacy policy, then it states that on Android the barcode scanner uses Google ML Kit, which processes camera images on the device without sending them to Google, and sends ML Kit usage and performance metrics to Google (MLKIT-02, MLKIT-03, MLKIT-04), and that iOS uses Apple's scanner (MLKIT-05). This disclosure is required because the user approved ML Kit on that condition (docs/decisions.md 2026-10-11) (proved by: manual, PM and user review).
 
@@ -1147,14 +1170,14 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M5
 - Owner: flutter-developer
 - Status: todo
-- Depends on: PRD Q1 (final name and ids)
+- Depends on: PRD Q1b (final store name). The ids are known: `com.bartbasi.boardgamecollection` (Q1 part (a), answered 2026-10-13).
 - Goal: Signed release builds for both stores, with final ids, icons, and version numbering, and the official "Powered by BGG" logo from T-087 in every BggAttribution (no placeholders left). Submission needs the user's approval.
 - Acceptance criteria (only these so far; the full set comes when the ticket is scoped):
   1. Given a release build of the Android app in CI, then it is signed with the upload key from GitHub Actions secrets, not the Flutter template's debug key: the certificate printed by `apksigner verify --print-certs` (or `keytool -printcert -jarfile`) on the App Bundle or APK is the upload certificate and not "Android Debug" (T-012 review R1-G3) (proved by: manual, run log).
   2. Given the release signing settings are missing (no key file or secrets), when a release build runs, then it fails with a message naming the missing setting and produces no artifact. It never falls back to the debug key. Checked once locally and once in CI on a scratch branch without the secrets, deleted afterward (proved by: manual).
-  3. Given PRD Q1 is answered, then every item in the rename checklist below has the final value, and `git grep` over app/ for `com.example` and for the placeholder name finds nothing in tracked files (proved by: manual).
+  3. Given PRD Q1b is answered, then every item in the rename checklist below has the final value (ids `com.bartbasi.boardgamecollection`, name from Q1b), and `git grep` over app/ for `com.example`, `boardgamecollector` (outside the Dart package name `board_game_collector`), and the placeholder name "Board Game Collector" finds nothing in tracked files (proved by: manual).
   4. Given the release build, then app_en.arb has no key starting with `dev`, and the strings test fails if one is added (docs/decisions.md 2026-10-12, T-012: `dev*` strings must not ship) (proved by: unit).
-- Rename checklist for PRD Q1 (from the T-012 handoff, R1-G6). Applied here, or in T-036 if the first test upload comes first (Q1 says the id must change before any store upload). All items change together:
+- Rename checklist for PRD Q1 (from the T-012 handoff, R1-G6). Applied here, or in T-036 if the first test upload comes first (the id must change before any store upload, and it is permanent after that). The new ids are `com.bartbasi.boardgamecollection` (docs/decisions.md 2026-10-13); the Kotlin folder becomes `com/bartbasi/boardgamecollection/`. The display name is the working title "Board Game Collection" until Q1b gives the final name. All items change together:
   - `app/lib/l10n/app_en.arb`: `shellAppName`, then run `flutter gen-l10n`. docs/ux/copy.md `shell.appName` changes too (ux-designer owns it).
   - `app/android/app/src/main/AndroidManifest.xml`: `android:label`.
   - `app/android/app/build.gradle.kts`: `namespace` and `applicationId`.
@@ -1184,10 +1207,10 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 Tasks only the user can do: accounts, applications, and messages to partners. The orchestrator reminds the user when each is due. PM records the answers in docs/api-research.md. Credentials never go into chat, tickets, or the repo; they go only into the server's git-ignored .env.
 
 ### T-087 BGG: register the app and apply for a commercial license
-- Milestone: Planning (not yet submitted as of 2026-10-12, still planned; approval can take a week or more after submission, BGG-04)
+- Milestone: Planning (submitted 2026-10-13, waiting for BGG; approval can take a week or more after submission, BGG-04)
 - Owner: user
-- Status: in-progress
-- Depends on: PRD Q1 (name) and Q6 (publisher) for the bracketed items in the application. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.
+- Status: in-progress (submitted 2026-10-13, waiting for BGG)
+- Depends on: none left; the user submitted the application on 2026-10-13 (docs/decisions.md). If the final app name (PRD Q1b) or the publisher (Q6b) later differs from what the application said, the user tells BGG. Q10 (a) and Q23 were answered on 2026-10-11 (docs/decisions.md); fallback research runs in parallel as T-097.
 - Goal: Register at https://boardgamegeek.com/applications and send the commercial license application from docs/api-research.md section 1.6, filled in and approved, including the question about cover images (PRD Q5). Once approved, create the Bearer token and download the official "Powered by BGG" logo files (BGG-01, BGG-02, BGG-41).
 - Acceptance criteria:
   1. Given BGG answers, then its written answer is shared with PM and recorded in docs/api-research.md (proved by: manual).

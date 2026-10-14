@@ -1,0 +1,18 @@
+{
+  "code": "0036000291452",
+  "status": "brand_new_status",
+  "games": [
+    {
+      "bggId": 13,
+      "name": "Catan",
+      "yearPublished": 1995,
+      "bggUrl": "https://boardgamegeek.com/boardgame/13"
+    },
+    {
+      "bggId": 822,
+      "name": "Carcassonne",
+      "yearPublished": 2000,
+      "bggUrl": "https://boardgamegeek.com/boardgame/822"
+    }
+  ]
+}
