@@ -61,9 +61,63 @@ void main() {
       expect(text, isNot(contains('secret')));
       expect(text, isNot(contains('token=abc')));
       expect(text, isNot(contains('user:pass')));
-      expect(text, contains('search?<redacted>'));
-      expect(text, contains('https://<redacted>@boardgamegeek.com'));
-      expect(text, contains('then stop'));
+      // T-020 AC8: the path is redacted too (it was kept before T-020).
+      expect(text, isNot(contains('xmlapi2')));
+      expect(
+        text,
+        'Bad state: GET https://<redacted>@boardgamegeek.com/<redacted>'
+        '?<redacted> failed; retry https://x.example/<redacted>?<redacted>, '
+        'then stop',
+      );
+    });
+
+    test('URL paths are redacted, keeping scheme and host (T-020 AC8)', () {
+      expect(
+        describeError(
+          StateError('guard failed for http://localhost/v1/games/secret-123'),
+        ),
+        'Bad state: guard failed for http://localhost/<redacted>',
+      );
+      expect(
+        describeError(StateError('x https://h.example:8443/a/b#frag-secret y')),
+        'Bad state: x https://h.example:8443/<redacted>#<redacted> y',
+      );
+      expect(
+        describeError(
+          StateError('root http://h.example/ and http://h.example'),
+        ),
+        'Bad state: root http://h.example/ and http://h.example',
+      );
+    });
+
+    test('ArgumentError logs only name and message, never the invalid value '
+        '(T-020 AC8)', () {
+      expect(
+        describeError(ArgumentError.value('secret-123', 'bggId')),
+        'ArgumentError (bggId): Invalid argument',
+      );
+      expect(
+        describeError(
+          ArgumentError.value('secret-123', 'bggId', 'must be a number'),
+        ),
+        'ArgumentError (bggId): must be a number',
+      );
+      expect(
+        describeError(ArgumentError('plain message')),
+        'ArgumentError: plain message',
+      );
+      expect(
+        describeError(RangeError.value(987654, 'page', 'too far')),
+        'RangeError (page): too far',
+      );
+      expect(
+        describeError(RangeError.range(987654, 1, 5, 'page')),
+        isNot(contains('987654')),
+      );
+      expect(
+        describeError(IndexError.withLength(987654, 3, indexable: 'secret')),
+        allOf(isNot(contains('987654')), isNot(contains('secret'))),
+      );
     });
 
     test('an error without URLs is kept as is', () {
