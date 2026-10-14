@@ -11,6 +11,7 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import '../support/harness.dart';
+import '../support/database.dart';
 
 /// Requests built to break `HttpRequest.requestedUri` or the request line.
 /// Every client-controlled value contains "secret".
@@ -46,11 +47,9 @@ void main() {
   test('hostile requests: stderr stays empty, stdout is only JSON lines, and '
       'no request value is printed (R1-M1)', () async {
     final port = await freePort();
-    final process = await Process.start(
-      Platform.resolvedExecutable,
-      ['bin/server.dart'],
-      environment: {'PORT': '$port', 'LOG_LEVEL': 'debug'},
-    );
+    final process = await Process.start(Platform.resolvedExecutable, [
+      'bin/server.dart',
+    ], environment: withTestDatabase({'PORT': '$port', 'LOG_LEVEL': 'debug'}));
     final stdoutLines = <String>[];
     final stderrText = StringBuffer();
     final started = Completer<void>();

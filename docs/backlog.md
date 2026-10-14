@@ -466,7 +466,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
 - Owner: backend-developer
-- Status: ready
+- Status: done
 - Depends on: T-008, T-010, T-011 (all done)
 - UX spec: n/a
 - Linked files: server/ (database access, migrations), server/.env.example, .github/workflows/server.yml (PostgreSQL service for tests)
@@ -480,6 +480,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given server.yml, then CI runs these tests against a PostgreSQL service container, and no test for this ticket mocks the database driver (proved by: manual, workflow and run log).
   8. Given the schema, then no table has a column for a user id, device id, IP address, or user agent (proved by: manual, reviewer and PM read the migrations).
 - Carried from T-010: decide the database collation (for example PostgreSQL's builtin provider, `POSTGRES_INITDB_ARGS="--locale-provider=builtin --builtin-locale=C.UTF-8"`, checked against the official PostgreSQL and image docs) and record it in docs/decisions.md before T-071's first database start, because it only takes effect on an empty volume (docs/decisions.md 2026-10-12). Also re-measure PostgreSQL memory under real queries against the 256 MB limit.
+- Outcome: PM sign-off round 3 (docs/handoffs/T-019.md). Migration 1 creates `games (id, bgg_id, created_at)`; T-022 drops NOT NULL on `bgg_id` in its own migration (T-022 note). Review R3-S1 and R3-G1 moved to T-101. The least-privilege role and the "unhealthy is a status only" rule moved to T-071 AC1. Collation (builtin C.UTF-8) and memory (85 to 87 MiB at the pool default, 120 to 124 MiB at the maximum) are in the handoff; the collation waits for a docs/decisions.md entry.
 
 ### T-020 Server: per-IP rate limiting on /v1
 - Milestone: M2
@@ -540,6 +541,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   10. Given the migration, then the games table has an internal surrogate primary key and a `bgg_id` column that is unique and nullable (so a game from another source can exist later without one), and no other table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys"). The route still takes `{bggId}` and finds the game through the `bgg_id` column, and responses keep the api_contract field `bggId`; the internal id never appears in a response (proved by: integration against real PostgreSQL, where inserting a second row with bgg_id 13 fails, plus endpoint check of the response body).
   11. Carried from T-018 review R3-S1. Given packages/api_contract/test/fixtures/game_detail/full.json, when it is decoded with `GameDetailResponse.fromJson` and encoded with `toJson()`, then the key set equals exactly `bggId`, `name`, `yearPublished`, `minPlayers`, `maxPlayers`, `minPlayTimeMinutes`, `maxPlayTimeMinutes`, `designers`, `publishers`, `description`, `bggUrl`, `fetchedAt` (or the set as amended by T-021 AC12), so no image URL field (PRD Q5) or other field can be added unnoticed (proved by: unit in packages/api_contract/test/game_detail_response_test.dart).
 - Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC7), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
+- Carried forward from T-019 (PM sign-off round 3): T-019's migration 1 already creates `games (id bigint identity primary key, bgg_id integer NOT NULL UNIQUE CHECK (bgg_id > 0), created_at)`. To meet AC10 (`bgg_id` nullable), this ticket adds a new migration that drops NOT NULL on `bgg_id` and keeps UNIQUE and the check; migration 1 is never edited (migrations are append only and checksummed). Review R1-G3 also applies here: /health shares the connection pool with real queries, so the handoff says whether a busy pool can turn /health 503.
 
 ### T-023 Server: GET /v1/games/search
 - Milestone: M2
@@ -828,6 +830,25 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given T-030 AC4, then its UPC-E row is changed from "nothing happens" to the expanded lookup, and no other format changes (proved by: widget with a fake scanner).
   6. Given the server, then no change is needed because the app sends the expanded UPC-A; the handoff confirms T-025 still treats every 8-digit code as EAN-8 and never as UPC-E (proved by: manual, reviewer reads both rules).
 
+### T-101 Server: tighten the migration transaction control scanner (low priority)
+- Milestone: M2 (low priority; fits anywhere in the backend lane)
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-019 (done)
+- UX spec: n/a
+- Linked files: server/lib/src/db/transaction_control.dart, server/lib/src/db/migration.dart, server/test/db/transaction_control_test.dart, server/test/db/migration_test.dart, server/README.md ("Database" rules)
+- Source: T-019 review round 3, R3-S1 (should fix) and R3-G1 (docs/handoffs/T-019.md). Only our own reviewed migrations can trigger either, so nothing here blocks M2.
+- Acceptance criteria:
+  1. Given the SQL `SELECT begin atomic FROM (SELECT 1 AS begin) s; COMMIT; SELECT 1;`, when `findTransactionControl` scans it, then it reports the COMMIT, and `validateMigrations` with that SQL as migration 1 throws `MigrationStateException` naming version 1 and the migration name (R3-S1 probe) (proved by: unit).
+  2. Given a statement that is not `CREATE [OR REPLACE] FUNCTION` or `CREATE [OR REPLACE] PROCEDURE` but contains the words `begin atomic` (for example a SELECT, an INSERT, a CREATE TABLE, or a CREATE VIEW using `begin` as a column name and `atomic` as a label), followed by `; ROLLBACK;`, then the scanner does not enter function body mode and reports the ROLLBACK (proved by: unit, table-driven, one row per statement kind).
+  3. Given `CREATE FUNCTION ... BEGIN ATOMIC ... END;` and `CREATE OR REPLACE PROCEDURE ... BEGIN ATOMIC ... END;` bodies that contain several `;`-separated statements and a nested `CASE ... END`, then they still pass, and a `COMMIT;` after the body's final END is still reported (proved by: unit; and the existing migration_test.dart test "R1-M1: PL/pgSQL, DO, and BEGIN ATOMIC bodies pass validation and apply on real PostgreSQL" still passes, integration against real PostgreSQL).
+  4. Given SQL whose scan ends inside a `BEGIN ATOMIC` body (for example `CREATE FUNCTION f() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1;` with no closing END), then `validateMigrations` refuses it with `MigrationStateException` naming the version and name and saying the body is not closed, and the message does not contain the SQL (proved by: unit).
+  5. Given a list where migration 1 creates a table and migration 2 is the AC1 probe, when the server starts on an empty database, then it exits 70 before running any SQL, the table does not exist, and `schema_migrations` is empty (proved by: integration against real PostgreSQL).
+  6. Given migration 1 runs `SET standard_conforming_strings = off` and migration 2 records `current_setting('standard_conforming_strings')` into a table, when both are applied in one `migrate` call with a pool of 1 (so they share a connection), then the recorded value is `on`, because `migrate` sets `standard_conforming_strings = on` before each migration (R3-G1) (proved by: integration against real PostgreSQL).
+  7. Given the `Migration` doc comment and server/README.md "Database" rules, then they state both new rules: function body mode applies only inside CREATE FUNCTION or CREATE PROCEDURE, and each migration starts with `standard_conforming_strings` on (proved by: manual, reviewer reads both).
+  8. Given server.yml on the ticket branch, then the dart (server) job passes against the PostgreSQL service container with the coverage gate (proved by: manual, run log).
+- Optional (review R3-G2, not required): a `$` right after a digit run that started a token begins a dollar quote in PostgreSQL's lexer but not in the scanner. The reviewer found no valid SQL where this matters. A code comment or a fix is welcome; if fixed, add the probe `SELECT 1$$ $$; COMMIT; SELECT $$x$$;` as a unit test.
+
 ---
 
 ## M3 Collection (stubs)
@@ -1101,6 +1122,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   - Log retention: Docker's journald driver with journald `MaxRetentionSec=7day` and `MaxFileSec=1day` (docs/decisions.md 2026-10-12).
   - Apply the database collation decided in T-019 before the first database start on the VM.
   - The arm64 page size check above (`getconf PAGESIZE`) also applies to the postgres and caddy images.
+- Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
+  1. Carried from T-019 (developer open question 1, review R1 open questions 1 and 4). Given the production Compose on the VM, then: (a) the server's `DATABASE_USER` is a role that is not a superuser and owns the application database, created by an init script or a written runbook step that is part of this ticket; a check run as that role, `SELECT rolsuper FROM pg_roles WHERE rolname = current_user`, returns false, and `SELECT pg_get_userbyid(datdba) FROM pg_database WHERE datname = current_database()` returns that role; (b) the server starts, applies its migrations as that role, and GET /health returns 200 with database "ok"; (c) backups (T-072) may connect as the superuser, and the runbook says which role each job uses; (d) nothing in the deploy restarts a container because it is unhealthy: no autoheal container, script, cron job, or systemd unit acts on health status, and restart policies react only to a container exiting. Stopping PostgreSQL for 60 s leaves the server container running (unhealthy), with the same container id and a restart count of 0 in `docker inspect`, and it returns to healthy after PostgreSQL starts (proved by: manual, on the VM or a local Compose run of the production file, with the commands and output in the handoff; reviewer reads the Compose file and runbook for (c) and (d)).
 
 ### T-072 Deploy: daily backups and tested restore
 - Milestone: M5

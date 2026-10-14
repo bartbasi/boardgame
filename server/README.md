@@ -4,7 +4,7 @@ Backend API for the Board Game Collector app: shelf with shelf_router (docs/deci
 
 ## Run locally
 
-Needs Dart 3.13 or later.
+Needs Dart 3.13 or later and a PostgreSQL 18 server (for example the throwaway container under "Checks"; point the `DATABASE_*` variables at it).
 
 ```sh
 cd server
@@ -20,8 +20,14 @@ The server reads its configuration only from environment variables (Docker Compo
 |---|---|---|
 | `PORT` | yes | integer from 1 to 65535 |
 | `LOG_LEVEL` | yes | `debug`, `info`, `warning`, `error` |
+| `DATABASE_HOST` | yes | PostgreSQL host name or IP address (`postgres` in Compose) |
+| `DATABASE_PORT` | no, default 5432 | integer from 1 to 65535 |
+| `DATABASE_NAME` | yes | database name, at most 63 bytes |
+| `DATABASE_USER` | yes | login role, at most 63 bytes; must be allowed to create tables (it runs the migrations) |
+| `DATABASE_PASSWORD` | yes | any non-blank text; never logged or printed |
+| `DATABASE_POOL_MAX` | no, default 5 [ASSUMPTION] | maximum open connections, 1 to 20 |
 
-If any variable is missing or invalid, the server prints one JSON line to stderr naming every problem (never the values) and exits with code 78 before listening. `server/.env.example` must list exactly the variables the loader reads; a test enforces it.
+If any variable is missing or invalid, the server prints one JSON line to stderr naming every problem (never the values) and exits with code 78 before listening. `server/.env.example` must list exactly the variables the loaders read (`Config.load` and `DatabaseConfig.load`); a test enforces it.
 
 The build version in `GET /health` is a compile-time define: `dart compile exe -DAPP_VERSION=0.1.0+abc1234 bin/server.dart`. Without it the server reports `0.1.0-dev`.
 
@@ -29,7 +35,7 @@ The build version in `GET /health` is a compile-time define: `dart compile exe -
 
 | Route | Notes |
 |---|---|
-| `GET /health` | `HealthResponse`, outside /v1 so Compose and Caddy health checks need no attestation. |
+| `GET /health` | `HealthResponse` plus `database`, outside /v1 so Compose and Caddy health checks need no attestation. 200 `{"status":"ok","version":"...","database":"ok"}` when PostgreSQL answers; 503 `{"status":"unavailable","version":"...","database":"unavailable"}` otherwise, within 2 s (T-019). |
 | anything else | 404 with the `not_found` error envelope. |
 
 Uncaught errors become 500 `internal_error`; the error type, a redacted description, and the stack trace go to the log only.
@@ -66,9 +72,37 @@ Errors (`Logger.error`) are written as `errorType` (the runtime type), `error`, 
 
 That is a safety net. The rule for new code: never put request data (barcodes, queries, ids from the client), tokens, API keys, or upstream response bodies into exception messages or log fields.
 
+## Database
+
+PostgreSQL 18 through the `postgres` package (BSD-3-Clause), one connection pool per process (lib/src/db/database.dart): at most `DATABASE_POOL_MAX` connections, 5 s to connect (waiting for a free slot included), 10 s per query unless a call passes its own limit. TLS is off because PostgreSQL is reached only over Compose's internal `db` network; the image authenticates network clients with scram-sha-256, so the password is not sent in clear text. A connection that fails is dropped and reopened on next use, so the pool recovers by itself.
+
+Startup order (lib/src/server_runner.dart):
+
+1. Config (exit 78 on any problem).
+2. Wait for PostgreSQL: `SELECT 1` every second for up to 30 s, then exit 69 (EX_UNAVAILABLE) with a `database unreachable` line. Settings that retrying cannot fix end this step at once, after the first attempt, with the same exit code and line plus `"permanent":true`: SQLSTATE 28P01 (wrong password), 28000 (role not allowed), and 3D000 (no such database). The log has the SQLSTATE, never the password.
+3. One `database ready` line with `serverVersion`, `localeProvider`, `locale`, and `encoding`.
+4. Migrations (below). Failure: exit 70 (EX_SOFTWARE).
+5. Listen.
+
+A shutdown signal during steps 2 to 4 ends startup after the current step (a running migration finishes) and exits 0.
+
+### Migrations
+
+lib/src/db/migrations.dart lists every migration as a Dart constant (the scratch image has nothing but the executable, so there are no SQL files to read). Each has a `version` (1, 2, 3, ... with no gaps), a snake_case `name`, and `sql`.
+
+- At startup the server takes a PostgreSQL advisory lock (key 7019019), creates `schema_migrations (version, name, checksum, applied_at)` if needed, and checks the recorded history: it must be 1..n with the SHA-256 checksum of each migration's SQL. A database at a version this server does not know, a gap, or an edited migration stops startup (`migrations cannot run`, exit 70).
+- Each pending migration runs in its own transaction together with its `schema_migrations` row. If it fails, the transaction rolls back (nothing of it remains), the server logs `migration failed` with `version`, `name`, the SQLSTATE, and PostgreSQL's message about our SQL (`dbMessage`, `position`), and exits 70 without listening. Migrations before it stay applied.
+- Rules: append only (never edit, reorder, or remove a merged migration; add a new one); no statements that cannot run in a transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`); no transaction control (`BEGIN`, `START TRANSACTION`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, in any form), because a `COMMIT` would end the migration's transaction and a later failure could no longer roll it back: startup refuses such a migration (exit 70, `migrations cannot run`) before touching the database, while `BEGIN ... END` inside a `$$` PL/pgSQL body or a `BEGIN ATOMIC` body is fine; no parameters (the SQL is sent with the simple query protocol, so several statements may be separated by semicolons); no column for a user id, device id, IP address, or user agent (T-019 AC8; test/db/migrations_test.dart checks the SQL and the migrated schema).
+- Keys: every table gets our own surrogate key; external ids such as `bgg_id` are unique columns (docs/decisions.md 2026-10-11). Migration 1 creates `games (id, bgg_id, created_at)`; T-022 adds the cached BGG fields.
+- Logs: `migration applied` (`version`, `name`, `durationMs`) for each one, then `database schema up to date` (`version`, `appliedNow`).
+
+### Errors from PostgreSQL in logs
+
+`describeError` logs a PostgreSQL server error as its severity and SQLSTATE only (for example `ServerException: error 23505`), because the message, detail, and hint can quote values from a query ("Key (bgg_id)=(13) already exists"). Other errors of the driver (`PgException`) are logged as type and severity only (for example `PgException: error`), because some of their messages quote a query parameter. Look the code up at https://www.postgresql.org/docs/18/errcodes-appendix.html. Only the migration failure line adds PostgreSQL's message, because it is about our own SQL.
+
 ## Shutdown
 
-On SIGTERM (or SIGINT) the server stops accepting connections, lets in-flight requests finish for up to 10 seconds, closes whatever is left, and exits 0. Windows cannot watch SIGTERM, so use Ctrl+C there.
+On SIGTERM (or SIGINT) the server stops accepting connections, lets in-flight requests finish for up to 10 seconds, closes whatever is left, closes the database pool (at most 5 s more), and exits 0. Windows cannot watch SIGTERM, so use Ctrl+C there.
 
 Docker sends SIGKILL 10 seconds after SIGTERM by default, which would cut the drain short and exit 137. deploy/docker-compose.yml sets `stop_grace_period: 15s` on the server service. If the drain time changes, change both numbers together.
 
@@ -106,6 +140,22 @@ docker run --rm --env-file server/.env -p 127.0.0.1:8080:8080 boardgame-server:l
 
 ## Checks
 
+Every test that starts the server needs PostgreSQL 18, because the server does not start without its database (T-019). The tests never mock the driver. They read `TEST_DATABASE_HOST`, `TEST_DATABASE_PORT` (default 5432), `TEST_DATABASE_USER`, `TEST_DATABASE_PASSWORD`, and `TEST_DATABASE_NAME`; the user must be allowed to create databases and roles (each migration test makes its own scratch database and drops it). Without them those tests fail with a message pointing here. A throwaway local server, same image and settings as Compose:
+
+```sh
+docker run -d --name boardgame-test-pg -p 127.0.0.1:55432:5432 \
+  -e POSTGRES_USER=boardgame_test -e POSTGRES_PASSWORD=local-test-only \
+  -e POSTGRES_DB=boardgame_test \
+  -e "POSTGRES_INITDB_ARGS=--locale-provider=builtin --locale=C.UTF-8" \
+  postgres:18.6-alpine3.24
+export TEST_DATABASE_HOST=127.0.0.1 TEST_DATABASE_PORT=55432 \
+  TEST_DATABASE_USER=boardgame_test TEST_DATABASE_PASSWORD=local-test-only \
+  TEST_DATABASE_NAME=boardgame_test
+# afterwards: docker rm -f boardgame-test-pg
+```
+
+The outage tests (test/db/health_test.dart, startup_test.dart) put a small TCP proxy between the server and PostgreSQL and close it, so the real database keeps running.
+
 ```sh
 dart analyze --fatal-infos            # infos fail CI too
 dart format --output=none --set-exit-if-changed .
@@ -116,10 +166,10 @@ dart run tool/coverage_gate.dart . 80  # the CI coverage gate
 
 The coverage gate (tool/coverage_gate.dart) fails below 80% line coverage and also when a file under lib/ is missing from lcov.info, because `test_with_coverage` reports only libraries that some test loaded. Exempt: generated files (`*.g.dart`, `*.freezed.dart`), files marked `// coverage:ignore-file`, and files with only directives (barrels). api_contract uses the same tool: `dart run ../../server/tool/coverage_gate.dart . 80`.
 
-The real-process SIGTERM test runs only on Linux and macOS. On Windows, run every check on Linux in the official Dart image (Docker, repo mounted read-only):
+The real-process SIGTERM test runs only on Linux and macOS. On Windows, run every check on Linux in the official Dart image (Docker, repo mounted read-only; the script starts and removes its own PostgreSQL container on a private network):
 
 ```sh
 sh server/tool/test_linux.sh    # from the repo root
 ```
 
-CI: `.github/workflows/server.yml` (T-011) runs on every push and pull request that touches server/, packages/api_contract/, deploy/, the root analysis_options.yaml, or the workflow. It runs the checks above for both packages on Dart 3.13.5 with the coverage gate, fails if the committed api_contract generated files are stale, builds the image for linux/arm64 and linux/amd64 without pushing it, smoke tests both (arm64 under QEMU), checks that a build without GIT_SHA fails and that the build context holds only the allowlisted files, and runs `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q` (T-098), which must pass, and the same with each variable removed in turn, which must fail naming that variable.
+CI: `.github/workflows/server.yml` (T-011) runs on every push and pull request that touches server/, packages/api_contract/, deploy/, the root analysis_options.yaml, or the workflow. It runs the checks above for both packages on Dart 3.13.5 with the coverage gate (the server tests against a PostgreSQL service container with the same image and initdb settings as Compose, T-019), fails if the committed api_contract generated files are stale, builds the image for linux/arm64 and linux/amd64 without pushing it, smoke tests both (arm64 under QEMU) with a PostgreSQL container that the script stops and starts again to check /health's 503 and recovery, checks that a build without GIT_SHA fails and that the build context holds only the allowlisted files, and runs `docker compose -f deploy/docker-compose.yml --env-file deploy/.env.example config -q` (T-098), which must pass, and the same with each variable removed in turn, which must fail naming that variable.
