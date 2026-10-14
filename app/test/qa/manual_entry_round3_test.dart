@@ -14,7 +14,7 @@ const _checkDigit =
 
 Future<void> _open(WidgetTester tester) async {
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
   await tester.pumpAndSettle();
 }
 
@@ -320,7 +320,7 @@ void main() {
       await tester.pumpAndSettle();
       // Drop the result without a pop, then open again at once.
       await tapDestination(tester, 'Scan');
-      await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+      await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
       await tester.pumpAndSettle();
       await tester.enterText(_field, '96385074');
       await tester.tap(_submit);

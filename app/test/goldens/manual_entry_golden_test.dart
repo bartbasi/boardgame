@@ -1,9 +1,9 @@
-import 'package:board_game_collector/app/app.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/fake_scanner.dart';
 import '../helpers/goldens.dart';
+import '../helpers/pump_app.dart';
 
 /// Golden cases from docs/ux/screens/manual-entry.md section 8 (T-031 AC7).
 ///
@@ -24,7 +24,7 @@ const manualEntryGoldenCases = <GoldenCase>[
 /// compact NavigationBar shows: it hides only while the keyboard is open
 /// (T-031 round 2, R1-S1).
 Future<void> _openManualEntry(WidgetTester tester) async {
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
   await tester.pumpAndSettle();
 }
 
@@ -49,7 +49,7 @@ void main() {
       theme: c.theme,
       size: c.size,
       textScale: c.textScale,
-      build: () => const ProviderScope(child: BoardGameCollectorApp()),
+      build: () => testApp(ScannerFakes()),
       arrange: switch (c.state) {
         'initial' => _openManualEntry,
         'error_checkdigit' => _submitBadCheckDigit,

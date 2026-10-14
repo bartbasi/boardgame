@@ -18,7 +18,7 @@ Finder get _field => find.byType(TextField);
 
 Future<void> _openManualEntry(WidgetTester tester) async {
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
   await tester.pumpAndSettle();
 }
 

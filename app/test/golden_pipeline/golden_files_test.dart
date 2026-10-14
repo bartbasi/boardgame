@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../goldens/app_shell_golden_test.dart' as app_shell;
 import '../goldens/manual_entry_golden_test.dart' as manual_entry;
+import '../goldens/scanner_golden_test.dart' as scanner;
 import '../helpers/goldens.dart';
 
 /// Every golden test file in test/goldens/ and its declared cases. Add a
@@ -15,6 +16,7 @@ import '../helpers/goldens.dart';
 final Map<String, List<GoldenCase>> declaredGoldens = {
   'app_shell_golden_test.dart': app_shell.appShellGoldenCases,
   'manual_entry_golden_test.dart': manual_entry.manualEntryGoldenCases,
+  'scanner_golden_test.dart': scanner.scannerGoldenCases,
 };
 
 /// T-015 review R1-G1 and R1-G2: goldens stay flat in test/goldens/, and

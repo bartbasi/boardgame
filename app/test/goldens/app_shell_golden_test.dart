@@ -1,7 +1,6 @@
-import 'package:board_game_collector/app/app.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../helpers/fake_scanner.dart';
 import '../helpers/goldens.dart';
+import '../helpers/pump_app.dart';
 
 /// Golden cases from docs/ux/screens/app-shell.md section 8 that T-015
 /// delivers (T-015 AC6). The two offline cases come with T-032.
@@ -22,8 +21,5 @@ const appShellGoldenCases = <GoldenCase>[
 ];
 
 void main() {
-  goldenTests(
-    appShellGoldenCases,
-    build: () => const ProviderScope(child: BoardGameCollectorApp()),
-  );
+  goldenTests(appShellGoldenCases, build: () => testApp(ScannerFakes()));
 }

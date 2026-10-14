@@ -16,7 +16,7 @@ String _text(WidgetTester tester) =>
 
 Future<void> _open(WidgetTester tester) async {
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
   await tester.pumpAndSettle();
 }
 

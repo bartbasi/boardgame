@@ -16,6 +16,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../../helpers/fake_scanner.dart';
 import '../../../helpers/pump_app.dart';
 
 const _helper = '8, 12, or 13 digits, printed under the barcode.';
@@ -37,7 +38,7 @@ bool _fieldHasFocus(WidgetTester tester) =>
 /// Opens manual entry from the Scan placeholder's `scanner.actionManual`.
 Future<void> _openFromScan(WidgetTester tester) async {
   await tester.pumpAndSettle();
-  await tester.tap(find.widgetWithText(OutlinedButton, 'Enter barcode'));
+  await tester.tap(find.widgetWithText(FilledButton, 'Enter barcode'));
   await tester.pumpAndSettle();
 }
 
@@ -465,6 +466,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...ScannerFakes().overrides,
             // The device is offline: any use of the network fails loudly.
             apiClientProvider.overrideWith((ref) {
               networkReads++;
@@ -649,7 +651,7 @@ void main() {
     ) async {
       await pumpApp(tester);
       await tester.pumpAndSettle();
-      final action = find.widgetWithText(OutlinedButton, 'Enter barcode');
+      final action = find.widgetWithText(FilledButton, 'Enter barcode');
       await tester.tap(action);
       await tester.tap(action, warnIfMissed: false);
       await tester.pumpAndSettle();

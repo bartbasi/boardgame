@@ -15,8 +15,7 @@ import '../helpers/pump_app.dart';
 
 Finder get _field => find.byType(TextField);
 Finder get _submit => find.widgetWithText(FilledButton, 'Look up');
-Finder get _enterBarcode =>
-    find.widgetWithText(OutlinedButton, 'Enter barcode');
+Finder get _enterBarcode => find.widgetWithText(FilledButton, 'Enter barcode');
 
 FocusNode _focus(WidgetTester tester) =>
     tester.widget<TextField>(_field).focusNode!;
