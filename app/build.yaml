@@ -4,7 +4,7 @@
 # are read by `dart run drift_dev make-migrations`, which exports each schema
 # version to drift_schemas/ and writes the migration test helpers to
 # test/drift/. Run it after every schema change, together with
-# `dart run build_runner build` (docs/handoffs/T-027.md).
+# `dart run build_runner build` (app/README.md, "On-device database").
 targets:
   $default:
     builders:
