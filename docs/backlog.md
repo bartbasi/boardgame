@@ -445,7 +445,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-018 API contract: M2 DTOs and error codes
 - Milestone: M2
 - Owner: backend-developer
-- Status: ready
+- Status: done
 - Depends on: T-007, T-002 (BGG and GameUPC fields), T-003 (what the screens show), all done. PRD Q5 is satisfied: answered 2026-10-12, no cover images or listing photos for now (docs/decisions.md).
 - UX spec: n/a (reads search.md, lookup-result.md, game-detail.md)
 - Linked files: packages/api_contract/
@@ -460,7 +460,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given packages/api_contract/test/fixtures/, then there is one example JSON file per response type and status, and the app's data layer tests in T-028 reuse them (proved by: unit).
   8. Given the handoff, then it lists every DTO and field added, for the flutter-developer (proved by: manual).
   9. Given the game detail and game summary responses, then they carry the URL of the game's BGG page, built by the backend, so the app's "Powered by BGG" link (BGG-41) never builds BGG URLs itself. The handoff notes how the URL format was confirmed on BGG's site (proved by: unit, fixture round trip).
-- Decision needed before work starts (T-008 open question 4): should the contract add a `bad_request` error code (400) as an additive /v1 change for requests whose URL the server cannot parse (bad Host or X-Forwarded-Host)? Today those get 404 `not_found`. If yes, add it to AC6's list with a fixture, note it for the flutter-developer (the app treats it as a generic error), and change the server's rejection path in the same ticket or a follow-up. The orchestrator records the answer in docs/decisions.md.
+- Decision (T-008 open question 4), answered: no `bad_request` code; unparseable request URLs keep 404 `not_found`, and the app's ErrorCode switch stays exhaustive (docs/decisions.md 2026-10-13).
+- Outcome: PM sign-off round 3 (docs/handoffs/T-018.md). BGG field names and the BGG page URL format are carried into T-021 AC12; the exact-keys test for game detail is carried into T-022 AC11.
 
 ### T-019 Server: PostgreSQL access, migrations, and database health
 - Milestone: M2
@@ -517,6 +518,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   9. Given search and thing fixtures recorded from real BGG responses with the token scrubbed, then the parser maps them to internal models, including Unicode names such as "Café International" and HTML entities in descriptions decoded to plain text. Field names come from the recorded fixtures and are listed in the handoff, not taken from memory (docs/api-research.md section 1.4). Apart from entity decoding and trimming whitespace, BGG values are not changed (BGG-15) (proved by: unit).
   10. Given the expected wait for a new request (requests already waiting times the interval) is more than 20 s [ASSUMPTION], then the request fails fast with a busy failure, so endpoints can answer 503 with Retry-After instead of hanging (proved by: unit).
   11. Given each upstream call, then one log line records the BGG operation name, status, and duration, with no token and no search text (proved by: unit with log capture).
+  12. Carried from T-018 (Open questions 1 and 3). Given recorded real `thing` and `search` responses for at least bggId 13 (a base game) and one expansion, then the handoff lists, for each api_contract game field (name, year, players, play time, designers, publishers, description), the BGG XML element or attribute it comes from and whether BGG always sends it, and the PM adds these facts to docs/api-research.md section 1.4. Given a person opens `https://boardgamegeek.com/boardgame/13` and the expansion's page in a browser, then the handoff records whether each loads (or redirects) without `www`, and the server builds `bggUrl` in the confirmed form, including any separate expansion path. Given a field BGG always provides, then it becomes non-nullable in the api_contract DTO only as a compatible /v1 change (the server already always sends it, old app builds still decode it); a field BGG may omit stays nullable, and a field BGG does not provide is reported to the PM, not invented (proved by: unit, parser tests over the recorded fixtures; manual, the browser check).
 
 ### T-022 Server: GET /v1/games/{bggId} with 7-day cache
 - Milestone: M2
@@ -536,6 +538,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   8. Given any 200 response, then it decodes with the api_contract game detail DTO (proved by: endpoint).
   9. Given the stored and returned data, then it holds only fields that docs/api-research.md confirms and BGG's terms allow (proved by: manual, reviewer and PM compare).
   10. Given the migration, then the games table has an internal surrogate primary key and a `bgg_id` column that is unique and nullable (so a game from another source can exist later without one), and no other table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys"). The route still takes `{bggId}` and finds the game through the `bgg_id` column, and responses keep the api_contract field `bggId`; the internal id never appears in a response (proved by: integration against real PostgreSQL, where inserting a second row with bgg_id 13 fails, plus endpoint check of the response body).
+  11. Carried from T-018 review R3-S1. Given packages/api_contract/test/fixtures/game_detail/full.json, when it is decoded with `GameDetailResponse.fromJson` and encoded with `toJson()`, then the key set equals exactly `bggId`, `name`, `yearPublished`, `minPlayers`, `maxPlayers`, `minPlayTimeMinutes`, `maxPlayTimeMinutes`, `designers`, `publishers`, `description`, `bggUrl`, `fetchedAt` (or the set as amended by T-021 AC12), so no image URL field (PRD Q5) or other field can be added unnoticed (proved by: unit in packages/api_contract/test/game_detail_response_test.dart).
 - Carried forward from T-013: `upstream_unavailable` must stay 503 with Retry-After (AC7), never 500. The app retries 502, 503, and 504 and maps 500 (`internal_error`) to the unexpected failure with no retry.
 
 ### T-023 Server: GET /v1/games/search
@@ -631,8 +634,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-028 App: games remote data source
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-013, T-018
+- Status: ready
+- Depends on: T-013, T-018 (both done)
 - UX spec: n/a
 - Linked files: app/lib/features/*/data/ (the developer records in the handoff which feature folder holds the shared games data source)
 - Acceptance criteria:

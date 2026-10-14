@@ -1,0 +1,18 @@
+{
+  "bggId": 13,
+  "name": "Catan",
+  "yearPublished": 1995,
+  "minPlayers": 3,
+  "maxPlayers": 4,
+  "minPlayTimeMinutes": 60,
+  "maxPlayTimeMinutes": 120,
+  "designers": [
+    "Example Designer"
+  ],
+  "publishers": [
+    "Example Publisher A",
+    "Example Publisher B"
+  ],
+  "description": "Example description written for tests.\n\nSecond paragraph with Unicode: café, Spiel, 日本語.",
+  "bggUrl": "https://boardgamegeek.com/boardgame/13"
+}

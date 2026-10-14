@@ -5,3 +5,4 @@
 - [Compose stack notes](compose-stack-notes.md): T-010 pinned images, PG18 volume path, pg_isready TCP, Caddy keepalive, log retention gap, memory
 - [CI server workflow](ci-server-workflow.md): T-011 context size, gha cache, QEMU; T-098 Ubuntu 26 containerd .Size, export size, healthcheck exec
 - [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path
+- [M2 contract decisions](m2-contract-decisions.md): T-018 bad_request declined, no images (Q5), bggUrl evidence, BGG fields unconfirmed, EAN-8 padding
