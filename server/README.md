@@ -79,7 +79,7 @@ PostgreSQL 18 through the `postgres` package (BSD-3-Clause), one connection pool
 Startup order (lib/src/server_runner.dart):
 
 1. Config (exit 78 on any problem).
-2. Wait for PostgreSQL: `SELECT 1` every second for up to 30 s, then exit 69 (EX_UNAVAILABLE) with a `database unreachable` line. A wrong password also ends here (SQLSTATE 28P01 in the log, never the password).
+2. Wait for PostgreSQL: `SELECT 1` every second for up to 30 s, then exit 69 (EX_UNAVAILABLE) with a `database unreachable` line. Settings that retrying cannot fix end this step at once, after the first attempt, with the same exit code and line plus `"permanent":true`: SQLSTATE 28P01 (wrong password), 28000 (role not allowed), and 3D000 (no such database). The log has the SQLSTATE, never the password.
 3. One `database ready` line with `serverVersion`, `localeProvider`, `locale`, and `encoding`.
 4. Migrations (below). Failure: exit 70 (EX_SOFTWARE).
 5. Listen.
@@ -92,13 +92,13 @@ lib/src/db/migrations.dart lists every migration as a Dart constant (the scratch
 
 - At startup the server takes a PostgreSQL advisory lock (key 7019019), creates `schema_migrations (version, name, checksum, applied_at)` if needed, and checks the recorded history: it must be 1..n with the SHA-256 checksum of each migration's SQL. A database at a version this server does not know, a gap, or an edited migration stops startup (`migrations cannot run`, exit 70).
 - Each pending migration runs in its own transaction together with its `schema_migrations` row. If it fails, the transaction rolls back (nothing of it remains), the server logs `migration failed` with `version`, `name`, the SQLSTATE, and PostgreSQL's message about our SQL (`dbMessage`, `position`), and exits 70 without listening. Migrations before it stay applied.
-- Rules: append only (never edit, reorder, or remove a merged migration; add a new one); no statements that cannot run in a transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`); no parameters (the SQL is sent with the simple query protocol, so several statements may be separated by semicolons); no column for a user id, device id, IP address, or user agent (T-019 AC8; test/db/migrations_test.dart checks the SQL and the migrated schema).
+- Rules: append only (never edit, reorder, or remove a merged migration; add a new one); no statements that cannot run in a transaction (`CREATE INDEX CONCURRENTLY`, `VACUUM`); no transaction control (`BEGIN`, `START TRANSACTION`, `COMMIT`, `END`, `ROLLBACK`, `ABORT`, `SAVEPOINT`, `RELEASE`, `PREPARE TRANSACTION`, in any form), because a `COMMIT` would end the migration's transaction and a later failure could no longer roll it back: startup refuses such a migration (exit 70, `migrations cannot run`) before touching the database, while `BEGIN ... END` inside a `$$` PL/pgSQL body or a `BEGIN ATOMIC` body is fine; no parameters (the SQL is sent with the simple query protocol, so several statements may be separated by semicolons); no column for a user id, device id, IP address, or user agent (T-019 AC8; test/db/migrations_test.dart checks the SQL and the migrated schema).
 - Keys: every table gets our own surrogate key; external ids such as `bgg_id` are unique columns (docs/decisions.md 2026-10-11). Migration 1 creates `games (id, bgg_id, created_at)`; T-022 adds the cached BGG fields.
 - Logs: `migration applied` (`version`, `name`, `durationMs`) for each one, then `database schema up to date` (`version`, `appliedNow`).
 
 ### Errors from PostgreSQL in logs
 
-`describeError` logs a PostgreSQL server error as its severity and SQLSTATE only (for example `ServerException: error 23505`), because the message, detail, and hint can quote values from a query ("Key (bgg_id)=(13) already exists"). Look the code up at https://www.postgresql.org/docs/18/errcodes-appendix.html. Only the migration failure line adds PostgreSQL's message, because it is about our own SQL.
+`describeError` logs a PostgreSQL server error as its severity and SQLSTATE only (for example `ServerException: error 23505`), because the message, detail, and hint can quote values from a query ("Key (bgg_id)=(13) already exists"). Other errors of the driver (`PgException`) are logged as type and severity only (for example `PgException: error`), because some of their messages quote a query parameter. Look the code up at https://www.postgresql.org/docs/18/errcodes-appendix.html. Only the migration failure line adds PostgreSQL's message, because it is about our own SQL.
 
 ## Shutdown
 
