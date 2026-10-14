@@ -46,7 +46,17 @@ Middleware order, outermost first:
 
 1. request log: one line per request, including 401, 429, and 500 responses;
 2. error boundary: any throw, including from the /v1 guards, becomes a 500 envelope;
-3. root router: `/health`, and `/v1` mounted behind the `v1Middleware` list. Every request under /v1, matched or not, passes through that list. Per-IP rate limiting (T-020) and then attestation (T-066) go there.
+3. root router: `/health`, and `/v1` mounted behind the `v1Middleware` list. Every request under /v1, matched or not, passes through that list: per-IP rate limiting (T-020) first, then attestation (T-066).
+
+## Rate limiting
+
+Every request under /v1 (matched or not) counts against its client's limit; /health and other paths outside /v1 never do (lib/src/http/rate_limit.dart, rate_limiter.dart).
+
+- Limit: `RATE_LIMIT_PER_MINUTE` requests (default 60 [ASSUMPTION]) per client in a fixed one-minute window that starts with the client's first request. Over the limit: 429 with the `rate_limited` envelope and `Retry-After` in whole seconds (rounded up, at least 1) until that window ends. Refused requests do not extend the window.
+- Client: the socket peer address. Only when the peer is listed in `TRUSTED_PROXY_ADDRESSES` (Caddy, 10.213.7.10 in deploy/docker-compose.yml) is the client the last X-Forwarded-For entry, the one Caddy added; entries before it are client-supplied and ignored. From any other peer, X-Forwarded-For is ignored. A trusted peer without a valid last entry is limited by its own address.
+- Key: IPv4 by full address (IPv4-mapped IPv6 counts as IPv4); IPv6 by its /64 prefix [ASSUMPTION], because one subscriber usually holds a whole /64.
+- Privacy: keys live only in the limiter's memory, never in logs or the database, and each is removed once its window has passed. The 429 still writes the normal `request` line (route `<unmatched>`, since routing never ran), with no address.
+- Memory: at most `RATE_LIMIT_MAX_TRACKED_IPS` keys (default 100,000 [ASSUMPTION], at most 200,000). When full, the oldest key is evicted, and a warning `rate limiter full, evicting oldest entries` with `maxTracked` is logged at most once a minute. Measured on Windows x64 with an AOT build (2026-10-14): filling 100,000 keys grew RSS by about 10 MB the first time (map resizing) and about 5 MB for a second limiter; 1,000,000 hits with eviction took about 0.3 s.
 
 The error boundary sits outside the /v1 guards on purpose: an exception thrown by a guard must still become our envelope, because anything that escapes to shelf_io is printed as plain text with the raw URL.
 
@@ -67,7 +77,9 @@ Errors (`Logger.error`) are written as `errorType` (the runtime type), `error`, 
 
 - FormatException: only its message, never its source (the raw input).
 - HttpException and SocketException: only their message, never the URI or address.
-- Anything else: `toString()` with URL query strings and URL user info replaced by `<redacted>`.
+- ArgumentError, RangeError, and IndexError: only the type, `name`, and `message`, never the invalid value (it is often a path parameter, T-020 AC8).
+- Anything else: `toString()`.
+- In every case, absolute URLs keep only scheme and host: user info, path, query string, and fragment become `<redacted>` (for example `http://localhost/<redacted>?<redacted>`). A query string outside a URL (`?q=...`) is redacted too. A relative path such as shelf's `request.url` (`games/123`) is not recognized, so never put one in an exception message.
 - At most 300 characters.
 
 That is a safety net. The rule for new code: never put request data (barcodes, queries, ids from the client), tokens, API keys, or upstream response bodies into exception messages or log fields.
