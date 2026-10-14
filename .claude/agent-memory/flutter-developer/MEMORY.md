@@ -1,3 +1,3 @@
-- [App conventions](app_conventions.md) — T-012 to T-031 conventions: routes, shell keyboard rule, fake keyboard, OpenOnce, arb checks, domain allowlist, tests
+- [App conventions](app_conventions.md) — T-012 to T-031, T-030 scanner fakes and plugin-channel trap, routes, shell rules, tests
 - [Windows toolchain quirks](windows_toolchain_quirks.md) — Bash guard limits, Flutter PATH, CRLF, Gradle, emulator vs attached phone, disk, test fonts
 - [CI app workflow](ci_app_workflow.md) — app.yml design, strict coverage gate (T-014, T-099 rules), pipefail trap, workflow rules, scratch proofs
