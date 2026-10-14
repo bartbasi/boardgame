@@ -18,6 +18,12 @@ Learned on T-019 (2026-10-13), driver `postgres` 3.5.20 (BSD-3, isoos):
 - Collation: `--locale-provider=builtin --locale=C.UTF-8` (Alpine default is libc en_US.utf8 with empty datcollversion under musl).
 - Memory: postgres idle 41 MiB, 5 clients ~87 MiB, 20 clients ~124 MiB, no OOM in 256 MB; shared_buffers 128 MB default.
 
+Round 2 (2026-10-14):
+- Simple-protocol multi-statement SQL inside runTx: an embedded `COMMIT;` really ends the transaction (QA T-019-B1). `validateMigrations` now refuses transaction control via a lexer (lib/src/db/transaction_control.dart) that skips comments, quotes, `$tag$` bodies, and `BEGIN ATOMIC ... END` (CASE nests END there).
+- `describeError`: `PgException` (non-server) logs type + severity only; driver messages quote parameter values. Put the case after `ServerException` (subclass).
+- Startup fails at once on SQLSTATE 28P01/28000/3D000 (`permanentStartupSqlStates`), same `database unreachable` line plus `permanent: true`, so QA tests matching the message still pass.- Orchestrator decision: /health stays server-only, not in packages/api_contract (the app never calls it).
+- Python edits on Windows: open with `newline=''` or text mode writes CRLF.
+
 **Why:** these cost a round or a CI failure to find; T-021 to T-025 and T-072 build on the DB layer.
 **How to apply:** reuse the test helpers, put new tables in a new migration, keep request data out of SQL literals, and check repo.yml (gitleaks) on the first push.
 
