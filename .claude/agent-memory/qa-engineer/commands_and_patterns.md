@@ -67,3 +67,8 @@ api_contract M2 (T-018):
 - Strict coverage gate: `dart run ../../server/tool/coverage_gate.dart . 80` after `dart run coverage:test_with_coverage`.
 - `dart analyze --fatal-infos` flags untyped `[]`/`{}` literals in tests (inference_failure_on_collection_literal); use `<Object>[]`.
 - Bug pattern: converters built on `DateTime.parse` and `double.toInt()` are lenient (month 13 rolls over, 1e300 clamps to int max).
+
+App manual entry (T-031):
+- Field semantics: use `find.semantics.byLabel('Barcode number').evaluate().single` and visit children; `tester.getSemantics(field).label` is empty. Error removal needs pumpAndSettle (animated), not pump.
+- Double-submit pattern: two `tester.tap` / `receiveAction(search)` without pumping exposes missing guards on push navigation (T-031-B1).
+- `setTestWindow` is sync (no await). Destination label for tab 3 is "Collection".
