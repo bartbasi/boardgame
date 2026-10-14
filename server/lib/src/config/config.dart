@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import '../http/rate_limiter.dart';
 import '../logging/logger.dart';
 
 /// Thrown by [Config.load] when one or more variables are missing or invalid.
@@ -25,13 +28,45 @@ class ConfigException implements Exception {
 /// (test/config/env_example_test.dart checks this).
 final class Config {
   /// Creates a config. Use [load] in production code.
-  const Config({required this.port, required this.logLevel});
+  const Config({
+    required this.port,
+    required this.logLevel,
+    this.rateLimitPerMinute = defaultRateLimitPerWindow,
+    this.rateLimitMaxTrackedIps = defaultRateLimitMaxTracked,
+    this.trustedProxies = const [],
+  });
 
   /// TCP port to listen on (PORT, 1 to 65535).
   final int port;
 
   /// Minimum log level (LOG_LEVEL).
   final LogLevel logLevel;
+
+  /// Requests allowed per client IP per minute on /v1 (RATE_LIMIT_PER_MINUTE,
+  /// default [defaultRateLimitPerWindow], T-020 AC1).
+  final int rateLimitPerMinute;
+
+  /// Most client IPs the rate limiter tracks at once
+  /// (RATE_LIMIT_MAX_TRACKED_IPS, default [defaultRateLimitMaxTracked],
+  /// T-020 AC7).
+  final int rateLimitMaxTrackedIps;
+
+  /// Peers whose X-Forwarded-For is trusted (TRUSTED_PROXY_ADDRESSES, a
+  /// comma-separated list of IP addresses; default none, T-020 AC4). In
+  /// Compose this is Caddy's fixed address on the `web` network.
+  final List<InternetAddress> trustedProxies;
+
+  /// Largest RATE_LIMIT_PER_MINUTE accepted [ASSUMPTION].
+  static const maxRateLimitPerMinute = 10000;
+
+  /// Largest RATE_LIMIT_MAX_TRACKED_IPS accepted [ASSUMPTION]. The limiter
+  /// holds about 5 MB per 100,000 entries, and the process grew by up to
+  /// 10 MB while filling them (server/README.md), so this keeps the limiter
+  /// well inside the server container's 64 MB.
+  static const maxRateLimitMaxTrackedIps = 200000;
+
+  /// Most entries in TRUSTED_PROXY_ADDRESSES.
+  static const maxTrustedProxies = 10;
 
   /// Reads and validates every variable from [environment].
   ///
@@ -56,8 +91,75 @@ final class Config {
       LogLevel.tryParse,
     );
 
+    final perMinute = _optional(
+      environment,
+      'RATE_LIMIT_PER_MINUTE',
+      problems,
+      'must be an integer from 1 to $maxRateLimitPerMinute '
+          '(default $defaultRateLimitPerWindow)',
+      defaultRateLimitPerWindow,
+      (raw) => _parseInt(raw, 1, maxRateLimitPerMinute),
+    );
+    final maxTracked = _optional(
+      environment,
+      'RATE_LIMIT_MAX_TRACKED_IPS',
+      problems,
+      'must be an integer from 1 to $maxRateLimitMaxTrackedIps '
+          '(default $defaultRateLimitMaxTracked)',
+      defaultRateLimitMaxTracked,
+      (raw) => _parseInt(raw, 1, maxRateLimitMaxTrackedIps),
+    );
+    final trusted = _optional(
+      environment,
+      'TRUSTED_PROXY_ADDRESSES',
+      problems,
+      'must be a comma-separated list of at most $maxTrustedProxies IP '
+          'addresses (default none)',
+      const <InternetAddress>[],
+      _parseAddresses,
+    );
+
     if (problems.isNotEmpty) throw ConfigException(problems);
-    return Config(port: port!, logLevel: logLevel!);
+    return Config(
+      port: port!,
+      logLevel: logLevel!,
+      rateLimitPerMinute: perMinute!,
+      rateLimitMaxTrackedIps: maxTracked!,
+      trustedProxies: trusted!,
+    );
+  }
+
+  static T? _optional<T extends Object>(
+    Map<String, String> environment,
+    String name,
+    List<String> problems,
+    String rule,
+    T fallback,
+    T? Function(String raw) parse,
+  ) {
+    final raw = environment[name]?.trim() ?? '';
+    if (raw.isEmpty) return fallback;
+    final value = parse(raw);
+    if (value == null) problems.add('$name is invalid; it $rule.');
+    return value;
+  }
+
+  static int? _parseInt(String raw, int min, int max) {
+    if (!RegExp(r'^[0-9]{1,7}$').hasMatch(raw)) return null;
+    final value = int.parse(raw);
+    return value >= min && value <= max ? value : null;
+  }
+
+  static List<InternetAddress>? _parseAddresses(String raw) {
+    final parts = raw.split(',').map((p) => p.trim()).toList();
+    if (parts.length > maxTrustedProxies) return null;
+    final result = <InternetAddress>[];
+    for (final part in parts) {
+      final address = InternetAddress.tryParse(part);
+      if (address == null) return null;
+      result.add(address);
+    }
+    return List.unmodifiable(result);
   }
 
   static T? _read<T extends Object>(
