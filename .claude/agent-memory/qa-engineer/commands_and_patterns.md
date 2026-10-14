@@ -73,3 +73,4 @@ server + PostgreSQL (T-019):
 - Helpers: test/support/database.dart (TestPostgres, createScratch, TcpProxy), ServerRun in server_run.dart. pg_locks and pg_stat_activity are server-wide: filter by database/datname in assertions or parallel test files pollute counts.
 - Dev's AC5 pool test uses a fixed 150 ms wait: flaky under load. Embedded COMMIT in a migration escapes the tx (T-019-B1).
 - After Docker work: `docker rm -f`, `docker rmi postgres:18.6-alpine3.24`, remove the untagged dart image by digest.
+- Lexer-style scanners: test every whitespace class the target lexer has (\v bypassed T-019's COMMIT scanner). After Docker runs C: free space dropped ~5 GB (VM disk grows, never shrinks).
