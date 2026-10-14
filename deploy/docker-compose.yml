@@ -35,6 +35,15 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/.env (copy deploy/.env.example)}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env (copy deploy/.env.example)}
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in deploy/.env (copy deploy/.env.example)}
+      # Collation (T-019, proposed in docs/handoffs/T-019.md): PostgreSQL's
+      # builtin locale provider with C.UTF-8, so sort order (code points) and
+      # character classes come from PostgreSQL itself, not from the C library
+      # of the image, and cannot change under an OS or image upgrade.
+      # https://www.postgresql.org/docs/18/locale.html#LOCALE-PROVIDERS
+      # https://www.postgresql.org/docs/18/app-initdb.html
+      # Like the three values above, it takes effect only on an empty pgdata
+      # volume (first start).
+      POSTGRES_INITDB_ARGS: "--locale-provider=builtin --locale=C.UTF-8"
     volumes:
       # PostgreSQL 18 images keep data in /var/lib/postgresql/18/docker and
       # declare the volume at /var/lib/postgresql (https://hub.docker.com/_/postgres).
@@ -84,6 +93,15 @@ services:
     environment:
       PORT: "8080"
       LOG_LEVEL: ${LOG_LEVEL:?set LOG_LEVEL in deploy/.env (copy deploy/.env.example)}
+      # PostgreSQL over the internal `db` network (T-019). The server uses
+      # the role created from POSTGRES_USER, which owns POSTGRES_DB, so it can
+      # run the migrations at startup. DATABASE_POOL_MAX is left at the
+      # server's default of 5 (server/.env.example).
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: ${POSTGRES_DB:?set POSTGRES_DB in deploy/.env (copy deploy/.env.example)}
+      DATABASE_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/.env (copy deploy/.env.example)}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env (copy deploy/.env.example)}
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +116,8 @@ services:
     healthcheck:
       # In-binary probe: GET http://127.0.0.1:$PORT/health, exit 0 on 200,
       # 1 otherwise, within 3 s (docs/decisions.md 2026-10-12, T-010 AC12).
+      # /health is 503 while PostgreSQL is unreachable (T-019 AC6), so the
+      # server turns unhealthy then too; it keeps running and recovers.
       test: ["CMD", "/app/server", "--healthcheck"]
       interval: 30s
       timeout: 5s

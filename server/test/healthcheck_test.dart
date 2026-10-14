@@ -5,6 +5,7 @@ import 'package:boardgame_server/boardgame_server.dart';
 import 'package:test/test.dart';
 
 import 'support/harness.dart';
+import 'support/database.dart';
 
 /// A bare local HTTP server that answers every request with [handle].
 Future<HttpServer> _stubServer(
@@ -32,7 +33,10 @@ void main() {
       final listening = Completer<HttpServer>();
       final serverLogs = LogCapture();
       final serverExit = runServer(
-        environment: {'PORT': '${await freePort()}', 'LOG_LEVEL': 'info'},
+        environment: withTestDatabase({
+          'PORT': '${await freePort()}',
+          'LOG_LEVEL': 'info',
+        }),
         shutdownSignals: signals.stream,
         stdoutLine: serverLogs.call,
         stderrLine: serverLogs.call,
@@ -279,7 +283,7 @@ void main() {
 
       final exit = runMain(
         const [],
-        environment: _env(port),
+        environment: withTestDatabase(_env(port)),
         shutdownSignals: () => signals.stream,
         stdoutLine: out.call,
         stderrLine: out.call,

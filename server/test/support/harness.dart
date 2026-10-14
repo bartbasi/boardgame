@@ -32,10 +32,15 @@ class TestApp {
     this.version = '1.2.3+test',
     void Function(Routes v1)? addTestRoutes,
     LogLevel minLevel = LogLevel.debug,
+    DatabaseHealth? databaseHealth,
   }) {
     handler = buildApp(
       version: version,
       logger: logs.logger(minLevel: minLevel),
+      // Route tests that do not involve the database use a health check
+      // that reports it as up. The database itself is never faked: /health
+      // with a real PostgreSQL is tested in test/db/ (T-019 AC6, AC7).
+      databaseHealth: databaseHealth ?? DatabaseHealth.alwaysUp(),
       addTestRoutes: addTestRoutes,
     );
   }
