@@ -1,4 +1,9 @@
 import 'package:drift/drift.dart';
+// remote.dart is marked experimental, but it is the only export of
+// DriftRemoteException, the wrapper for errors from the background isolate.
+// database_providers_test.dart fails if the wrapping changes (R1-G1).
+// ignore: experimental_member_use
+import 'package:drift/remote.dart';
 
 import '../../domain/result.dart';
 import 'app_database.dart';
@@ -230,8 +235,10 @@ class LocalGameStore {
     try {
       return Result.ok(await body());
     } on Object catch (error) {
-      // Only the error type: messages can quote stored data.
-      log?.call('LocalGameStore.$operation failed: ${error.runtimeType}');
+      // Only the error type: messages can quote stored data or paths. On the
+      // background isolate drift wraps the error, so log the cause's type.
+      final cause = error is DriftRemoteException ? error.remoteCause : error;
+      log?.call('LocalGameStore.$operation failed: ${cause.runtimeType}');
       return Result.err(const StorageFailure());
     }
   }

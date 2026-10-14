@@ -72,6 +72,28 @@ void main() {
     await second.close();
   });
 
+  test('errors from the background isolate log the cause type only '
+      '(R1-G1)', () async {
+    final db = openAppDatabase();
+    addTearDown(db.close);
+    final logged = <String>[];
+    final store = LocalGameStore(db, log: logged.add);
+    // A key that breaks the CHECK constraint fails inside the background
+    // isolate; drift hands it over as a DriftRemoteException.
+    final result = await store.saveConfirmedMatch(
+      gtin13: '36000291452',
+      bggId: 13,
+      confirmedAt: DateTime.utc(2026, 10, 13),
+    );
+    expect(result.failureOrNull, const StorageFailure());
+    expect(logged, [
+      'LocalGameStore.saveConfirmedMatch failed: SqliteException',
+    ]);
+    // No message, SQL, value, or path reaches the log.
+    expect(logged.single, isNot(contains('36000291452')));
+    expect(logged.single, isNot(contains(root.path)));
+  });
+
   test('appDatabaseProvider opens the app database and closes it on '
       'dispose', () async {
     final container = ProviderContainer();
