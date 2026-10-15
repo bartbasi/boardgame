@@ -13,6 +13,9 @@ Learned on T-084 (2026-10-14):
 - Route mounted at `/ebay` on the root router with its own RateLimiter (60/min, 10,000 keys) so /v1 guards (T-066 attestation) never apply. Config pair optional (both or neither) until the eBay client exists; proposed to make it required with production eBay credentials.
 - Placeholders for secret-like values: use low-entropy repeats (`replace-me-replace-me-...`, `fake-token-fake-token-...`) to stay under gitleaks' entropy threshold. Compute fixture hashes outside Dart with `printf '%s' ... | sha256sum`.
 - deploy/.env.example: server.yml requires every uncommented variable to be a `${VAR:?}` guard, so optional variables go in commented-out lines and Compose uses `${VAR:-}`.
+- Round 2 review (R1-M1): `Stream.timeout` bounds only the gap between chunks; any route that reads a body needs ONE overall deadline (Timer + cancel the subscription), or a trickling client holds connections for days. Caddy body limits/timeouts are a second layer (T-071).
+- Round 2: the route limit was raised to 300 per minute (orchestrator decision); a config URL that is hashed verbatim must be canonical (`Uri.parse(url).toString() == url`); optional secret pairs go commented out in server/.env.example too (env_example_test parses `# KEY=value`).
+- QA tests pin current constants and behaviour; when a finding changes them, list the QA tests that will fail and leave them to QA.
 - `coverage:test_with_coverage` exits 255 if any test fails; run it on the test files that pass without a database.
 
 **Why:** these cost a round of probing; T-052/T-053 (eBay client) and T-055 (listing cache) build on this.
