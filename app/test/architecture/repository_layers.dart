@@ -103,6 +103,13 @@ String _withoutLineComments(String source) =>
     source.replaceAll(RegExp(r'//.*$', multiLine: true), '');
 
 /// Every repository interface and implementation under [libDir].
+///
+/// Known limits (T-029 review R2-G1; none of these forms is in lib/, and
+/// review would catch them): only `class` declarations are read, so a plain
+/// `mixin XRepository`, an `enum` or `extension type` that implements a
+/// repository, and a class whose annotation sits on the same line as
+/// `class` (`@immutable class XRepository`) are not seen. Block comments
+/// are not stripped.
 List<RepositoryDeclaration> findRepositories(Directory libDir) {
   if (!libDir.existsSync()) return const [];
   final root = libDir.absolute.path;
