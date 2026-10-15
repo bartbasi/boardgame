@@ -266,6 +266,22 @@ jobs:
       - name: Build iOS app without signing
         run: flutter build ios --no-codesign
 
+      # Under Swift Package Manager, permission_handler_apple compiles its
+      # camera code only when its package manifest finds
+      # NSCameraUsageDescription in our Info.plist; otherwise every camera
+      # check reports denied and the build still succeeds. Its README's check
+      # prints the resolved macros (T-030 review R1-S1).
+      - name: Check permission_handler enables the camera permission
+        run: |
+          PERMISSION_HANDLER_VERBOSE=1 swift package --manifest-cache none \
+            --package-path ios/Flutter/ephemeral/Packages/.packages/permission_handler_apple \
+            dump-package > /dev/null 2> permission_macros.txt
+          cat permission_macros.txt
+          if ! grep -Eq '^[[:space:]]*PERMISSION_CAMERA=1[[:space:]]*$' permission_macros.txt; then
+            echo "::error::permission_handler_apple resolved PERMISSION_CAMERA to something other than 1, so the camera permission would be compiled out."
+            exit 1
+          fi
+
   goldens-update:
     name: Render goldens
     # Manual runs with update_goldens only. Same runner image and Flutter
