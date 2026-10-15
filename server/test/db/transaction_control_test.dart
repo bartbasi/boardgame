@@ -375,6 +375,73 @@ void _t101() {
       });
     });
 
+    group('round 2, R1-M1: the body ends at the first END that starts a body '
+        'statement, whatever CASE and END appear inside statements', () {
+      const f = 'CREATE FUNCTION f() RETURNS int LANGUAGE sql BEGIN ATOMIC';
+      const refused = {
+        'AS case, then END; END; (reviewer probe 1)':
+            '$f SELECT 1 AS case; END; END; SELECT 1;',
+        'AS case, then COMMIT, then a second body (reviewer probe 2)':
+            '$f SELECT 1 AS case; END; COMMIT; '
+            'CREATE FUNCTION g() RETURNS int LANGUAGE sql '
+            'BEGIN ATOMIC SELECT 1; END;',
+        't.case, then END; END; (reviewer probe 3)':
+            '$f SELECT t.case FROM t; END; END;',
+        't.case, then COMMIT': '$f SELECT t.case FROM t; END; COMMIT;',
+        'AS end, then COMMIT': '$f SELECT 1 AS end; END; COMMIT;',
+        't.end and AS "case", then ROLLBACK':
+            '$f SELECT t.end AS "case" FROM t; END; ROLLBACK;',
+        'a CASE that never ends inside a statement, then COMMIT':
+            '$f SELECT 1 AS case; SELECT 2; END; COMMIT;',
+      };
+      const expected = {
+        'AS case, then END; END; (reviewer probe 1)': 'END',
+        'AS case, then COMMIT, then a second body (reviewer probe 2)': 'COMMIT',
+        't.case, then END; END; (reviewer probe 3)': 'END',
+        't.case, then COMMIT': 'COMMIT',
+        'AS end, then COMMIT': 'COMMIT',
+        't.end and AS "case", then ROLLBACK': 'ROLLBACK',
+        'a CASE that never ends inside a statement, then COMMIT': 'COMMIT',
+      };
+      for (final MapEntry(key: label, value: sql) in refused.entries) {
+        test('refused: $label', () {
+          expect(findTransactionControl(sql), expected[label], reason: sql);
+          expect(
+            findTransactionControl(sql.toLowerCase()),
+            expected[label],
+            reason: sql.toLowerCase(),
+          );
+        });
+      }
+
+      const allowed = {
+        'AS end inside the body (QA round 1 false positive, now fixed)':
+            '$f SELECT 1 AS end; SELECT 2; END;',
+        'AS case inside the body': '$f SELECT 1 AS case; END;',
+        't.case and t.end inside the body':
+            '$f SELECT t.case, t.end FROM t; END; SELECT 1;',
+        'nested CASE ... END across several statements':
+            '$f SELECT CASE WHEN true THEN CASE 1 WHEN 1 THEN 2 END END; '
+            'SELECT CASE WHEN false THEN 0 ELSE 1 END AS end; END;',
+        'an empty body': '$f END;',
+        'an empty statement inside the body': '$f SELECT 1;; END;',
+      };
+      for (final MapEntry(key: label, value: sql) in allowed.entries) {
+        test('allowed: $label', () {
+          final scan = scanTransactionControl(sql);
+          expect(scan.statement, isNull, reason: sql);
+          expect(scan.unclosedBody, isFalse, reason: sql);
+        });
+      }
+
+      test('a CASE END in a body statement does not close the body', () {
+        final scan = scanTransactionControl(
+          '$f SELECT CASE WHEN true THEN 1 END;',
+        );
+        expect(scan.unclosedBody, isTrue);
+      });
+    });
+
     group(r'optional R3-G2: a $ right after a number opens a dollar quote', () {
       const probes = {
         r'the reviewer probe': r'SELECT 1$$ $$; COMMIT; SELECT $$x$$;',

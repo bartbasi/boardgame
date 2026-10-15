@@ -46,8 +46,14 @@ String? findTransactionControl(String sql) =>
 /// allowed. Matching is case-insensitive.
 ///
 /// Function body mode (T-101): inside a SQL-standard function body
-/// (`BEGIN ATOMIC ... END`, with `CASE ... END` nesting inside it) a `;`
-/// does not start a new statement. The scanner enters that mode only where
+/// (`BEGIN ATOMIC ... END`) a `;` does not start a new statement. The body
+/// ends at an END that is the first token right after ATOMIC or right after
+/// a `;` inside the body. That is PostgreSQL's grammar
+/// (`BEGIN_P ATOMIC routine_body_stmt_list END_P`, where the list is
+/// `stmt ';' stmt ';' ...`): no body statement starts with END, and the END
+/// of a CASE expression can never stand there because a CASE holds no `;`.
+/// So `CASE`, `END`, `AS end`, `AS case`, or `t.case` anywhere else in a
+/// body statement do not matter (review R1-M1). The scanner enters that mode only where
 /// PostgreSQL's grammar allows such a body: in a statement that starts with
 /// `CREATE FUNCTION`, `CREATE PROCEDURE`, `CREATE OR REPLACE FUNCTION`, or
 /// `CREATE OR REPLACE PROCEDURE`, outside any parentheses (so not in the
@@ -76,12 +82,16 @@ TransactionControlScan scanTransactionControl(String sql) {
   var routine = false;
   // Parenthesis depth in the current statement, outside a body.
   var parens = 0;
-  // Depth of BEGIN ATOMIC ... END (and CASE ... END inside it).
-  var atomicDepth = 0;
+  // Inside a BEGIN ATOMIC ... END body.
+  var inBody = false;
+  // In a body, whether the next token is the first of a body statement
+  // (right after ATOMIC or after a `;`), the only place its END can be.
+  var bodyStatementStart = false;
 
   void otherToken() {
     tokenIndex++;
     previousWord = null;
+    bodyStatementStart = false;
   }
 
   while (i < s.length) {
@@ -107,7 +117,7 @@ TransactionControlScan scanTransactionControl(String sql) {
     }
     if (c == _semicolon) {
       i++;
-      if (atomicDepth == 0) {
+      if (!inBody) {
         tokenIndex = 0;
         firstWord = null;
         previousWord = null;
@@ -115,6 +125,7 @@ TransactionControlScan scanTransactionControl(String sql) {
         parens = 0;
       } else {
         otherToken();
+        bodyStatementStart = true;
       }
       continue;
     }
@@ -162,7 +173,7 @@ TransactionControlScan scanTransactionControl(String sql) {
         i++;
       }
       final word = s.substring(start, i).toUpperCase();
-      if (atomicDepth == 0) {
+      if (!inBody) {
         if (tokenIndex == 0) {
           if (_transactionControlWords.contains(word)) return _found(word);
           firstWord = word;
@@ -179,19 +190,22 @@ TransactionControlScan scanTransactionControl(String sql) {
             parens == 0 &&
             word == 'ATOMIC' &&
             previousWord == 'BEGIN') {
-          atomicDepth = 1;
+          inBody = true;
+          tokenIndex++;
+          previousWord = word;
+          bodyStatementStart = true;
+          continue;
         }
-      } else if (word == 'CASE') {
-        atomicDepth++;
-      } else if (word == 'END') {
-        atomicDepth--;
+      } else if (bodyStatementStart && word == 'END') {
+        inBody = false;
       }
       tokenIndex++;
       previousWord = word;
+      bodyStatementStart = false;
       continue;
     }
     // An operator or punctuation.
-    if (atomicDepth == 0) {
+    if (!inBody) {
       if (c == _openParen) {
         parens++;
       } else if (c == _closeParen && parens > 0) {
@@ -201,7 +215,7 @@ TransactionControlScan scanTransactionControl(String sql) {
     i++;
     otherToken();
   }
-  return (statement: null, unclosedBody: atomicDepth > 0);
+  return (statement: null, unclosedBody: inBody);
 }
 
 TransactionControlScan _found(String statement) =>
