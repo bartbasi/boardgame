@@ -150,16 +150,19 @@ void main() {
       );
     });
 
-    test('CASE as a label or END as a label closes or opens early but only '
-        'in the safe direction', () {
-      // "AS end" is valid SQL (AS accepts any keyword). The scanner then
-      // thinks the body ended; the real END is read as a statement start and
-      // refused: a false positive, never a missed COMMIT.
-      expect(stmt('$head BEGIN ATOMIC SELECT 1 AS end; SELECT 2; END;'), 'END');
-      // "AS case" leaves the body open at the end of input: refused as an
-      // unclosed body.
+    test('AS end and AS case inside a body are labels: the body ends at the '
+        'real END and a COMMIT after it is reported', () {
+      expect(
+        stmt('$head BEGIN ATOMIC SELECT 1 AS end; SELECT 2; END;'),
+        isNull,
+      );
+      expect(
+        unclosed('$head BEGIN ATOMIC SELECT 1 AS end; SELECT 2; END;'),
+        isFalse,
+      );
       final sql = '$head BEGIN ATOMIC SELECT 1 AS case; SELECT 2; END; COMMIT;';
-      expect(stmt(sql) != null || unclosed(sql), isTrue);
+      expect(stmt(sql), 'COMMIT');
+      expect(unclosed(sql), isFalse);
     });
 
     test('a RETURN-style function (no BEGIN ATOMIC) ends at its semicolon', () {
