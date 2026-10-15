@@ -29,11 +29,18 @@ import 'transaction_control.dart';
 /// - A `BEGIN ATOMIC ... END` body (where a `;` does not end the statement)
 ///   is recognized only in `CREATE [OR REPLACE] FUNCTION` and
 ///   `CREATE [OR REPLACE] PROCEDURE`, outside parentheses. Anywhere else
-///   `begin atomic` is plain words and the next `;` ends the statement. A
-///   body that is never closed with END is refused (T-101).
+///   `begin atomic` is plain words and the next `;` ends the statement. The
+///   body ends at an END that starts a body statement (right after ATOMIC
+///   or a `;`), as in PostgreSQL's grammar, so CASE ... END or a column
+///   labelled `case` or `end` inside a statement does not matter. A body
+///   that is never closed with END is refused (T-101).
 /// - Each migration starts with `standard_conforming_strings` on, even if an
 ///   earlier migration turned it off on the same connection, so a backslash
 ///   in a plain '...' string is never an escape (T-101).
+/// - Use `SET LOCAL`, never a plain `SET`: a plain `SET` outlives the
+///   migration's transaction, reaches the next migration on the same
+///   connection, and after the last one stays on a pooled connection that
+///   request queries use later (T-101 review R1-G1).
 /// - It may hold several statements separated by semicolons. It is sent with
 ///   the simple query protocol and takes no parameters.
 /// - Never edit a migration once it has been merged: the checksum of every
