@@ -113,7 +113,13 @@ final _hostLabel = RegExp(r'^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$');
 /// - path exactly [ebayAccountDeletionPath];
 /// - host is a public DNS name (at least two labels, a letter-only top-level
 ///   label, not `localhost` or under `.localhost`), or a public IP literal
-///   (see [isPublicAddress]).
+///   (see [isPublicAddress]);
+/// - written in canonical form: `Uri.parse(url).toString()` gives back the
+///   same string. The configured string is hashed as written (EBAY-13,
+///   EBAY-17), so spellings that only mean the same URL (upper-case scheme or
+///   host, dot segments, empty user info or port, needless percent escapes)
+///   are refused rather than hashed differently from what eBay calls
+///   (T-084 review R1-G1).
 ///
 /// No DNS lookup is made: a public name that resolves to a private address
 /// cannot be detected here, and eBay's own verification fails for it.
@@ -127,6 +133,17 @@ String? endpointUrlProblem(String url) {
   } on FormatException {
     return 'it is not a valid URL';
   }
+  final problem = _shapeProblem(uri);
+  if (problem != null) return problem;
+  if (uri.toString() != url) {
+    return 'it must be written in canonical form (lower-case scheme and '
+        'host, no dot segments, no empty user info or port, no needless '
+        'percent escapes)';
+  }
+  return null;
+}
+
+String? _shapeProblem(Uri uri) {
   if (uri.scheme != 'https') return 'it must start with https://';
   if (uri.userInfo.isNotEmpty) return 'it must not contain user info';
   if (uri.hasQuery) return 'it must not contain a query';
@@ -150,7 +167,8 @@ String? endpointUrlProblem(String url) {
   if (labels.length < 2 ||
       !labels.every(_hostLabel.hasMatch) ||
       !_topLevelDomain.hasMatch(labels.last)) {
-    return 'its host must be a public domain name (two or more labels, a letter-only top-level label)';
+    return 'its host must be a public domain name (two or more labels, a '
+        'letter-only top-level label)';
   }
   return null;
 }

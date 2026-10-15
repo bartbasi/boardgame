@@ -118,7 +118,6 @@ void main() {
     const path = '/ebay/marketplace-account-deletion';
     final valid = [
       'https://api.example.com$path',
-      'https://API.Example.COM$path',
       'https://api.example.com:8443$path',
       'https://deep.sub.example.co.uk$path',
       'https://xn--bcher-kva.example$path',
@@ -192,6 +191,41 @@ void main() {
         expect(problem, isNot(contains('127.')));
       });
     }
+
+    test('R1-G1: spellings that only mean the same URL are refused, so the '
+        'hashed string is exactly what eBay calls', () {
+      for (final url in [
+        'https://API.Example.COM$path',
+        'https://api.EXAMPLE.com$path',
+        'HTTPS://api.example.com$path',
+        'Https://api.example.com$path',
+        'https://@api.example.com$path',
+        'https://api.example.com/ebay/./marketplace-account-deletion',
+        'https://api.example.com/x/../ebay/marketplace-account-deletion',
+        'https://api.example.com/ebay/marketplace%2Daccount-deletion',
+        'https://api.example.com:$path',
+        'https://ex%61mple.com$path',
+      ]) {
+        expect(
+          endpointUrlProblem(url),
+          startsWith('it must be written in canonical form'),
+          reason: url,
+        );
+        expect(_problem(_env(url: url)), isNot(contains('xample')));
+      }
+    });
+
+    test('R1-G1: canonical forms with a port, an IPv6 literal, and an IDN '
+        'A-label still pass', () {
+      for (final url in [
+        'https://api.example.com:8443$path',
+        'https://[2606:4700:4700::1111]$path',
+        'https://xn--bcher-kva.example$path',
+      ]) {
+        expect(Uri.parse(url).toString(), url);
+        expect(endpointUrlProblem(url), isNull, reason: url);
+      }
+    });
 
     test('the path rule names our route', () {
       expect(endpointUrlProblem('https://api.example.com/x'), contains(path));
