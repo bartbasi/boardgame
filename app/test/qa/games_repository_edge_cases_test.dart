@@ -237,7 +237,7 @@ void main() {
             bggId: 822,
             confirmedAt: _earlier,
           );
-          spy.failNextMatchRead = true;
+          spy.hideNextMatch = true;
           r = await repository.lookupBarcode(barcodeOf(_upc));
           expect(r.isOk, isTrue);
           final m = await match();
@@ -247,13 +247,14 @@ void main() {
       );
     }
 
-    test('a later matched answer replaces an earlier match', () async {
+    test('a later matched answer replaces an earlier match when the read '
+        'succeeded and found none (hidden match)', () async {
       await store.saveConfirmedMatch(
         gtin13: _key,
         bggId: 822,
         confirmedAt: _earlier,
       );
-      spy.failNextMatchRead = true;
+      spy.hideNextMatch = true;
       remote.lookupResult = Ok(_lookup(BarcodeLookupStatus.matched));
       await _atNow(() => repository.lookupBarcode(barcodeOf(_upc)));
       final m = await match();
@@ -395,20 +396,11 @@ void main() {
       );
     }
 
-    test('only no connection, timeout, 503, and 429 serve a copy', () {
-      expect(
-        {
-          for (final e in failures.entries)
-            if (servesCachedCopy(e.value)) e.key,
-        },
-        {
-          'no connection',
-          'timeout',
-          'service unavailable',
-          'rate limited, no wait',
-          'rate limited 30 s',
-        },
-      );
+    test('every failure kind serves a usable cached copy (round 2)', () {
+      expect({
+        for (final e in failures.entries)
+          if (servesCachedCopy(e.value)) e.key,
+      }, failures.keys.toSet());
     });
   });
 
@@ -498,8 +490,8 @@ void main() {
       },
     );
 
-    test('lookup: a failing match read falls through, a failing save still '
-        'returns the match', () async {
+    test('lookup: a failing match read falls through and the match is shown '
+        'but not saved (round 2)', () async {
       remote.lookupResult = Ok(_lookup(BarcodeLookupStatus.matched));
       failing.failing = true;
       final r = await repository.lookupBarcode(barcodeOf(_upc));
@@ -894,27 +886,139 @@ void main() {
       expect(violations(), isEmpty);
     });
 
-    test('a mixin class or sealed class named Repository is a gap: record '
-        'what the checker does', () {
-      write(
+    // Round 2: every class-header form is caught (T-029-B1 closed).
+    final forms = <String, (String, String)>{
+      // name: (path, source) all in a wrong layer, expected one violation.
+      'sealed interface': (
         'features/a/presentation/s.dart',
-        'sealed class SRepository {}\nmixin class MRepository {}\n',
-      );
-      final found = violations();
-      // Documented, not asserted either way: sealed and mixin class
-      // repositories are outside the pattern.
-      debugPrint('LAYER sealed/mixin: $found');
-      expect(found.length, lessThanOrEqualTo(2));
-    });
-
-    test('a class that extends a repository interface is a gap: record', () {
-      write(
+        'sealed class SRepository {}\n',
+      ),
+      'mixin class': ('features/a/data/m.dart', 'mixin class MRepository {}\n'),
+      'interface class': ('core/i.dart', 'interface class IRepository {}\n'),
+      'abstract base class': (
+        'features/a/presentation/ab.dart',
+        'abstract base class BRepository {}\n',
+      ),
+      'abstract interface class': (
+        'features/a/data/ai.dart',
+        'abstract interface class AIRepository {}\n',
+      ),
+      'abstract mixin class': (
+        'features/a/data/am.dart',
+        'abstract mixin class AMRepository {}\n',
+      ),
+      'extends a repository': (
         'features/a/presentation/e.dart',
         'class EImpl extends ERepository {}\n',
+      ),
+      'extends an implementation': (
+        'features/a/presentation/f.dart',
+        'class Fake extends GamesRepositoryImpl {}\n',
+      ),
+      'with a repository mixin': (
+        'features/a/domain/w.dart',
+        'class W with WRepository {}\n',
+      ),
+      'implements, generic class': (
+        'features/a/presentation/g.dart',
+        'class G<T> implements GRepository<T> {}\n',
+      ),
+      'implements after extends': (
+        'features/a/presentation/h.dart',
+        'class H extends Base implements HRepository {}\n',
+      ),
+      'implements on the next line': (
+        'features/a/presentation/n.dart',
+        'class N\n    extends Base\n    implements\n        NRepository {}\n',
+      ),
+      'a concrete class named Repository': (
+        'features/a/domain/c.dart',
+        'class CRepository {}\n',
+      ),
+    };
+    for (final MapEntry(key: name, value: (path, source)) in forms.entries) {
+      test('wrong layer is caught: $name', () {
+        write(path, source);
+        expect(violations(), hasLength(1), reason: source);
+      });
+    }
+
+    final correct = <String, (String, String)>{
+      'sealed interface in domain': (
+        'features/a/domain/s.dart',
+        'sealed class SRepository {}\n',
+      ),
+      'mixin class in domain': (
+        'features/a/domain/m.dart',
+        'mixin class MRepository {}\n',
+      ),
+      'interface class in domain': (
+        'features/a/domain/i.dart',
+        'interface class IRepository {}\n',
+      ),
+      'extends in data': (
+        'features/a/data/e.dart',
+        'class EImpl extends ERepository {}\n',
+      ),
+      'with in data': (
+        'features/a/data/w.dart',
+        'class W with WRepository {}\n',
+      ),
+      'implements, generic, in data': (
+        'features/a/data/g.dart',
+        'class G<T> implements GRepository<T> {}\n',
+      ),
+      'multi-line header in data': (
+        'features/a/data/n.dart',
+        'class N\n    extends Base\n    implements\n        NRepository {}\n',
+      ),
+    };
+    for (final MapEntry(key: name, value: (path, source)) in correct.entries) {
+      test('right layer passes: $name', () {
+        write(path, source);
+        expect(violations(), isEmpty, reason: source);
+      });
+    }
+
+    test('generics and comments do not create repositories', () {
+      write(
+        'features/a/presentation/ok.dart',
+        '// sealed class CommentedRepository {}\n'
+            '/// class DocRepository implements XRepository {}\n'
+            'class A implements Comparable<ARepository> {}\n'
+            'class B extends Base<BRepository> {}\n'
+            'class C<T extends CRepository> {}\n'
+            'class D<T extends Map<String, ERepository>> extends Base {}\n'
+            'class Repositoryish extends Base {}\n'
+            'class UsesIt { final ZRepository repo; UsesIt(this.repo); }\n',
       );
-      debugPrint('LAYER extends: ${violations()}');
+      expect(violations(), isEmpty);
     });
 
+    test('forms the checker does not cover, recorded not asserted: plain '
+        'mixin, enum, same-line annotation, block comment', () {
+      final cases = <String, String>{
+        'plain mixin': 'mixin PRepository {}\n',
+        'enum implements': 'enum EE implements EnumRepository { a }\n',
+        'annotation on the same line':
+            '@immutable class An implements AnnotatedRepository {}\n',
+        'block comment': '/* class Bc implements BcRepository {} */\n',
+        'extension type':
+            'extension type ET(int i) implements ETRepository {}\n',
+      };
+      for (final entry in cases.entries) {
+        final dir = Directory.systemTemp.createTempSync('rl_case_');
+        try {
+          File('${dir.path}/lib/features/a/presentation/x.dart')
+            ..createSync(recursive: true)
+            ..writeAsStringSync(entry.value);
+          final found = checkRepositoryLayers(Directory('${dir.path}/lib'));
+          debugPrint('LAYER ${entry.key}: ${found.length} violation(s)');
+        } finally {
+          dir.deleteSync(recursive: true);
+        }
+      }
+    });
     test('the real lib passes and finds the games repository pair', () {
       final found = findRepositories(Directory('lib'));
       expect(
