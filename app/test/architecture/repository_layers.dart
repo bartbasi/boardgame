@@ -40,21 +40,63 @@ class RepositoryDeclaration {
   final bool isInterface;
 }
 
-/// An abstract class whose name ends in Repository: the interface.
-final RegExp _interface = RegExp(
-  r'^\s*abstract\s+(?:interface\s+|base\s+)?class\s+(\w*Repository)\b',
+/// A class declaration header: its modifiers, its name, and everything up
+/// to the class body (the extends, with, and implements clauses, which may
+/// span lines).
+final RegExp _classHeader = RegExp(
+  r'^\s*((?:(?:abstract|base|final|interface|sealed|mixin)\s+)*)'
+  r'class\s+(\w+)([^{;]*)\{',
   multiLine: true,
 );
 
-/// A concrete class that implements a Repository interface. The implements
-/// clause may span lines, so it is matched up to the class body. A
-/// Repository inside type arguments (`Comparable<FooRepository>`) does not
-/// count.
-final RegExp _implementation = RegExp(
-  r'^\s*(?:final\s+|base\s+)?class\s+(\w+)[^{;]*?\bimplements\b[^{]*?'
-  r'\b\w*Repository\b(?![\w\s,]*>)[^{]*\{',
-  multiLine: true,
+/// Modifiers that make a class a type to implement rather than a concrete
+/// implementation (T-029 R1-S2: `abstract`, `sealed`, `mixin class`, and
+/// plain `interface class` repositories).
+const Set<String> _interfaceModifiers = {
+  'abstract',
+  'sealed',
+  'interface',
+  'mixin',
+};
+
+/// A repository type named in a supertype clause: `XRepository` or
+/// `XRepositoryImpl`, so a subclass of an implementation counts too.
+final RegExp _repositoryType = RegExp(r'\b\w*Repository(?:Impl)?\b');
+
+/// The supertype clauses of a class header.
+final RegExp _supertypes = RegExp(
+  r'\b(?:extends|with|implements)\b(.*)',
+  dotAll: true,
 );
+
+/// [header] without type arguments, so `Comparable<XRepository>` does not
+/// count as naming a repository.
+String _withoutTypeArguments(String header) {
+  final innermost = RegExp(r'<[^<>]*>');
+  var text = header;
+  while (innermost.hasMatch(text)) {
+    text = text.replaceAll(innermost, '');
+  }
+  return text;
+}
+
+/// Whether a class is a repository interface (true), an implementation
+/// (false), or neither (null). An interface is an abstract, sealed,
+/// interface, or mixin class named `...Repository`. An implementation is
+/// any other class that extends, implements, or mixes in a repository, or a
+/// concrete class named `...Repository`.
+bool? _classify(String modifiers, String name, String header) {
+  final words = modifiers.trim().split(RegExp(r'\s+')).toSet();
+  final named = name.endsWith('Repository');
+  if (named && words.any(_interfaceModifiers.contains)) return true;
+  final supertypes = _supertypes
+      .firstMatch(_withoutTypeArguments(header))
+      ?.group(1);
+  if (supertypes != null && _repositoryType.hasMatch(supertypes)) {
+    return false;
+  }
+  return named ? false : null;
+}
 
 /// Strips `//` comments, so commented-out code does not count.
 String _withoutLineComments(String source) =>
@@ -80,18 +122,14 @@ List<RepositoryDeclaration> findRepositories(Directory libDir) {
             .replaceAll(Platform.pathSeparator, '/');
         final source = _withoutLineComments(file.readAsStringSync());
         return [
-          for (final m in _interface.allMatches(source))
-            RepositoryDeclaration(
-              file: relative,
-              name: m.group(1)!,
-              isInterface: true,
-            ),
-          for (final m in _implementation.allMatches(source))
-            RepositoryDeclaration(
-              file: relative,
-              name: m.group(1)!,
-              isInterface: false,
-            ),
+          for (final m in _classHeader.allMatches(source))
+            if (_classify(m.group(1)!, m.group(2)!, m.group(3)!)
+                case final isInterface?)
+              RepositoryDeclaration(
+                file: relative,
+                name: m.group(2)!,
+                isInterface: isInterface,
+              ),
         ];
       }(),
   ];

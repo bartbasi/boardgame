@@ -42,8 +42,30 @@ void main() {
             'features/scanner/domain/domain_repository_impl.dart',
         'CoreRepository': 'core/data/core_repository.dart',
         'MultiLineRepositoryImpl': 'app/multi_line.dart',
+        // Round 2 (R1-S2, QA T-029-B1): sealed, mixin, and plain interface
+        // classes are interfaces; extending a repository or a repository
+        // implementation makes an implementation.
+        'SealedRepository':
+            'features/scanner/presentation/sealed_repository.dart',
+        'MixinRepository': 'features/scanner/data/mixin_repository.dart',
+        'PlainInterfaceRepository': 'core/data/plain_interface_repository.dart',
+        'FakeRepo': 'features/scanner/presentation/fake_repo.dart',
+        'ExtendsImpl': 'features/scanner/domain/extends_impl.dart',
       },
     );
+    final found = {
+      for (final repo in findRepositories(
+        Directory('test/fixtures/architecture/repository_layers/lib'),
+      ))
+        repo.name: repo.isInterface,
+    };
+    expect(found['SubclassImpl'], isFalse, reason: 'found, and in data');
+    // A concrete class named ...Repository counts as an implementation (it
+    // is in data here, so it passes); commented-out classes do not count.
+    expect(found['UsesRepository'], isFalse);
+    expect(found, isNot(contains('CommentedRepository')));
+    expect(found, isNot(contains('CommentedImpl')));
+    expect(found, isNot(contains('Other')), reason: 'type arguments ignored');
     expect(
       violations.firstWhere((v) => v.name == 'ScreenRepository').reason,
       contains('interfaces belong in features/<feature>/domain/'),
