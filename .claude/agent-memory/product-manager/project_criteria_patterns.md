@@ -29,6 +29,7 @@ Patterns set up in the first backlog (T-001, 2026-10-11):
 - Write byte limits in exact bytes ("1 MiB (1,048,576 bytes)"), not "1 MB" (T-028 open question 2). Settling a unit at sign-off does not remove the [ASSUMPTION] on the size itself.
 - Links to external sites get a criterion that the screen opens `Uri.parse(...)` in external application mode with a fake launcher test, never the raw string (T-028 R2-G1, now T-034 AC16).
 - File-restore criteria must name the zero-byte case: SQLite opens a 0-byte file as a new empty database with no error (T-027 QA).
+- When CI cannot run (GitHub Actions billing block, 2026-10-15, T-101), the orchestrator's pattern is: sign off the other criteria on local real-PostgreSQL evidence, mark the CI criterion OWED, and set status "done pending CI (ACn)". The orchestrator then merges after a green run on the final head, with no new PM round unless the run fails.
 - "No field X" criteria need an exact-keys test (toJson key set equals a listed set), or a field can be added unnoticed (T-018 R2-M1, R3-S1).
 
 Lesson from round 2 (2026-10-11): the PRD's 48-hour stale threshold was a PM guess, and UX built it into copy and specs before research showed eBay limits listings to 6 hours (EBAY-20). Mark numbers that depend on partner terms as "pending research", and check the research before UX specs rely on them.
