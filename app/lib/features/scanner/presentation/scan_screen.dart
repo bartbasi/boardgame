@@ -145,8 +145,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> with OpenOnce {
     _announce(AppLocalizations.of(context).scannerSuccess(barcode.digits));
   }
 
-  void _onOpen(Barcode barcode) =>
-      unawaited(openOnce(() => widget.onScanned(barcode)));
+  bool _onOpen(Barcode barcode) {
+    if (isOpening) return false;
+    unawaited(openOnce(() => widget.onScanned(barcode)));
+    return true;
+  }
 
   void _announce(String message) {
     SemanticsService.sendAnnouncement(
