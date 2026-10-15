@@ -412,6 +412,10 @@ END;
         r'the reviewer probe': r'SELECT 1$$ $$; COMMIT; SELECT $$x$$;',
         r'after a decimal': r'SELECT 1.5$$ $$; COMMIT; SELECT $$x$$;',
         r'after a parameter': r'SELECT $1$$ $$; COMMIT; SELECT $$x$$;',
+        // Letters belong to the number here (PostgreSQL 16 and later), so
+        // the `$` after them is not inside an identifier.
+        r'after a hex integer': r'SELECT 0x1F$$ $$; COMMIT; SELECT $$x$$;',
+        r'after an exponent': r'SELECT 1e5$$ $$; COMMIT; SELECT $$x$$;',
         r'a tagged quote after a number':
             r'SELECT 10$t$ $t$; COMMIT; SELECT $t$x$t$;',
       };
