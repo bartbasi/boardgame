@@ -654,16 +654,16 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-029 App: games repository with on-device cache
 - Milestone: M2
 - Owner: flutter-developer
-- Status: todo
-- Depends on: T-027, T-028
+- Status: done pending CI (PM approved 2026-10-15; GitHub Actions is blocked by billing, so the merge waits for a green app.yml run on the final head)
+- Depends on: T-027, T-028 (both done)
 - UX spec: n/a
-- Linked files: app/lib/features/*/domain/ (repository interface), app/lib/features/*/data/ (implementation)
+- Linked files: app/lib/features/game_detail/domain/ (repository interface), app/lib/features/game_detail/data/ (implementation), app/lib/core/data/database/game_stores.dart
 - Acceptance criteria:
   1. Given a confirmed match for `0036000291452` stored on the device, when a lookup runs for `036000291452`, then it returns that game as matched and the remote fake records 0 calls (proved by: unit).
   2. Given the backend returns status `matched` with one game, then that match is stored on the device as confirmed [ASSUMPTION: a single backend match counts as confirmed until the user corrects it] (proved by: unit).
   3. Given a code that already has a stored match, when the user confirms a different game, then the new match replaces the old one (proved by: unit).
   4. Given the device is online and bggId 13 loads, then the result is marked fresh, the cache is updated, and lastViewedAt is set (proved by: unit).
-  5. Given loading bggId 13 fails with no connection, a timeout, or service unavailable, and a cached copy exists, then the cached copy is returned marked stale with its fetchedAt, not a failure (proved by: unit, table-driven).
+  5. Given loading bggId 13 fails with any failure (no connection, timeout, service unavailable, rate limited, not found, and every other Failure type), and a usable cached copy exists, then the cached copy is returned marked stale with its stored fetchedAt, not a failure, and the snapshot's `refreshFailure` is the load failure, so the screen can say why (T-034 AC17). A fresh load has `refreshFailure` null. A cached copy that does not decode, or holds another game, counts as no copy, and the load failure is returned. Reworded at PM sign-off on 2026-10-15 to the orchestrator decision following PRD 8.2 (the original listed only no connection, timeout, and service unavailable) (proved by: unit, table-driven over every Failure type, with and without a copy).
   6. Given no cached copy and no connection, then the no connection failure is returned (proved by: unit).
   7. Given a title search, then its results are not cached on the device [ASSUMPTION] and failures pass through unchanged (proved by: unit).
   8. Given the repository, then its interface lives in a domain folder and its implementation in a data folder (proved by: unit, architecture test).
@@ -779,7 +779,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   5. Given not found, then the copy.md not-found message shows with a search action (proved by: widget).
   6. Given an error with no cached copy, then a plain-language error with Retry shows (proved by: widget).
   7. Given the device is offline and a copy fetched 3 days ago is cached, then the cached data shows with `gameDetail.updatedLabel` ("Details last updated 3 days ago"), and no error screen (proved by: widget with a fake clock).
-  8. Given pull to refresh succeeds, then the data and the "Last updated" label update; given it fails, then the cached data stays and a non-blocking copy.md message appears (proved by: widget).
+  8. Given pull to refresh succeeds, then the data and the "Last updated" label update; given it fails, then the cached data stays and a non-blocking copy.md message appears (proved by: widget). Which time drives the label is an open question below.
   9. Given the cover image is loading, fails, or is missing, then a placeholder shows, and the image has the copy.md semantic label (for example "Cover of Catan") (proved by: widget).
   10. Given a 200-character Unicode title, then it wraps without overflow at text scale 2.0 in compact, medium, and expanded sizes (proved by: widget).
   11. Given the screen was opened from a barcode, then a "Not this game?" action opens the correction flow from T-033 for that barcode (proved by: widget).
@@ -788,6 +788,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   14. Given the M2 golden list in game-detail.md, then every listed golden exists and passes (proved by: golden).
   15. Given no-image mode, or a game with no cover image (BGG-42, PRD Q5), then the header shows no cover and the screen is complete without it, as game-detail.md lays out (proved by: widget, and golden `game_detail_noimages_light_compact.png`).
   16. Given the AC3 link to the game's BGG page, when the user activates it, then the app opens `Uri.parse(game.bggUrl)` with url_launcher in external application mode, never the raw string or a URL built by hand. Given a `bggUrl` that the T-028 mapper accepted but that ends in a newline (`https://boardgamegeek.com/boardgame/13` followed by `\n`), then the launched Uri's host is `boardgamegeek.com` and its scheme is `https` (T-028 review R2-G1, QA round 2) (proved by: widget with a fake launcher that records the Uri and the launch mode). url_launcher is a new dependency: the developer confirms its license is MIT, BSD, or Apache 2.0 before adding it (CLAUDE.md rule 6).
+  17. Given a stale snapshot from the T-029 repository, then the screen picks its message from `refreshFailure`, never from staleness alone: `NoConnectionFailure` or `TimeoutFailure` shows the OfflineBanner; `NotFoundFailure` shows a note that BoardGameGeek no longer lists this game (a new copy key that UX adds to copy.md and game-detail.md), with the cached data and no offline banner; any other failure (for example service unavailable, rate limited, unexpected) shows the cached data with a non-blocking "could not refresh" copy.md message and no offline banner. A fresh snapshot shows none of these (T-029 review R3-G2; T-029 AC5) (proved by: widget, table-driven over failure kinds, asserting which banner or message is present and that the offline banner is absent for every non-connection failure).
+- Open question for UX and the user (from T-029 developer open question and review round 1): which time drives "Details last updated N ago" (AC7, AC8)? Options: the backend's BGG fetch time, `GameDetails.fetchedAt` (review recommends it: it is the true age of the data, for fresh and stale), or the device fetch time, `GameDetailsSnapshot.fetchedAt`. game-detail.md:33 and :39 expect "just now" after a successful refresh, which holds only with the device time, or if the backend refreshes BGG data on every request (it does not need to). UX proposes, the user decides, and UX adjusts the spec and copy before this ticket moves to ready. No repository change is needed, because both times are exposed.
 
 ### T-035 App: M2 flow integration test
 - Milestone: M2
@@ -898,6 +900,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   6. Given both files, then both open through drift_flutter's background isolate as in T-027 AC5 [ASSUMPTION] (proved by: manual review).
   7. Given both schemas, then each is exported for Drift's migration tooling with its own migration test, and app/README.md "On-device database" names both files, which data each holds, and that only re-downloadable data may go in the cache file (proved by: unit; manual, reviewer reads the README).
   8. Given the database code, then line coverage is at least 80% (proved by: unit, coverage report).
+  9. Given a confirmed match from `0036000291452` to bggId 13 and no cache file at all (missing at open, or deleted while closed), when the T-029 repository looks up `036000291452`, then it answers bggId 13 from the device with 0 remote calls (game summary absent), because the user data file keeps a games identity row for every match (SQLite has no foreign key across files, so nothing in the user data file may depend on a cache file row). Deleting the cache file loses only details: every match, and from T-037 every collection item, is unchanged (T-029 review R1-G3) (proved by: unit with real files, comparing matches before and after).
 
 ### T-037 Collection data model and database tables
 - Milestone: M3
