@@ -9,7 +9,7 @@ Read a UPC-A, EAN-13, or EAN-8 barcode from a game box and open the lookup. This
 Rules that apply in every state:
 
 - Manual entry (`scanner.actionManual`) and title search (`scanner.actionSearch`) are always visible and one tap away. They are never hidden behind the camera, the permission panel, or an error.
-- The system camera permission prompt appears only when this screen is first opened, never at app start or on another screen.
+- The system camera permission prompt appears only when this screen is opened and the camera has never been asked about, never on another screen. Scan is the start destination, so on a fresh install the first launch shows the requesting panel and then the prompt. If the user denied it once in an earlier run, the Denied panel shows with Allow camera and no system prompt appears by itself. At most one automatic prompt per app run.
 - Nothing here blocks use of the rest of the app.
 
 ## 2. Layout
@@ -19,13 +19,13 @@ Camera preview fills the area between the app bar and the ScanActionBar. The fra
 | Size | Layout |
 |---|---|
 | Compact portrait (390 x 844) | App bar (title `scanner.title`). Viewfinder fills the height. Hint pill 24 dp below the top of the preview. TorchToggle top-right of the preview. ScanActionBar docked under the preview: two buttons side by side, each 48 dp tall, equal width. NavigationBar below. |
-| Phone landscape (844 x 390) | Rail at leading edge. Viewfinder takes the left 60% of the content. Right 40% column holds the hint text and the two action buttons stacked (full width, 48 dp each), centered vertically. |
+| Phone landscape (844 x 390) | Rail at leading edge. Viewfinder takes the left 60% of the content. Right 40% column holds the two action buttons stacked (full width, 48 dp each) first, then the hint text below them, centered vertically. The actions come first so 200% text can never push them out of view (section 1). |
 | Medium (744 x 1133 / 1133 x 744) | Rail. Preview fills the content, max aspect cropped to the frame; the scan frame stays 70% of the shorter side. ScanActionBar below the preview, buttons capped at 280 dp each, centered. |
 | Expanded (1280 x 800) | Rail. Preview takes the center, capped at 720 dp wide and centered; scrim fills the rest with surface color (not a stretched camera image). ScanActionBar below the preview, centered. |
 
 The scan frame is a rounded rectangle at 2.5:1, 70% of the preview's shorter side, centered slightly above the middle.
 
-At 200% text: the two action buttons stack vertically (full width) if the labels would wrap past 2 lines; the preview shrinks to make room, never below 40% of the content height. The hint pill grows and wraps.
+At 200% text: the two action buttons stack vertically (full width) as soon as either label would wrap (side by side only while both labels fit on one line); the preview shrinks to make room, never below 40% of the content height. The hint pill grows and wraps.
 
 ## 3. Components
 
@@ -36,10 +36,10 @@ ScannerViewfinder, TorchToggle, ScanActionBar, PermissionPanel, AdaptiveScaffold
 | State | What the user sees |
 |---|---|
 | Starting | Preview area in surfaceContainerHighest with a small progress indicator and `scanner.starting`. ScanActionBar visible. Lasts under 1 s on a granted device. |
-| Permission requesting (first open) | PermissionPanel with `scanner.permission.requestingTitle` and `requestingBody`, shown behind the system prompt, so the user sees why the prompt is there. No extra tap is needed. The system prompt text uses `scanner.iosUsageDescription` (iOS) and the system default (Android). When the prompt closes: granted goes to Scanning; denied goes to Denied. |
+| Permission requesting (first open, never asked) | PermissionPanel with `scanner.permission.requestingTitle` and `requestingBody`, shown behind the system prompt, so the user sees why the prompt is there. No extra tap is needed. The system prompt text uses `scanner.iosUsageDescription` (iOS) and the system default (Android). When the prompt closes: granted goes to Scanning; denied goes to Denied. |
 | Scanning | Live preview, frame, hint `scanner.hint`, TorchToggle (only if the device has a torch). After 8 s with no valid detection, the hint changes to `scanner.hintSlow` (no sound, no blocking). |
 | Detected (success feedback) | One haptic (the platform's light impact). The frame flashes in primary and shows a check icon for 300 ms (no flash with reduce motion, the check only). The screen reader hears `scanner.success`. Then the app opens lookup-result. Detections of other formats (QR, UPC-E, Code 128) and codes with a bad check digit are ignored with no feedback. The same code is ignored for 2 s after a detection [ASSUMPTION]. |
-| Denied (can ask again) | PermissionPanel: `scanner.denied.title`, `scanner.denied.body`, primary action `scanner.denied.allow` (asks again). ScanActionBar visible. |
+| Denied (can ask again, including denied once in an earlier run) | PermissionPanel: `scanner.denied.title`, `scanner.denied.body`, primary action `scanner.denied.allow` (asks again). ScanActionBar visible. |
 | Permanently denied (iOS: denied after the first prompt; Android: "don't ask again") | PermissionPanel: `scanner.permanentlyDenied.title`, `scanner.permanentlyDenied.body`, primary action `common.openSettings` (opens the app's page in system settings). When the user returns from settings with the permission on, the camera starts without another tap. |
 | Restricted (iOS parental or device policy) | PermissionPanel: `scanner.denied.title`, `scanner.restricted.body`, no action button except the ScanActionBar (settings cannot change this). |
 | Camera unavailable | PermissionPanel: `scanner.unavailable.title`, `scanner.unavailable.body`, primary action `common.retry`. ScanActionBar visible. |
@@ -73,7 +73,10 @@ Torch states: off, on, unavailable (hidden). The toggle is disabled while the ca
 - Touch targets: torch toggle 48 dp, action buttons 48 dp tall, panel buttons 48 dp.
 - Haptics are supplemental; every success also has a visual and spoken signal. Respect the system haptics setting.
 - Reduce motion: no flash, no scan-line animation (the frame has none anyway).
-- Text at 200%: action buttons stack; panel text wraps; no clipping.
+- Text at 200%: action buttons stack; panel text wraps; the panel scrolls inside its area when it is taller than the space above the actions, and every panel button must be reachable by scrolling. Nothing is clipped without a way to scroll to it.
+- "Open settings" that cannot open: the user sees a short snackbar with `scanner.openSettingsFailed` (proposed, follow-up ticket). Until then it does nothing, which is accepted for v1 testing.
+- Success announcement: `scanner.success` may be heard when the user taps Enter barcode or Search by title inside the 300 ms success step, and that screen then opens instead of the lookup. Accepted, no fix needed (T-030 UX check).
+- Dark theme: the hint pill and torch toggle use surface roles and are close in tone to the scrim over a dark camera image. Text on the pill and the toggle icon meet contrast on their own surface. If the on-device check shows the control edges are lost over a dark image, add a 1 dp outlineVariant border to both (no new color).
 
 ## 8. Golden cases
 The camera preview is replaced by a neutral placeholder in all goldens (T-030 criterion 14). Total: 8. The panel states (denied, permanently denied, restricted, unavailable) share one layout, so one golden covers the layout and a second covers dark; the rest are covered by widget tests (state, text, and the always-visible manual and search actions).
@@ -96,4 +99,4 @@ The camera preview is replaced by a neutral placeholder in all goldens (T-030 cr
 - No dialog or modal appears before the camera.
 - Success has haptic, visual, and spoken feedback.
 - Only UPC-A, EAN-13, and EAN-8 act; bad check digits do nothing.
-- Open questions: whether the "Allow camera" button should be shown when Android reports "denied" without "don't ask again" (spec says yes); whether a tap-to-focus control is needed on the reference devices (PRD Q7); Android ML Kit disclosure (PRD Q4).
+- Open questions: (answered: Allow camera is shown for denied; the system prompt is automatic only when never asked, T-030 UX check); whether a tap-to-focus control is needed on the reference devices (PRD Q7); Android ML Kit disclosure (PRD Q4).

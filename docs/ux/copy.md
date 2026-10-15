@@ -94,6 +94,7 @@ The Powered by BGG logo is an image asset (supplied under T-087, task BGG-41). I
 | scanner.unavailable.title | Camera not available |
 | scanner.unavailable.body | The camera could not start. Another app may be using it. You can still enter the barcode or search by title. |
 | scanner.starting | Starting camera |
+| scanner.openSettingsFailed | (proposed, follow-up) Could not open settings. Open your phone's Settings, find this app, and turn on Camera. |
 | scanner.iosUsageDescription | Scan a game's barcode to look it up. If you add photos of your games, they stay on this device. |
 | scanner.androidRationale | Same text as scanner.permission.requestingBody |
 
