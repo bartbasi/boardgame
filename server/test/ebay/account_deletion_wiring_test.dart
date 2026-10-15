@@ -142,8 +142,9 @@ void main() {
       expect(postResponse.statusCode, 204);
       await postResponse.drain<void>();
 
-      // 58 more requests reach the eBay limit of 60; the next is refused.
-      for (var i = 0; i < 58; i++) {
+      // Enough more requests to reach the eBay limit (300 per minute); the
+      // next is refused.
+      for (var i = 0; i < ebayRateLimitPerMinute - 2; i++) {
         final r = await (await client.get(
           '127.0.0.1',
           port,

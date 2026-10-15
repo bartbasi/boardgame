@@ -37,7 +37,7 @@ The build version in `GET /health` is a compile-time define: `dart compile exe -
 |---|---|
 | `GET /health` | `HealthResponse` plus `database`, outside /v1 so Compose and Caddy health checks need no attestation. 200 `{"status":"ok","version":"...","database":"ok"}` when PostgreSQL answers; 503 `{"status":"unavailable","version":"...","database":"unavailable"}` otherwise, within 2 s (T-019). |
 | `GET /ebay/marketplace-account-deletion?challenge_code=...` | eBay's endpoint check (T-084, docs/api-research.md EBAY-11). 200 `application/json` `{"challengeResponse":"<sha256 hex of code + token + endpoint URL>"}`; 400 with server-only code `invalid_challenge_code` without exactly one non-empty code (at most 1,024 characters [ASSUMPTION]). Only when `EBAY_ACCOUNT_DELETION_*` are set; otherwise 404. |
-| `POST /ebay/marketplace-account-deletion` | eBay account deletion notification. The body is read and dropped (never parsed, stored, or logged), then 204. Over 64 KiB [ASSUMPTION]: 413 `payload_too_large`; stalled 10 s [ASSUMPTION]: 408 `request_timeout`. The `x-ebay-signature` header is not checked (T-084 handoff). |
+| `POST /ebay/marketplace-account-deletion` | eBay account deletion notification. The body is read and dropped (never parsed, stored, or logged), then 204. Over 64 KiB [ASSUMPTION]: 413 `payload_too_large`; not complete within 10 s of the start of reading (one overall deadline, not per chunk) [ASSUMPTION]: 408 `request_timeout`; in both cases reading stops and the connection closes. The `x-ebay-signature` header is not checked (T-084 handoff). |
 | anything else | 404 with the `not_found` error envelope. |
 
 Uncaught errors become 500 `internal_error`; the error type, a redacted description, and the stack trace go to the log only.
@@ -48,7 +48,7 @@ Middleware order, outermost first:
 
 1. request log: one line per request, including 401, 429, and 500 responses;
 2. error boundary: any throw, including from the /v1 guards, becomes a 500 envelope;
-3. root router: `/health`, and `/v1` mounted behind the `v1Middleware` list. Every request under /v1, matched or not, passes through that list: per-IP rate limiting (T-020) first, then attestation (T-066). `/ebay` (when configured) is mounted beside /v1 behind `ebayMiddleware`: its own per-IP limiter of 60 per minute [ASSUMPTION] (10,000 tracked IPs [ASSUMPTION], swept like the /v1 one), and no attestation, because eBay's servers call it, not our app.
+3. root router: `/health`, and `/v1` mounted behind the `v1Middleware` list. Every request under /v1, matched or not, passes through that list: per-IP rate limiting (T-020) first, then attestation (T-066). `/ebay` (when configured) is mounted beside /v1 behind `ebayMiddleware`: its own per-IP limiter of 300 per minute [ASSUMPTION, T-084 round 2] (10,000 tracked IPs [ASSUMPTION], swept like the /v1 one), and no attestation, because eBay's servers call it, not our app.
 
 ## Rate limiting
 

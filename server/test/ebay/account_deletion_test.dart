@@ -335,28 +335,88 @@ void main() {
       expect(response.statusCode, 204);
     });
 
-    test('a body that stalls gets 408 after the read timeout', () async {
+    Handler routeWithDeadline(Duration deadline) {
       final router = Router(notFoundHandler: (_) => notFoundResponse());
       addEbayAccountDeletionRoutes(
         Routes(router, mountPath: ebayMountPath),
         _config,
-        readTimeout: const Duration(milliseconds: 50),
+        readTimeout: deadline,
       );
+      return router.call;
+    }
+
+    test('a body that stalls gets 408 after the read timeout', () async {
       final stalled = StreamController<List<int>>();
       stalled.add(utf8.encode('{"metadata":'));
-      final response = await router.call(
-        Request(
-          'POST',
-          Uri.parse('http://localhost$ebayAccountDeletionRoute'),
-          body: stalled.stream,
-        ),
-      );
+      final response =
+          await routeWithDeadline(const Duration(milliseconds: 50))(
+            Request(
+              'POST',
+              Uri.parse('http://localhost$ebayAccountDeletionRoute'),
+              body: stalled.stream,
+            ),
+          );
       expect(response.statusCode, 408);
       expect(
         (await jsonObjectOf(response))['error'],
         containsPair('code', 'request_timeout'),
       );
       unawaited(stalled.close());
+    });
+
+    test('R1-M1: a body trickling one byte every quarter of the deadline gets '
+        '408 at the overall deadline, and reading stops', () async {
+      const deadline = Duration(milliseconds: 400);
+      var cancelled = false;
+      late final StreamController<List<int>> trickle;
+      // Never ends by itself; each gap is far below the deadline, so a
+      // per-chunk timeout would never fire.
+      final ticker = Timer.periodic(deadline ~/ 4, (_) => trickle.add([0x20]));
+      trickle = StreamController<List<int>>(
+        onCancel: () {
+          cancelled = true;
+          ticker.cancel();
+        },
+      );
+      addTearDown(ticker.cancel);
+      final stopwatch = Stopwatch()..start();
+      final response = await routeWithDeadline(deadline)(
+        Request(
+          'POST',
+          Uri.parse('http://localhost$ebayAccountDeletionRoute'),
+          body: trickle.stream,
+        ),
+      );
+      stopwatch.stop();
+      expect(response.statusCode, 408);
+      expect(stopwatch.elapsed, greaterThanOrEqualTo(deadline));
+      expect(stopwatch.elapsed, lessThan(deadline * 5));
+      expect(cancelled, isTrue, reason: 'the body subscription is cancelled');
+    }, timeout: const Timeout(Duration(seconds: 10)));
+
+    test('R1-M1: a body that completes before the deadline is acknowledged '
+        'and its timer does not fire later', () async {
+      final chunks = StreamController<List<int>>();
+      final pending = routeWithDeadline(const Duration(milliseconds: 200))(
+        Request(
+          'POST',
+          Uri.parse('http://localhost$ebayAccountDeletionRoute'),
+          body: chunks.stream,
+        ),
+      );
+      chunks.add(utf8.encode('{"a":'));
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      chunks.add(utf8.encode('1}'));
+      await chunks.close();
+      expect((await pending).statusCode, 204);
+      // Past the deadline: nothing else happens (a second completion would
+      // throw "Future already completed" into the zone).
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    });
+
+    test('R1-M1: the default deadline is 10 s for the whole body '
+        '[ASSUMPTION]', () {
+      expect(notificationReadTimeout, const Duration(seconds: 10));
     });
 
     test('the handler needs no database: it acknowledges while the database '
@@ -465,7 +525,10 @@ void main() {
     });
   });
 
-  group('AC5: no app attestation, own per-IP limit of 60 per minute', () {
+  group('AC5: no app attestation, own per-IP limit (300 per minute since '
+      'round 2)', () {
+    const limit = ebayRateLimitPerMinute;
+
     test('the eBay route never passes through the /v1 guards', () async {
       final app = _EbayApp();
       expect((await app.challenge('123')).statusCode, 200);
@@ -482,16 +545,18 @@ void main() {
       expect(app.v1Seen, ['games/1']);
     });
 
-    test('the limit is 60 requests per minute [ASSUMPTION]', () {
-      expect(ebayRateLimitPerMinute, 60);
+    test('the limit is 300 requests per minute [ASSUMPTION, orchestrator '
+        'decision in round 2; AC5 said 60]', () {
+      expect(ebayRateLimitPerMinute, 300);
     });
 
-    test('of 70 requests from one IP within a minute, 60 succeed and 10 get '
+    test('of limit + 10 requests from one IP within a minute, the limit '
+        'succeed and 10 get '
         '429 rate_limited with Retry-After; GET and POST share the '
         'allowance', () async {
       final app = _EbayApp();
       final statuses = <int>[];
-      for (var i = 0; i < 70; i++) {
+      for (var i = 0; i < limit + 10; i++) {
         app.clock.now = Duration(milliseconds: i * 100);
         final response = i.isEven
             ? await app.challenge('c$i')
@@ -505,14 +570,14 @@ void main() {
           );
         }
       }
-      expect(statuses.where((s) => s == 200 || s == 204), hasLength(60));
-      expect(statuses.skip(60), everyElement(429));
+      expect(statuses.where((s) => s == 200 || s == 204), hasLength(limit));
+      expect(statuses.skip(limit), everyElement(429));
     });
 
     test('another IP is not affected, and after a full minute the first IP '
         'is allowed again', () async {
       final app = _EbayApp();
-      for (var i = 0; i < 60; i++) {
+      for (var i = 0; i < limit; i++) {
         expect((await app.challenge('c$i')).statusCode, 200);
       }
       expect((await app.challenge('x')).statusCode, 429);
@@ -523,7 +588,7 @@ void main() {
 
     test('the eBay limiter and the /v1 limiter are separate', () async {
       final app = _EbayApp();
-      for (var i = 0; i < 60; i++) {
+      for (var i = 0; i < limit; i++) {
         await app.challenge('c$i');
       }
       expect(app.ebayLimiter.trackedCount, 1);
@@ -536,7 +601,7 @@ void main() {
 
     test('/health is not limited by the eBay limiter', () async {
       final app = _EbayApp();
-      for (var i = 0; i < 61; i++) {
+      for (var i = 0; i < limit + 1; i++) {
         await app.challenge('c$i');
       }
       expect((await app.send('GET', '/health')).statusCode, 200);
