@@ -26,6 +26,8 @@ Patterns set up in the first backlog (T-001, 2026-10-11):
 - Deferred review should-fix items become a new low-priority ticket with the reviewer's probe string as a unit criterion (T-019 R3-S1 became T-101). Ops rules from reviews (least-privilege DB role, no restart on unhealthy) go to T-071 as criteria.
 - Agents cite ticket ids from memory and get them wrong (T-027 QA called T-037 "backup/restore"; it is T-047). Check the title in backlog.md before carrying an item, and note the correction in the sign-off.
 - Carried review items for a stub ticket can be "draft criteria, refined when scoped" (T-047 got six from T-027). A review "should fix" that needs a user decision becomes a new PRD question plus a todo ticket that depends on its answer (T-027 R1-S5 became Q39 and T-102).
+- Write byte limits in exact bytes ("1 MiB (1,048,576 bytes)"), not "1 MB" (T-028 open question 2). Settling a unit at sign-off does not remove the [ASSUMPTION] on the size itself.
+- Links to external sites get a criterion that the screen opens `Uri.parse(...)` in external application mode with a fake launcher test, never the raw string (T-028 R2-G1, now T-034 AC16).
 - File-restore criteria must name the zero-byte case: SQLite opens a 0-byte file as a new empty database with no error (T-027 QA).
 - "No field X" criteria need an exact-keys test (toJson key set equals a listed set), or a field can be added unnoticed (T-018 R2-M1, R3-S1).
 
