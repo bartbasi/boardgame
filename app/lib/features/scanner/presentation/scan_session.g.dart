@@ -13,10 +13,9 @@ part of 'scan_session.dart';
 /// only when the scanner is first opened).
 ///
 /// After that, "denied" shows the Denied panel and its "Allow camera"
-/// button asks again. Kept for the app run only, not stored: on Android a
-/// "denied" status cannot tell "never asked" from "denied once", so the
-/// next app run asks once more, and Android itself stops asking after the
-/// second denial.
+/// button asks again. Across app runs the platform tells an earlier denial
+/// apart (`CameraPermissionRepository.wasDeniedBefore`; review R1-M1), so a
+/// user who denied once is not prompted again at the next launch.
 
 @ProviderFor(CameraPromptShown)
 final cameraPromptShownProvider = CameraPromptShownProvider._();
@@ -26,10 +25,9 @@ final cameraPromptShownProvider = CameraPromptShownProvider._();
 /// only when the scanner is first opened).
 ///
 /// After that, "denied" shows the Denied panel and its "Allow camera"
-/// button asks again. Kept for the app run only, not stored: on Android a
-/// "denied" status cannot tell "never asked" from "denied once", so the
-/// next app run asks once more, and Android itself stops asking after the
-/// second denial.
+/// button asks again. Across app runs the platform tells an earlier denial
+/// apart (`CameraPermissionRepository.wasDeniedBefore`; review R1-M1), so a
+/// user who denied once is not prompted again at the next launch.
 final class CameraPromptShownProvider
     extends $NotifierProvider<CameraPromptShown, bool> {
   /// Whether the camera permission prompt was already shown by the scanner
@@ -37,10 +35,9 @@ final class CameraPromptShownProvider
   /// only when the scanner is first opened).
   ///
   /// After that, "denied" shows the Denied panel and its "Allow camera"
-  /// button asks again. Kept for the app run only, not stored: on Android a
-  /// "denied" status cannot tell "never asked" from "denied once", so the
-  /// next app run asks once more, and Android itself stops asking after the
-  /// second denial.
+  /// button asks again. Across app runs the platform tells an earlier denial
+  /// apart (`CameraPermissionRepository.wasDeniedBefore`; review R1-M1), so a
+  /// user who denied once is not prompted again at the next launch.
   CameraPromptShownProvider._()
     : super(
         from: null,
@@ -75,10 +72,9 @@ String _$cameraPromptShownHash() => r'f6b86d4d928337f48378838362a5904770aaaa45';
 /// only when the scanner is first opened).
 ///
 /// After that, "denied" shows the Denied panel and its "Allow camera"
-/// button asks again. Kept for the app run only, not stored: on Android a
-/// "denied" status cannot tell "never asked" from "denied once", so the
-/// next app run asks once more, and Android itself stops asking after the
-/// second denial.
+/// button asks again. Across app runs the platform tells an earlier denial
+/// apart (`CameraPermissionRepository.wasDeniedBefore`; review R1-M1), so a
+/// user who denied once is not prompted again at the next launch.
 
 abstract class _$CameraPromptShown extends $Notifier<bool> {
   bool build();
