@@ -1,6 +1,8 @@
 import 'package:boardgame_server/boardgame_server.dart';
 import 'package:test/test.dart';
 
+import '../support/begin_atomic_cases.dart';
+
 /// T-019 round 2, R1-M1 (QA T-019-B1): a migration must not end or nest the
 /// transaction it runs in. findTransactionControl is the scanner and
 /// validateMigrations refuses what it finds.
@@ -242,6 +244,198 @@ $$;
         ]),
         returnsNormally,
       );
+    });
+  });
+
+  _t101();
+}
+
+/// The R3-S1 probe from docs/handoffs/T-019.md: `begin` is a column and
+/// `atomic` its label, outside any function, then a COMMIT.
+const _r3s1Probe =
+    'SELECT begin atomic FROM (SELECT 1 AS begin) s; COMMIT; SELECT 1;';
+
+void _t101() {
+  group('T-101: function body mode only in CREATE FUNCTION or PROCEDURE', () {
+    test('AC1: the R3-S1 probe reports the COMMIT', () {
+      expect(findTransactionControl(_r3s1Probe), 'COMMIT');
+    });
+
+    test('AC1: validateMigrations refuses the R3-S1 probe and names version '
+        '1 and the migration', () {
+      expect(
+        () => validateMigrations(const [
+          Migration(version: 1, name: 'r3_s1_probe', sql: _r3s1Probe),
+        ]),
+        throwsA(
+          isA<MigrationStateException>().having(
+            (e) => e.message,
+            'message',
+            allOf(
+              contains('migration 1 (r3_s1_probe)'),
+              contains('COMMIT statement'),
+            ),
+          ),
+        ),
+      );
+    });
+
+    group('AC2: begin atomic outside a body does not hide a ROLLBACK', () {
+      for (final MapEntry(key: kind, value: sql)
+          in beginAtomicOutsideABody.entries) {
+        test(kind, () {
+          for (final variant in {sql, sql.toLowerCase(), sql.toUpperCase()}) {
+            final probe = '$variant; ROLLBACK;';
+            expect(findTransactionControl(probe), 'ROLLBACK', reason: probe);
+            expect(
+              scanTransactionControl('$variant;').unclosedBody,
+              isFalse,
+              reason: variant,
+            );
+          }
+        });
+      }
+    });
+
+    group('AC3: real function and procedure bodies', () {
+      const bodies = {
+        'CREATE FUNCTION': '''
+CREATE FUNCTION t101_sum(x int) RETURNS int LANGUAGE sql
+BEGIN ATOMIC
+  SELECT 1;
+  SELECT CASE WHEN x > 0 THEN CASE WHEN x > 9 THEN 9 ELSE x END ELSE 0 END;
+END;
+''',
+        'CREATE OR REPLACE PROCEDURE': '''
+CREATE OR REPLACE PROCEDURE t101_fill(x int) LANGUAGE sql
+BEGIN ATOMIC
+  INSERT INTO t101_log VALUES (CASE WHEN x > 0 THEN x ELSE 0 END);
+  INSERT INTO t101_log VALUES (x + 1);
+  DELETE FROM t101_log WHERE v < 0;
+END;
+''',
+        'create or replace function, lower case, RETURNS TABLE': '''
+create or replace function t101_rows() returns table (v int) language sql
+begin atomic
+  select 1;
+  select case 1 when 1 then 2 end;
+end;
+''',
+        'CREATE PROCEDURE with comments and strings in the body': '''
+CREATE PROCEDURE t101_note() LANGUAGE sql
+BEGIN ATOMIC
+  -- END; COMMIT;
+  INSERT INTO t101_log VALUES (length('END; COMMIT;'));
+  /* END; */ INSERT INTO t101_log VALUES (2);
+END;
+''',
+      };
+
+      for (final MapEntry(key: label, value: sql) in bodies.entries) {
+        test('$label passes', () {
+          final scan = scanTransactionControl(sql);
+          expect(scan.statement, isNull, reason: sql);
+          expect(scan.unclosedBody, isFalse, reason: sql);
+          expect(
+            () => validateMigrations([
+              Migration(version: 1, name: 'body', sql: sql),
+            ]),
+            returnsNormally,
+          );
+        });
+
+        test('$label, then a COMMIT after the final END is reported', () {
+          expect(findTransactionControl('${sql}COMMIT;'), 'COMMIT');
+          expect(
+            findTransactionControl('${sql}SELECT 1; ROLLBACK;'),
+            'ROLLBACK',
+          );
+        });
+      }
+    });
+
+    group('AC4: a body that is not closed is refused', () {
+      const unclosed = {
+        'no END at all': 'CREATE FUNCTION f() RETURNS int LANGUAGE sql BEGIN ATOMIC SELECT 1;',
+        'a CASE END but no body END':
+            'CREATE PROCEDURE p() LANGUAGE sql BEGIN ATOMIC '
+            'SELECT CASE WHEN true THEN 1 END;',
+        'an END hidden in a comment':
+            'CREATE FUNCTION f() RETURNS int LANGUAGE sql BEGIN ATOMIC '
+            'SELECT 1; -- END;\n',
+      };
+
+      for (final MapEntry(key: label, value: sql) in unclosed.entries) {
+        test(label, () {
+          final scan = scanTransactionControl(sql);
+          expect(scan.statement, isNull);
+          expect(scan.unclosedBody, isTrue);
+          expect(
+            () => validateMigrations([
+              const Migration(version: 1, name: 'fine', sql: 'SELECT 1;'),
+              Migration(version: 2, name: 'open_body', sql: sql),
+            ]),
+            throwsA(
+              isA<MigrationStateException>().having(
+                (e) => e.message,
+                'message',
+                allOf(
+                  contains('migration 2 (open_body)'),
+                  contains('not closed'),
+                  isNot(contains('SELECT')),
+                  isNot(contains('ATOMIC SELECT')),
+                ),
+              ),
+            ),
+          );
+        });
+      }
+
+      test('the message never contains the SQL', () {
+        const sql =
+            'CREATE FUNCTION secret_marker_t101() RETURNS int LANGUAGE sql '
+            'BEGIN ATOMIC SELECT 1;';
+        try {
+          validateMigrations(const [
+            Migration(version: 1, name: 'open_body', sql: sql),
+          ]);
+          fail('should throw');
+        } on MigrationStateException catch (e) {
+          expect(e.message, isNot(contains('secret_marker_t101')));
+          expect(e.toString(), isNot(contains('secret_marker_t101')));
+        }
+      });
+    });
+
+    group(r'optional R3-G2: a $ right after a number opens a dollar quote', () {
+      const probes = {
+        r'the reviewer probe': r'SELECT 1$$ $$; COMMIT; SELECT $$x$$;',
+        r'after a decimal': r'SELECT 1.5$$ $$; COMMIT; SELECT $$x$$;',
+        r'after a parameter': r'SELECT $1$$ $$; COMMIT; SELECT $$x$$;',
+        r'a tagged quote after a number':
+            r'SELECT 10$t$ $t$; COMMIT; SELECT $t$x$t$;',
+      };
+      for (final MapEntry(key: label, value: sql) in probes.entries) {
+        test(label, () {
+          // Two dollar quotes hide nothing: the COMMIT sits between them.
+          expect(findTransactionControl(sql), 'COMMIT', reason: sql);
+        });
+      }
+
+      test(r'a $ inside an identifier still is not a quote', () {
+        expect(
+          findTransactionControl(r'SELECT a$$ FROM t; COMMIT; SELECT $$x$$;'),
+          'COMMIT',
+        );
+        expect(
+          findTransactionControl(r'SELECT a1$$ ; COMMIT; $$ FROM t;'),
+          'COMMIT',
+        );
+      });
+
+      test('a dollar quote right after a number hides what is inside it', () {
+        expect(findTransactionControl(r'SELECT 1$$; COMMIT;$$;'), isNull);
+      });
     });
   });
 }

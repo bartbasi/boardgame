@@ -24,7 +24,8 @@ export 'src/db/migration.dart'
         migrationsTable,
         validateMigrations;
 export 'src/db/migrations.dart' show schemaMigrations;
-export 'src/db/transaction_control.dart' show findTransactionControl;
+export 'src/db/transaction_control.dart'
+    show TransactionControlScan, findTransactionControl, scanTransactionControl;
 export 'src/http/middleware.dart'
     show loggableMethod, otherMethod, unmatchedRoute;
 export 'src/http/rate_limit.dart'
