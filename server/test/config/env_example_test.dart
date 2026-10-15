@@ -32,6 +32,16 @@ class _RecordingMap extends MapBase<String, String> {
   String? remove(Object? key) => _inner.remove(key);
 }
 
+/// Optional variables documented as commented-out `# KEY=value` lines, so
+/// that copying the file unchanged leaves them unset (T-084 review R1-G2).
+Map<String, String> _parseCommentedVariables(String text) => {
+  for (final match in RegExp(
+    r'^# ([A-Z][A-Z0-9_]*)=(\S+)$',
+    multiLine: true,
+  ).allMatches(text.replaceAll('\r', '')))
+    match[1]!: match[2]!,
+};
+
 /// Parses KEY=value lines; skips blank lines and # comments.
 Map<String, String> _parseEnvFile(String text) {
   final result = <String, String>{};
@@ -49,7 +59,9 @@ Map<String, String> _parseEnvFile(String text) {
 
 void main() {
   // `dart test` runs with the package root (server/) as working directory.
-  final example = _parseEnvFile(File('.env.example').readAsStringSync());
+  final exampleText = File('.env.example').readAsStringSync();
+  final example = _parseEnvFile(exampleText);
+  final commented = _parseCommentedVariables(exampleText);
 
   group('.env.example (T-008 AC6)', () {
     test('lists exactly the variables the config loaders read (T-008 AC6, '
@@ -64,14 +76,33 @@ void main() {
       expect(EbayAccountDeletionConfig.load(recording), isNull);
 
       expect(recording.readKeys, isNotEmpty);
-      expect(example.keys.toSet(), recording.readKeys);
+      expect(
+        example.keys.toSet().intersection(commented.keys.toSet()),
+        isEmpty,
+      );
+      expect({...example.keys, ...commented.keys}, recording.readKeys);
     });
 
     test('its values form a valid config, so it is a working template', () {
       expect(() => Config.load(example), returnsNormally);
       expect(() => DatabaseConfig.load(example), returnsNormally);
-      expect(EbayAccountDeletionConfig.load(example), isNotNull);
+      // Copied unchanged, the eBay endpoint stays off (review R1-G2).
+      expect(EbayAccountDeletionConfig.load(example), isNull);
     });
+
+    test(
+      'the eBay account deletion pair is documented commented out, and '
+      'its placeholders form a valid pair once uncommented (T-084 R1-G2)',
+      () {
+        expect(commented.keys.toSet(), {
+          ebayAccountDeletionTokenVariable,
+          ebayAccountDeletionUrlVariable,
+        });
+        expect(example.keys, isNot(contains(ebayAccountDeletionTokenVariable)));
+        expect(example.keys, isNot(contains(ebayAccountDeletionUrlVariable)));
+        expect(EbayAccountDeletionConfig.load(commented), isNotNull);
+      },
+    );
 
     test('every key is UPPER_SNAKE_CASE with a non-empty placeholder', () {
       for (final MapEntry(:key, :value) in example.entries) {
