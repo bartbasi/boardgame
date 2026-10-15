@@ -77,6 +77,14 @@ BEGIN ATOMIC
   /* END; */ INSERT INTO t101_log VALUES (2);
 END;
 ''',
+  // Round 2, review R1-M1: case and end as column labels and names.
+  'CREATE FUNCTION with case and end as column labels': '''
+CREATE FUNCTION t101_labels() RETURNS int LANGUAGE sql
+BEGIN ATOMIC
+  SELECT 1 AS case;
+  SELECT t.end FROM (SELECT CASE WHEN true THEN 2 END AS end) t;
+END;
+''',
 };
 
 /// Setup that makes [realRoutineBodies] valid on real PostgreSQL.

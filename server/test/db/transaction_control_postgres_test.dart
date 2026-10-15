@@ -78,6 +78,22 @@ void main() {
     });
   });
 
+  test('round 2, R1-M1: with AS case in the body, PostgreSQL ends the body '
+      'at the first END and runs a second END as a COMMIT, which the '
+      'scanner refuses', () async {
+    const sql =
+        'CREATE FUNCTION t101_m1() RETURNS int LANGUAGE sql '
+        'BEGIN ATOMIC SELECT 1 AS case; END; END;';
+    expect(findTransactionControl(sql), 'END');
+    // In an explicit transaction, the second END commits, so the ROLLBACK
+    // at the end has nothing left to undo.
+    await run('BEGIN; CREATE TABLE t101_m1_t (i int); $sql ROLLBACK;');
+    final rows = await connection.execute(
+      "SELECT to_regclass('public.t101_m1_t') IS NOT NULL, t101_m1()",
+    );
+    expect(rows.single, [true, 1]);
+  });
+
   test(r'optional R3-G2: PostgreSQL rejects the number-then-$$ probe as a '
       'whole, so its COMMIT never runs', () async {
     await run('CREATE TABLE t101_g2 (i int)');
