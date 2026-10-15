@@ -24,6 +24,12 @@ Round 2 (2026-10-14):
 - Startup fails at once on SQLSTATE 28P01/28000/3D000 (`permanentStartupSqlStates`), same `database unreachable` line plus `permanent: true`, so QA tests matching the message still pass.- Orchestrator decision: /health stays server-only, not in packages/api_contract (the app never calls it).
 - Python edits on Windows: open with `newline=''` or text mode writes CRLF.
 
+T-101 (2026-10-14):
+- BEGIN and ATOMIC are unreserved: `SELECT begin atomic FROM (SELECT 1 AS begin) s` is valid, and so is a function argument `(begin atomic)` with a domain named atomic. Body mode is gated on `CREATE [OR REPLACE] FUNCTION|PROCEDURE` token positions plus paren depth 0; scan returns `({statement, unclosedBody})`.
+- PostgreSQL parses the whole simple-query string before running any statement, so a scanner miss that is a syntax error for PostgreSQL is harmless (nothing runs). Use this to argue edge cases.
+- A session `SET` committed in migration N persists into N+1 on the same connection; `migrate` now sets standard_conforming_strings on before each.
+- Worktree guard refuses bash `for` loops, `cd ..; git`, launching .exe/powershell; `docker desktop start` works. Hook blocks writes to the scratchpad. Do mutation checks with Edit + revert. `docker rm -f` leaves the postgres image's anonymous volume; remove it by id (check CreatedAt).
+
 **Why:** these cost a round or a CI failure to find; T-021 to T-025 and T-072 build on the DB layer.
 **How to apply:** reuse the test helpers, put new tables in a new migration, keep request data out of SQL literals, and check repo.yml (gitleaks) on the first push.
 

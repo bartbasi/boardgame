@@ -4,7 +4,7 @@
 - [Server skeleton patterns](server-skeleton-patterns.md): T-008 shutdown drain via connectionsInfo, route template slot, Linux test script, signals
 - [Compose stack notes](compose-stack-notes.md): T-010 pinned images, PG18 volume path, pg_isready TCP, Caddy keepalive, log retention gap, memory
 - [CI server workflow](ci-server-workflow.md): T-011 context size, gha cache, QEMU; T-098 Ubuntu 26 containerd .Size, export size, healthcheck exec
-- [PostgreSQL access notes](postgres-access-notes.md): T-019 driver quirks, migrations, real-DB test setup, gitleaks on fake passwords, collation, memory
+- [PostgreSQL access notes](postgres-access-notes.md): T-019 driver quirks, migrations, real-DB tests, gitleaks, collation; T-101 scanner gating, guard limits
 - [Worktree shell limits](worktree-shell-limits.md): compound Bash writes get refused; use Write tool, quote pub cache path
 - [Rate limiter notes](rate-limiter-notes.md): T-020 int keys for 64 MB, measured RSS, pinned Caddy IP for XFF, describeError AC8, close() hang
 - [M2 contract decisions](m2-contract-decisions.md): T-018 bad_request declined, no images (Q5), bggUrl evidence, BGG fields unconfirmed, EAN-8 padding
