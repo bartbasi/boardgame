@@ -5,6 +5,8 @@ import '../../domain/result.dart';
 import 'app_database.dart';
 import 'game_stores.dart';
 
+export 'game_stores.dart' show CachedGameDetails, ConfirmedMatch;
+
 /// The type of a database error, safe to log: only the type, because
 /// messages can quote stored data or paths. Errors from the background
 /// isolate arrive wrapped in a [DriftRemoteException], so this names the
@@ -12,43 +14,6 @@ import 'game_stores.dart';
 Type storageErrorType(Object error) => error is DriftRemoteException
     ? error.remoteCause.runtimeType
     : error.runtimeType;
-
-/// Cached details of one game, as stored on the device.
-final class CachedGameDetails {
-  const CachedGameDetails({
-    required this.bggId,
-    required this.detailsJson,
-    required this.fetchedAt,
-    required this.lastViewedAt,
-  });
-
-  final int bggId;
-
-  /// The backend's game details JSON, exactly as it was saved.
-  final String detailsJson;
-
-  /// When the details were fetched (UTC).
-  final DateTime fetchedAt;
-
-  /// When the user last opened the game (UTC), or null if never.
-  final DateTime? lastViewedAt;
-}
-
-/// A barcode confirmed to belong to a game.
-final class ConfirmedMatch {
-  const ConfirmedMatch({
-    required this.gtin13,
-    required this.bggId,
-    required this.confirmedAt,
-  });
-
-  /// The 13-digit key (`Barcode.gtin13`).
-  final String gtin13;
-  final int bggId;
-
-  /// When the match was confirmed (UTC).
-  final DateTime confirmedAt;
-}
 
 /// The on-device store of cached game details and confirmed barcode matches
 /// (T-027).
