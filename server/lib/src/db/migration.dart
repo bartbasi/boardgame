@@ -26,6 +26,14 @@ import 'transaction_control.dart';
 ///   comments, and ignores quoted and dollar-quoted text, so a PL/pgSQL body
 ///   (`$$ BEGIN ... END; $$`) or a `BEGIN ATOMIC ... END` function body is
 ///   fine.
+/// - A `BEGIN ATOMIC ... END` body (where a `;` does not end the statement)
+///   is recognized only in `CREATE [OR REPLACE] FUNCTION` and
+///   `CREATE [OR REPLACE] PROCEDURE`, outside parentheses. Anywhere else
+///   `begin atomic` is plain words and the next `;` ends the statement. A
+///   body that is never closed with END is refused (T-101).
+/// - Each migration starts with `standard_conforming_strings` on, even if an
+///   earlier migration turned it off on the same connection, so a backslash
+///   in a plain '...' string is never an escape (T-101).
 /// - It may hold several statements separated by semicolons. It is sent with
 ///   the simple query protocol and takes no parameters.
 /// - Never edit a migration once it has been merged: the checksum of every
@@ -142,11 +150,18 @@ void validateMigrations(List<Migration> migrations) {
     if (m.sql.trim().isEmpty) {
       throw MigrationStateException('migration ${m.version} has no SQL');
     }
-    final control = findTransactionControl(m.sql);
+    final scan = scanTransactionControl(m.sql);
+    final control = scan.statement;
     if (control != null) {
       throw MigrationStateException(
         'migration ${m.version} (${m.name}) contains a $control statement; '
         'every migration already runs in its own transaction, so remove it',
+      );
+    }
+    if (scan.unclosedBody) {
+      throw MigrationStateException(
+        'migration ${m.version} (${m.name}) has a BEGIN ATOMIC function body '
+        'that is not closed; end it with END',
       );
     }
   }
@@ -246,6 +261,12 @@ CREATE TABLE IF NOT EXISTS $migrationsTable (
   for (final m in migrations.skip(rows.length)) {
     final watch = Stopwatch()..start();
     try {
+      // A migration may change a setting for the rest of the session, and
+      // the next one runs on the same connection. With
+      // standard_conforming_strings off, PostgreSQL reads a backslash in a
+      // plain '...' string as an escape and validateMigrations does not, so
+      // each migration starts with it on (T-101, review R3-G1).
+      await connection.execute('SET standard_conforming_strings = on');
       await connection.runTx((tx) async {
         await tx.execute(
           m.sql,
