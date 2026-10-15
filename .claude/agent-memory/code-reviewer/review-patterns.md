@@ -116,6 +116,7 @@ Games data source (T-028, 2026-10-14, round 1 APPROVED, 2 should fix): entities 
 
 Games repository (T-029, 2026-10-15, round 1 APPROVED, 2 should fix; CI blocked by billing, local evidence only): GamesRepository in features/game_detail/domain, impl in data on GameDetailsCache and BarcodeMatchStore interfaces (core/data/database/game_stores.dart; T-102 re-points gameDetailsCacheProvider). Open: R1-S1, a match-read failure followed by a backend `matched` overwrites a possibly user-corrected match, and the tests reach the backend by failing the read (a test seam that hides the bug: check how "forced path" tests force it). R1-S2, repository_layers.dart misses sealed/mixin/plain interface classes and `extends`. Forward: T-102 must keep matches resolving with no cache file; T-034 label time (recommended backend GameDetails.fetchedAt); PM may add UnexpectedFailure to the stale cases (PRD 8.2).
 - Handoff check: confirm "merges cleanly" with merge-tree before writing it.
+- T-029 round 2 APPROVED: R1-S1 and R1-S2 fixed. Orchestrator decision: every failure serves a usable stale copy (PRD 8.2). Open R2-S1: GameDetailsSnapshot has no refreshFailure, so T-034 cannot tell offline (OfflineBanner) from a 404 or 500. Check it in T-034 if it was deferred. My recommendation: on 404, serve the copy only with the reason exposed (backend 404 = BGG has no item, T-022 AC6). B2 checker gaps (plain mixin, enum, same-line annotation): no follow-up.
 
 Forward items to check in later tickets: release signing not debug key (T-014+), allowBackup decision before collection DB.
 
