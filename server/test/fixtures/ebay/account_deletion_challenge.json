@@ -1,0 +1,17 @@
+{
+  "_comment": "T-084 AC1. Fake values only. expectedChallengeResponse was computed outside Dart on 2026-10-14 with: printf '%s' \"$challengeCode$verificationToken$endpointUrl\" | sha256sum (GNU coreutils, lowercase hex), following eBay's documented order and hex encoding (https://developer.ebay.com/marketplace-account-deletion).",
+  "cases": [
+    {
+      "challengeCode": "a8628072-3d33-45ee-9004-bee86830a22d",
+      "verificationToken": "fake-token-fake-token-fake-token-fake-token",
+      "endpointUrl": "https://api.example.com/ebay/marketplace-account-deletion",
+      "expectedChallengeResponse": "d04f6fe180cc2fb21c53df20cdd0765a6c96382d1adc2872c2f46d80bd653b6c"
+    },
+    {
+      "challengeCode": "123",
+      "verificationToken": "fake-token-fake-token-fake-token-fake-token",
+      "endpointUrl": "https://api.example.com/ebay/marketplace-account-deletion",
+      "expectedChallengeResponse": "967880bc59b69cc2b317b6b308cb914166ee664c2a04882ca5713562244f149c"
+    }
+  ]
+}

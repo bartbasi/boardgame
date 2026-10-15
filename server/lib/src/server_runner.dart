@@ -6,10 +6,12 @@ import 'package:postgres/postgres.dart';
 import 'app.dart';
 import 'config/config.dart';
 import 'config/database_config.dart';
+import 'config/ebay_account_deletion_config.dart';
 import 'db/database.dart';
 import 'db/database_health.dart';
 import 'db/migration.dart';
 import 'db/migrations.dart';
+import 'ebay/account_deletion.dart';
 import 'http/rate_limit.dart';
 import 'http/rate_limiter.dart';
 import 'http/routes.dart';
@@ -86,8 +88,9 @@ Future<int> runServer({
 }) async {
   final Config config;
   final DatabaseConfig databaseConfig;
+  final EbayAccountDeletionConfig? ebayConfig;
   try {
-    (config, databaseConfig) = _loadConfig(environment);
+    (config, databaseConfig, ebayConfig) = _loadConfig(environment);
   } on ConfigException catch (e) {
     Logger(
       minLevel: LogLevel.error,
@@ -110,6 +113,7 @@ Future<int> runServer({
 
   final database = Database.open(databaseConfig);
   Timer? sweep;
+  Timer? ebaySweep;
   try {
     final startup = await _prepareDatabase(
       database,
@@ -136,18 +140,35 @@ Future<int> runServer({
     // Removes expired entries even when no request arrives (T-020 AC6);
     // cancelled in `finally`.
     sweep = startRateLimitSweep(limiter, periodic: periodicTimer);
+    final clientAddress = ClientAddressResolver(
+      trustedProxies: config.trustedProxies,
+      onUnusableForwarded: logUnusableForwarded(logger),
+    );
+    // The eBay account deletion endpoint (T-084) has its own limiter, so
+    // app traffic and eBay's calls never share an allowance.
+    RateLimiter? ebayLimiter;
+    if (ebayConfig != null) {
+      ebayLimiter = RateLimiter(
+        limit: ebayRateLimitPerMinute,
+        maxTracked: ebayRateLimitMaxTrackedIps,
+        onFull: () => logger.warning(
+          'eBay endpoint rate limiter full, evicting oldest entries',
+          {'maxTracked': ebayRateLimitMaxTrackedIps},
+        ),
+      );
+      ebaySweep = startRateLimitSweep(ebayLimiter, periodic: periodicTimer);
+    }
+    logger.info('eBay account deletion endpoint', {
+      'enabled': ebayConfig != null,
+    });
     final handler = buildApp(
       version: version,
       logger: logger,
       databaseHealth: databaseHealth,
-      v1Middleware: [
-        rateLimit(
-          limiter,
-          ClientAddressResolver(
-            trustedProxies: config.trustedProxies,
-            onUnusableForwarded: logUnusableForwarded(logger),
-          ),
-        ),
+      v1Middleware: [rateLimit(limiter, clientAddress)],
+      ebayAccountDeletion: ebayConfig,
+      ebayMiddleware: [
+        if (ebayLimiter != null) rateLimit(ebayLimiter, clientAddress),
       ],
       addTestRoutes: addTestRoutes,
     );
@@ -195,17 +216,21 @@ Future<int> runServer({
     return 0;
   } finally {
     sweep?.cancel();
+    ebaySweep?.cancel();
     await signalSubscription.cancel();
     await _closeDatabase(database, logger);
   }
 }
 
-(Config, DatabaseConfig) _loadConfig(Map<String, String> environment) {
-  // Both loaders run even if the first fails, so one line names every
+(Config, DatabaseConfig, EbayAccountDeletionConfig?) _loadConfig(
+  Map<String, String> environment,
+) {
+  // Every loader runs even if an earlier one fails, so one line names every
   // problem.
   final problems = <String>[];
   Config? config;
   DatabaseConfig? databaseConfig;
+  EbayAccountDeletionConfig? ebayConfig;
   try {
     config = Config.load(environment);
   } on ConfigException catch (e) {
@@ -216,8 +241,13 @@ Future<int> runServer({
   } on ConfigException catch (e) {
     problems.addAll(e.problems);
   }
+  try {
+    ebayConfig = EbayAccountDeletionConfig.load(environment);
+  } on ConfigException catch (e) {
+    problems.addAll(e.problems);
+  }
   if (problems.isNotEmpty) throw ConfigException(problems);
-  return (config!, databaseConfig!);
+  return (config!, databaseConfig!, ebayConfig);
 }
 
 /// Waits for the database, logs what it is, and migrates. Returns null to

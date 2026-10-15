@@ -2,7 +2,9 @@ import 'package:api_contract/api_contract.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import 'config/ebay_account_deletion_config.dart';
 import 'db/database_health.dart';
+import 'ebay/account_deletion.dart';
 import 'http/middleware.dart';
 import 'http/responses.dart';
 import 'http/routes.dart';
@@ -23,6 +25,12 @@ import 'logging/logger.dart';
 /// [version] is the build version reported by /health. [databaseHealth]
 /// decides between 200 and 503 (T-019 AC6).
 ///
+/// [ebayAccountDeletion] turns on the eBay marketplace account deletion
+/// endpoint (T-084) at [ebayAccountDeletionPath]; null leaves it off (404).
+/// It is mounted at [ebayMountPath] on the root router, outside /v1, so app
+/// attestation never applies to it; [ebayMiddleware] (its own per-IP rate
+/// limiter) runs for every request under [ebayMountPath].
+///
 /// [addTestRoutes] lets tests register extra /v1 routes (for example one that
 /// throws) so they run through the real pipeline. Production code never
 /// passes it.
@@ -31,6 +39,8 @@ Handler buildApp({
   required Logger logger,
   required DatabaseHealth databaseHealth,
   List<Middleware> v1Middleware = const [],
+  EbayAccountDeletionConfig? ebayAccountDeletion,
+  List<Middleware> ebayMiddleware = const [],
   void Function(Routes v1)? addTestRoutes,
 }) {
   final v1Router = Router(notFoundHandler: (_) => notFoundResponse());
@@ -44,6 +54,19 @@ Handler buildApp({
 
   final root = Router(notFoundHandler: (_) => notFoundResponse())
     ..mount('/v1', v1Pipeline.addHandler(v1Router.call));
+
+  if (ebayAccountDeletion != null) {
+    final ebayRouter = Router(notFoundHandler: (_) => notFoundResponse());
+    addEbayAccountDeletionRoutes(
+      Routes(ebayRouter, mountPath: ebayMountPath),
+      ebayAccountDeletion,
+    );
+    var ebayPipeline = const Pipeline();
+    for (final middleware in ebayMiddleware) {
+      ebayPipeline = ebayPipeline.addMiddleware(middleware);
+    }
+    root.mount(ebayMountPath, ebayPipeline.addHandler(ebayRouter.call));
+  }
 
   // /health stays outside /v1 so Compose and Caddy health checks can use it
   // without attestation.
