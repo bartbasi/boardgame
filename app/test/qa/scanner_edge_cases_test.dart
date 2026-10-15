@@ -14,6 +14,7 @@ import 'package:board_game_collector/features/scanner/presentation/scanner_camer
 import 'package:board_game_collector/features/scanner/presentation/search_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -466,7 +467,24 @@ void main() {
 
     testWidgets('a different code right after the lookup opened (route not '
         'yet current) still gives one lookup result', (tester) async {
+      final haptics = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'HapticFeedback.vibrate') {
+            haptics.add(call.arguments as String);
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
       final fakes = await _open(tester);
+      tester.takeAnnouncements();
       fakes.camera.emit(_ean13);
       await tester.pump();
       await tester.pump(ScanSession.successDelay);
@@ -476,6 +494,10 @@ void main() {
       fakes.camera.emit('036000291452', format: BarcodeFormat.upcA);
       await tester.pumpAndSettle();
       expect(_results(), 1);
+      // Only the first code got feedback (round 2: the session stays in
+      // the detected state until the screen is covered).
+      expect(haptics, ['HapticFeedbackType.lightImpact']);
+      expect(tester.takeAnnouncements(), hasLength(1));
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(_results(), 0);
