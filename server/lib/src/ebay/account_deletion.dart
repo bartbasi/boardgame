@@ -65,10 +65,26 @@ String challengeResponse(
 ///   connection whose request body was left unread). We hold no eBay user
 ///   data (T-084 AC6), so there is nothing to delete. The `x-ebay-signature`
 ///   header is not checked (proposed decision in docs/handoffs/T-084.md).
-///   A body over [maxNotificationBytes] gets 413, and a body not complete
-///   within [notificationReadTimeout] of the start of reading (one overall
-///   deadline) gets 408; neither is eBay's notification. In both cases
-///   reading stops, and dart:io closes the connection after the response.
+///   A body that is too large (declared Content-Length over
+///   [maxNotificationBytes], or more bytes than that arriving) or not
+///   complete within [notificationReadTimeout] of the start of reading (one
+///   overall deadline) is not eBay's notification. Reading stops at once:
+///   the handler cancels the body, and dart:io then closes the connection
+///   **without sending any response** (it destroys a connection whose body
+///   was not fully read). Over a real socket the client sees the connection
+///   close, promptly and never later than the deadline; behind Caddy that
+///   shows as a 502. The 408 `request_timeout` and 413 `payload_too_large`
+///   values the handler returns are only visible in process (tests) and to
+///   the request log line. This is deliberate (orchestrator decision, T-084
+///   round 3): draining a slow or oversized body to deliver the answer would
+///   undo the overall deadline (review R1-M1).
+///
+///   A declared Content-Length over the cap is cancelled at once rather than
+///   left unread: when a handler answers without touching the body, dart:io
+///   first drains the whole declared body before it writes the response
+///   headers (sdk/lib/_http/http_impl.dart, `drainRequest`), so a client that
+///   declares 70,000 bytes and sends one would hold the connection with no
+///   deadline (T-084 round 3).
 ///
 /// Nothing here logs. The request log writes its usual line (method, route
 /// template, status, duration).
@@ -125,6 +141,9 @@ Response _invalidChallengeResponse() => jsonResponse(400, {
 Future<Response> _acknowledge(Request request, Duration deadline) {
   final length = request.contentLength;
   if (length != null && length > maxNotificationBytes) {
+    // Subscribe and cancel, so dart:io closes the connection instead of
+    // draining the declared body first (see addEbayAccountDeletionRoutes).
+    unawaited(request.read().listen(null).cancel());
     return Future.value(_tooLargeResponse());
   }
   final result = Completer<Response>();
