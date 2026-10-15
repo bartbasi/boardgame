@@ -108,6 +108,12 @@ services:
       # RATE_LIMIT_PER_MINUTE and RATE_LIMIT_MAX_TRACKED_IPS keep the
       # server's defaults (60 and 100000, server/.env.example).
       TRUSTED_PROXY_ADDRESSES: "10.213.7.10"
+      # eBay marketplace account deletion endpoint (T-084). Optional: unset
+      # or empty leaves the endpoint off (404). Set both in deploy/.env, or
+      # neither; the server refuses to start with only one or an invalid one
+      # (rules in server/.env.example). Production sets them in T-071.
+      EBAY_ACCOUNT_DELETION_VERIFICATION_TOKEN: ${EBAY_ACCOUNT_DELETION_VERIFICATION_TOKEN:-}
+      EBAY_ACCOUNT_DELETION_ENDPOINT_URL: ${EBAY_ACCOUNT_DELETION_ENDPOINT_URL:-}
     depends_on:
       postgres:
         condition: service_healthy
