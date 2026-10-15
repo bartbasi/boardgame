@@ -388,34 +388,33 @@ void main() {
       },
     );
 
-    // T-084-R2-B1 (minor): the 408 is documented but never reaches a real
-    // client. dart:io destroys the connection when the body subscription is
-    // cancelled, so the client sees a reset. Left failing on purpose.
-    test(
-      'T-084-R2-B1: the stalled-body 408 is delivered over the wire',
-      () async {
-        final socket = await Socket.connect('127.0.0.1', server.port);
-        final output = StringBuffer();
-        final closed = Completer<void>();
-        socket.listen(
-          (d) => output.write(utf8.decode(d, allowMalformed: true)),
-          onDone: closed.complete,
-          onError: (_) {
-            if (!closed.isCompleted) closed.complete();
-          },
-        );
-        socket.write(
-          'POST $ebayAccountDeletionRoute HTTP/1.1\r\nHost: x\r\n'
-          'Content-Length: 100\r\n\r\n',
-        );
-        socket.write('A');
-        await socket.flush();
-        await closed.future.timeout(const Duration(seconds: 5));
-        expect(output.toString(), startsWith('HTTP/1.1 408'));
-        socket.destroy();
-        await socket.close().catchError((Object _) {});
-      },
-    );
+    // Agreed behavior (orchestrator decision, T-084 round 3): a body that is
+    // not fully read ends with the connection closed promptly and no
+    // response bytes, so the 408 never reaches the wire.
+    test('a stalled body closes the connection within the deadline plus a '
+        'margin, with no response bytes', () async {
+      final socket = await Socket.connect('127.0.0.1', server.port);
+      final output = StringBuffer();
+      final closed = Completer<void>();
+      socket.listen(
+        (d) => output.write(utf8.decode(d, allowMalformed: true)),
+        onDone: closed.complete,
+        onError: (_) {
+          if (!closed.isCompleted) closed.complete();
+        },
+      );
+      socket.write(
+        'POST $ebayAccountDeletionRoute HTTP/1.1\r\nHost: x\r\n'
+        'Content-Length: 100\r\n\r\n',
+      );
+      socket.write('A');
+      await socket.flush();
+      final watch = Stopwatch()..start();
+      await closed.future.timeout(const Duration(seconds: 5));
+      expect(watch.elapsed, lessThan(const Duration(seconds: 3)));
+      expect(output.toString(), isEmpty);
+      socket.destroy();
+    });
 
     test('a fast, complete body on the same server is 204', () async {
       final client = HttpClient()..findProxy = (_) => 'DIRECT';
