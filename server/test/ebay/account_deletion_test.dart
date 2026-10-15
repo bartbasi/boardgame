@@ -414,6 +414,17 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 300));
     });
 
+    test('a body stream that fails becomes a 500 through the error '
+        'boundary, never an acknowledgement', () async {
+      final app = _EbayApp();
+      final response = await app.send(
+        'POST',
+        ebayAccountDeletionPath,
+        body: Stream<List<int>>.error(StateError('socket reset')),
+      );
+      expect(response.statusCode, 500);
+    });
+
     test('R1-M1: the default deadline is 10 s for the whole body '
         '[ASSUMPTION]', () {
       expect(notificationReadTimeout, const Duration(seconds: 10));
