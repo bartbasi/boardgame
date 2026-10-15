@@ -446,6 +446,73 @@ END;
       }
     });
 
+    test('T-101 AC5: a begin atomic column before a COMMIT in migration 2 '
+        'stops startup with exit 70 before any SQL runs', () async {
+      final db = await _scratch();
+      final run = ServerRun(
+        await _env(db),
+        migrations: const [
+          Migration(
+            version: 1,
+            name: 'create_t101_first',
+            sql: 'CREATE TABLE t101_first (id integer);',
+          ),
+          Migration(
+            version: 2,
+            name: 'r3_s1_probe',
+            sql:
+                'SELECT begin atomic FROM (SELECT 1 AS begin) s; COMMIT; '
+                'SELECT 1;',
+          ),
+        ],
+      ).start();
+      expect(await run.exitCode, migrationFailedExitCode);
+      expect(
+        run.out.withMessage('migrations cannot run').single['reason'],
+        allOf(contains('migration 2 (r3_s1_probe)'), contains('COMMIT')),
+      );
+      expect(run.listening.isCompleted, isFalse);
+      expect(await _tableExists(db, 't101_first'), isFalse);
+      // Validation runs before migrate() creates the history table, so
+      // there is no table at all, which also means no recorded version.
+      expect(await _tableExists(db, 'schema_migrations'), isFalse);
+    });
+
+    test('T-101 AC6: each migration starts with standard_conforming_strings '
+        'on, even after the one before turned it off on the same '
+        'connection', () async {
+      final db = await _scratch();
+      final database = Database.open(
+        DatabaseConfig.load({
+          ...db.serverEnvironment(),
+          'DATABASE_POOL_MAX': '1',
+        }),
+      );
+      addTearDown(database.close);
+      final logs = LogCapture();
+      final report = await migrate(database.pool, const [
+        Migration(
+          version: 1,
+          name: 'scs_off',
+          sql:
+              'SET standard_conforming_strings = off; '
+              'CREATE TABLE scs_seen (version integer, value text);',
+        ),
+        Migration(
+          version: 2,
+          name: 'scs_record',
+          sql:
+              'INSERT INTO scs_seen '
+              "VALUES (2, current_setting('standard_conforming_strings'));",
+        ),
+      ], logs.logger());
+      expect(report.applied, [1, 2]);
+      final rows = await db.query('SELECT version, value FROM scs_seen');
+      expect(rows, [
+        [2, 'on'],
+      ]);
+    });
+
     test('a shutdown signal during migrations lets the running migration '
         'finish, then exits 0 without listening', () async {
       final db = await _scratch();

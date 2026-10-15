@@ -42,3 +42,42 @@ CREATE DOMAIN atomic AS int;
 CREATE FUNCTION t101_trigger_fn() RETURNS trigger LANGUAGE plpgsql
   AS $$ BEGIN RETURN NEW; END; $$;
 ''';
+
+/// CREATE [OR REPLACE] FUNCTION and PROCEDURE statements with
+/// `BEGIN ATOMIC ... END` bodies holding several statements and nested
+/// `CASE ... END` (T-101 AC3). They need [realRoutineBodiesSetup].
+const realRoutineBodies = {
+  'CREATE FUNCTION': '''
+CREATE FUNCTION t101_sum(x int) RETURNS int LANGUAGE sql
+BEGIN ATOMIC
+  SELECT 1;
+  SELECT CASE WHEN x > 0 THEN CASE WHEN x > 9 THEN 9 ELSE x END ELSE 0 END;
+END;
+''',
+  'CREATE OR REPLACE PROCEDURE': '''
+CREATE OR REPLACE PROCEDURE t101_fill(x int) LANGUAGE sql
+BEGIN ATOMIC
+  INSERT INTO t101_log VALUES (CASE WHEN x > 0 THEN x ELSE 0 END);
+  INSERT INTO t101_log VALUES (x + 1);
+  DELETE FROM t101_log WHERE v < 0;
+END;
+''',
+  'create or replace function, lower case, RETURNS TABLE': '''
+create or replace function t101_rows() returns table (v int) language sql
+begin atomic
+  select 1;
+  select case 1 when 1 then 2 end;
+end;
+''',
+  'CREATE PROCEDURE with comments and strings in the body': '''
+CREATE PROCEDURE t101_note() LANGUAGE sql
+BEGIN ATOMIC
+  -- END; COMMIT;
+  INSERT INTO t101_log VALUES (length('END; COMMIT;'));
+  /* END; */ INSERT INTO t101_log VALUES (2);
+END;
+''',
+};
+
+/// Setup that makes [realRoutineBodies] valid on real PostgreSQL.
+const realRoutineBodiesSetup = 'CREATE TABLE t101_log (v int);';
