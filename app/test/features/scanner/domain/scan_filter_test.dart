@@ -61,6 +61,26 @@ void main() {
     });
   });
 
+  group('the digit count must fit the reported symbology (review R1-G1)', () {
+    test('valid digits under the wrong symbology are ignored', () {
+      final filter = ScanFilter();
+      // A valid EAN-8 reported as EAN-13 or UPC-A.
+      expect(filter.accept(_d('96385074')), isNull);
+      expect(filter.accept(_d('96385074', BarcodeFormat.upcA)), isNull);
+      // A valid UPC-A or EAN-13 reported as EAN-8.
+      expect(filter.accept(_d('036000291452', BarcodeFormat.ean8)), isNull);
+      expect(filter.accept(_d('4006381333931', BarcodeFormat.ean8)), isNull);
+    });
+
+    test('UPC-A and EAN-13 accept 12 or 13 digits', () {
+      expect(ScanFilter().accept(_d('036000291452')), isNotNull);
+      expect(
+        ScanFilter().accept(_d('4006381333931', BarcodeFormat.upcA)),
+        isNotNull,
+      );
+    });
+  });
+
   group('debounce (AC6)', () {
     test('the window is 2 s', () {
       expect(ScanFilter.defaultWindow, const Duration(seconds: 2));
