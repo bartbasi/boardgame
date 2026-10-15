@@ -4,6 +4,7 @@
 import 'package:board_game_collector/core/domain/result.dart';
 import 'package:board_game_collector/features/scanner/data/permission_handler_camera_permissions.dart';
 import 'package:board_game_collector/features/scanner/domain/camera_permission.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,6 +93,42 @@ void main() {
       expect(
         await const PermissionHandlerCameraPermissions().request(),
         const Ok(CameraPermission.granted),
+      );
+    });
+  });
+
+  group('wasDeniedBefore (review R1-M1)', () {
+    for (final rationale in [true, false]) {
+      test('Android: the rationale flag ($rationale)', () async {
+        answer((_) => rationale);
+        expect(
+          await const PermissionHandlerCameraPermissions().wasDeniedBefore(),
+          Ok(rationale),
+        );
+        expect(calls.single.method, 'shouldShowRequestPermissionRationale');
+        expect(calls.single.arguments, _camera);
+      });
+    }
+
+    test('iOS: false without a platform call', () async {
+      answer((_) => true);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        expect(
+          await const PermissionHandlerCameraPermissions().wasDeniedBefore(),
+          const Ok(false),
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+      expect(calls, isEmpty);
+    });
+
+    test('a plugin error becomes UnexpectedFailure', () async {
+      answer((_) => throw PlatformException(code: 'boom'));
+      expect(
+        await const PermissionHandlerCameraPermissions().wasDeniedBefore(),
+        const Err<bool>(UnexpectedFailure()),
       );
     });
   });

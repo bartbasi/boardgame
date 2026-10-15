@@ -60,10 +60,25 @@ class FakeScannerCamera extends ChangeNotifier implements ScannerCamera {
   void emitAll(List<BarcodeDetection> detections) =>
       _detections.add(detections);
 
-  /// Sends one camera frame with one code of [format] (null: a symbology
-  /// the app does not accept, such as QR, UPC-E, or Code 128).
-  void emit(String rawValue, {BarcodeFormat? format = BarcodeFormat.ean13}) =>
-      emitAll([BarcodeDetection(rawValue: rawValue, format: format)]);
+  /// Sends one camera frame with one code of [format]: a [BarcodeFormat],
+  /// or null for a symbology the app does not accept (QR, UPC-E, Code 128).
+  /// Without [format], the symbology follows the digit count as a real
+  /// scanner reports it: 8 digits EAN-8, 12 UPC-A, anything else EAN-13
+  /// (the filter checks that they match, review R1-G1).
+  void emit(String rawValue, {Object? format = _byLength}) => emitAll([
+    BarcodeDetection(
+      rawValue: rawValue,
+      format: identical(format, _byLength)
+          ? switch (rawValue.length) {
+              8 => BarcodeFormat.ean8,
+              12 => BarcodeFormat.upcA,
+              _ => BarcodeFormat.ean13,
+            }
+          : format as BarcodeFormat?,
+    ),
+  ]);
+
+  static const Object _byLength = Object();
 
   @override
   Future<CameraStartResult> start() async {
@@ -119,11 +134,21 @@ class FakeCameraPermissions implements CameraPermissionRepository {
     this.current = CameraPermission.granted,
     this.answer = CameraPermission.granted,
     this.statusFails = false,
+    this.deniedBefore = false,
   });
 
   CameraPermission current;
   CameraPermission? answer;
   bool statusFails;
+
+  /// What [wasDeniedBefore] answers: true for a user who denied the prompt
+  /// in an earlier app run (Android).
+  bool deniedBefore;
+
+  /// Makes [wasDeniedBefore] fail.
+  bool deniedBeforeFails = false;
+
+  int wasDeniedBeforeCount = 0;
 
   /// Runs at each [status] call, after [statusCount] went up and before
   /// [current] is read.
@@ -148,6 +173,13 @@ class FakeCameraPermissions implements CameraPermissionRepository {
     onStatus?.call();
     if (statusFails) return const Err(UnexpectedFailure());
     return Ok(current);
+  }
+
+  @override
+  Future<Result<bool>> wasDeniedBefore() async {
+    wasDeniedBeforeCount++;
+    if (deniedBeforeFails) return const Err(UnexpectedFailure());
+    return Ok(deniedBefore);
   }
 
   @override

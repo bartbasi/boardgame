@@ -187,6 +187,20 @@ void main() {
       expect(_phase(tester), ScanPhase.denied);
     });
 
+    testWidgets('AC1 a new app run after a denial shows the Denied panel '
+        'without a prompt (R1-M1)', (tester) async {
+      final fakes = ScannerFakes(
+        permissions: FakeCameraPermissions(
+          current: CameraPermission.denied,
+          deniedBefore: true,
+        ),
+      );
+      await _open(tester, scanner: fakes);
+      expect(fakes.permissions.requestCount, 0);
+      expect(_phase(tester), ScanPhase.denied);
+      expect(find.text('Allow camera'), findsOne);
+    });
+
     testWidgets('AC1 a granted permission is never requested', (tester) async {
       final fakes = await _open(tester);
       expect(fakes.permissions.requestCount, 0);

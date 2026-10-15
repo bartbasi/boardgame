@@ -44,10 +44,9 @@ enum ScanPhase {
 /// only when the scanner is first opened).
 ///
 /// After that, "denied" shows the Denied panel and its "Allow camera"
-/// button asks again. Kept for the app run only, not stored: on Android a
-/// "denied" status cannot tell "never asked" from "denied once", so the
-/// next app run asks once more, and Android itself stops asking after the
-/// second denial.
+/// button asks again. Across app runs the platform tells an earlier denial
+/// apart (`CameraPermissionRepository.wasDeniedBefore`; review R1-M1), so a
+/// user who denied once is not prompted again at the next launch.
 @Riverpod(keepAlive: true)
 class CameraPromptShown extends _$CameraPromptShown {
   @override
@@ -97,7 +96,9 @@ class ScanSession extends ChangeNotifier {
   final void Function(Barcode barcode) onDetected;
 
   /// Called [successDelay] after [onDetected], to open the lookup result.
-  final void Function(Barcode barcode) onOpen;
+  /// Returns whether it started opening it; false when another screen is
+  /// already opening.
+  final bool Function(Barcode barcode) onOpen;
 
   late final StreamSubscription<List<BarcodeDetection>> _detections;
 
@@ -212,13 +213,23 @@ class ScanSession extends ChangeNotifier {
     var permission = await _permissions.status();
     if (_interrupted) return _again();
 
-    if (permission case Ok(value: CameraPermission.denied)
-        when _askNow || !_promptShown()) {
-      _askNow = false;
-      _markPromptShown();
-      _setPhase(ScanPhase.requesting);
-      permission = await _permissions.request();
-      if (_interrupted) return _again();
+    if (permission case Ok(value: CameraPermission.denied)) {
+      var ask = _askNow;
+      if (!ask && !_promptShown()) {
+        // Ask by itself only if the user was never asked (review R1-M1).
+        // An unknown answer counts as "asked": a panel is better than an
+        // unexpected system dialog.
+        final deniedBefore = await _permissions.wasDeniedBefore();
+        if (_interrupted) return _again();
+        ask = deniedBefore == const Ok(false);
+      }
+      if (ask) {
+        _askNow = false;
+        _markPromptShown();
+        _setPhase(ScanPhase.requesting);
+        permission = await _permissions.request();
+        if (_interrupted) return _again();
+      }
     }
     _askNow = false;
 
@@ -290,9 +301,10 @@ class ScanSession extends ChangeNotifier {
       _successTimer = Timer(successDelay, () {
         _successTimer = null;
         if (_disposed || _phase != ScanPhase.detected) return;
-        onOpen(barcode);
-        // If nothing opened (the screen stayed visible), keep scanning.
-        if (_active) _setPhase(ScanPhase.scanning);
+        // Stay in detected (no new detections) until the lookup result
+        // hides this screen (review R1-S2). Only when nothing opened, for
+        // example another screen was already opening, scan again.
+        if (!onOpen(barcode) && _active) _setPhase(ScanPhase.scanning);
       });
       return;
     }

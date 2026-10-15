@@ -23,6 +23,13 @@ class PermissionHandlerCameraPermissions implements CameraPermissionRepository {
   Future<Result<CameraPermission>> status() =>
       _guard('status', () async => mapStatus(await Permission.camera.status));
 
+  /// permission_handler answers false on iOS without a platform call.
+  @override
+  Future<Result<bool>> wasDeniedBefore() => _guard(
+    'wasDeniedBefore',
+    () => Permission.camera.shouldShowRequestRationale,
+  );
+
   @override
   Future<Result<CameraPermission>> request() => _guard(
     'request',
