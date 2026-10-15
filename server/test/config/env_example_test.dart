@@ -60,6 +60,8 @@ void main() {
         () => DatabaseConfig.load(recording),
         throwsA(isA<ConfigException>()),
       );
+      // Optional pair (T-084): with neither set it returns null.
+      expect(EbayAccountDeletionConfig.load(recording), isNull);
 
       expect(recording.readKeys, isNotEmpty);
       expect(example.keys.toSet(), recording.readKeys);
@@ -68,6 +70,7 @@ void main() {
     test('its values form a valid config, so it is a working template', () {
       expect(() => Config.load(example), returnsNormally);
       expect(() => DatabaseConfig.load(example), returnsNormally);
+      expect(EbayAccountDeletionConfig.load(example), isNotNull);
     });
 
     test('every key is UPPER_SNAKE_CASE with a non-empty placeholder', () {

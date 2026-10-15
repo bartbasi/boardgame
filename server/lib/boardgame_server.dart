@@ -8,6 +8,28 @@ export 'src/healthcheck.dart'
     show healthcheckTimeout, healthyExitCode, runHealthcheck, unhealthyExitCode;
 export 'src/config/config.dart' show Config, ConfigException;
 export 'src/config/database_config.dart' show DatabaseConfig;
+export 'src/config/ebay_account_deletion_config.dart'
+    show
+        EbayAccountDeletionConfig,
+        ebayAccountDeletionPath,
+        ebayAccountDeletionRoute,
+        ebayAccountDeletionTokenVariable,
+        ebayAccountDeletionUrlVariable,
+        ebayMountPath,
+        endpointUrlProblem,
+        isPublicAddress,
+        isValidVerificationToken,
+        maxEbayEndpointUrlLength;
+export 'src/ebay/account_deletion.dart'
+    show
+        addEbayAccountDeletionRoutes,
+        challengeCodeParameter,
+        challengeResponse,
+        ebayRateLimitMaxTrackedIps,
+        ebayRateLimitPerMinute,
+        maxChallengeCodeLength,
+        maxNotificationBytes,
+        notificationReadTimeout;
 export 'src/db/database.dart'
     show Database, DatabaseInfo, databaseConnectTimeout, databaseQueryTimeout;
 export 'src/db/database_health.dart'
