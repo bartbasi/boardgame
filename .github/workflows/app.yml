@@ -273,10 +273,17 @@ jobs:
       # prints the resolved macros (T-030 review R1-S1).
       - name: Check permission_handler enables the camera permission
         run: |
+          # Capture the exit status instead of letting bash -e stop the step,
+          # so the package's output is always printed (review R2-S1).
+          status=0
           PERMISSION_HANDLER_VERBOSE=1 swift package --manifest-cache none \
             --package-path ios/Flutter/ephemeral/Packages/.packages/permission_handler_apple \
-            dump-package > /dev/null 2> permission_macros.txt
+            dump-package > /dev/null 2> permission_macros.txt || status=$?
           cat permission_macros.txt
+          if [ "$status" -ne 0 ]; then
+            echo "::error::swift package dump-package for permission_handler_apple failed with exit status $status."
+            exit 1
+          fi
           if ! grep -Eq '^[[:space:]]*PERMISSION_CAMERA=1[[:space:]]*$' permission_macros.txt; then
             echo "::error::permission_handler_apple resolved PERMISSION_CAMERA to something other than 1, so the camera permission would be compiled out."
             exit 1
