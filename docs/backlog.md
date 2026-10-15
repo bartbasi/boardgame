@@ -838,7 +838,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-101 Server: tighten the migration transaction control scanner (low priority)
 - Milestone: M2 (low priority; fits anywhere in the backend lane)
 - Owner: backend-developer
-- Status: todo
+- Status: done pending CI (AC8)
 - Depends on: T-019 (done)
 - UX spec: n/a
 - Linked files: server/lib/src/db/transaction_control.dart, server/lib/src/db/migration.dart, server/test/db/transaction_control_test.dart, server/test/db/migration_test.dart, server/README.md ("Database" rules)
@@ -853,6 +853,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given the `Migration` doc comment and server/README.md "Database" rules, then they state both new rules: function body mode applies only inside CREATE FUNCTION or CREATE PROCEDURE, and each migration starts with `standard_conforming_strings` on (proved by: manual, reviewer reads both).
   8. Given server.yml on the ticket branch, then the dart (server) job passes against the PostgreSQL service container with the coverage gate (proved by: manual, run log).
 - Optional (review R3-G2, not required): a `$` right after a digit run that started a token begins a dollar quote in PostgreSQL's lexer but not in the scanner. The reviewer found no valid SQL where this matters. A code comment or a fix is welcome; if fixed, add the probe `SELECT 1$$ $$; COMMIT; SELECT $$x$$;` as a unit test.
+- Outcome: PM sign-off round 2 (docs/handoffs/T-101.md), 2026-10-15. AC1 to AC7 pass on local evidence, with real PostgreSQL 18.6 run locally by QA (1093 passed, 0 failed). AC8 is owed because GitHub Actions is blocked by billing. The branch merges only after server.yml is green on its final head; then the orchestrator merges without another PM round and sets the status to done. If the run fails, the ticket goes back for a new round. R3-G2 was also fixed. The body now ends only at an END that starts a body statement (review R1-M1), and migrations use `SET LOCAL` only (documented rule).
 
 ### T-103 App: manual entry follow-ups (rotation, announcements, layout dependency)
 - Milestone: M2 (low priority)
