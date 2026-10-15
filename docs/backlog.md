@@ -877,6 +877,40 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   12. Given TalkBack on an Android phone, when an invalid code is submitted, then the error is read once (not twice), whether the announcement comes from the screen or from the live region (proved by: manual on device).
 - If AC9 shows Look up under the number pad in portrait, or AC10 shows the number pad cannot be closed, stop and raise it in the handoff: UX decides whether Look up moves beside the field (manual-entry.md section 2, T-031 open question 4). That change is not in this ticket until UX updates the spec.
 
+### T-105 Server: deadline and cap for unread request bodies on every route
+- Milestone: M2 (must be merged before T-071 makes the server public)
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-084 (merged to main, so its body handling code can be reused)
+- UX spec: n/a
+- Linked files: server/lib/src/http/serve.dart (`bindAndServe`), server/lib/src/ebay/account_deletion.dart (the code to share), server/test/http/
+- Source: T-084 review round 3, R3-S1, and developer round 3 notes (docs/handoffs/T-084.md). When a handler answers without reading the request body, dart:io first drains the whole declared body with no deadline before it writes the response (sdk/lib/_http/http_impl.dart around line 1822, `drainRequest` when the body has no subscriber, Dart 3.13.5). So /health, every /v1 route, the 404s, and the bad-URL 404 in `bindAndServe` can each be held open indefinitely by one client that declares a large Content-Length and sends nothing. Rate limits slow how fast such connections open, not how long they stay open, and /health has no rate limit. This predates T-084 (since T-008).
+- Acceptance criteria (deadline and cap below are the T-084 values, 10 s [ASSUMPTION] and 64 KiB [ASSUMPTION]; tests inject a short deadline such as 500 ms):
+  1. Given a real socket through `bindAndServe`, when a client sends a GET /health request with `Content-Length: 1000` and then no body bytes, then the connection ends (closed, or answered and closed) no later than the deadline plus 1.5 s, and never stays open longer (proved by: integration, real socket, raw HTTP/1.1).
+  2. Given the same request to a /v1 route that exists, to a /v1 path that does not exist (404), to a path outside /v1 that does not exist (404), and with a request target `bindAndServe` cannot parse (its own 404), then each connection ends within the same bound (proved by: integration, real socket, one test per case).
+  3. Given a declared Content-Length over the cap (for example 70,000 bytes) with one byte sent, or a chunked body that passes the cap and then goes silent, on /health and on a /v1 route, then the connection closes in under 500 ms, without waiting for the deadline (proved by: integration, real socket).
+  4. Given a chunked body that never ends on /health, then the connection ends within the deadline plus 1.5 s (proved by: integration, real socket).
+  5. Given normal requests with no body, then /health still answers 200, a /v1 route answers as before, an unknown path answers 404, and two requests on one keep-alive connection both get their responses (proved by: integration, real socket).
+  6. Given a complete small body (100 bytes, Content-Length matching) sent to a route that does not read it, then the response arrives as it did before this ticket (proved by: integration, real socket).
+  7. Given the code, then the deadline and cap are applied in one central place (in `bindAndServe` or one middleware every request passes through), and /ebay's handler and the central code share one implementation instead of two copies. All T-084 tests, including server/test/ebay/account_deletion_socket_test.dart and QA's ebay_deadline_test.dart and ebay_socket_round3_test.dart, pass unchanged (proved by: manual, reviewer reads the diff; unit and integration, the existing suites).
+  8. Given any of the cases above, then the request log line has the standard keys only and no body content, and nothing else is logged about the body (proved by: integration with log capture).
+  9. Given server.yml on the ticket branch, then the dart (server) job passes against the PostgreSQL service container with the coverage gate (proved by: manual, run log). If GitHub Actions is still blocked by billing, this criterion is owed and the merge waits for a green run on the final head.
+
+### T-106 Server: fix the flaky migration shutdown test (low priority)
+- Milestone: M2 (low priority)
+- Owner: backend-developer
+- Status: todo
+- Depends on: T-019 (done)
+- UX spec: n/a
+- Linked files: server/test/db/migration_test.dart
+- Source: T-084 QA round 2 (docs/handoffs/T-084.md). The T-019 test "a shutdown signal during migrations lets the running migration finish" in server/test/db/migration_test.dart failed once under full-suite load and passed alone three times and in the next full runs.
+- Acceptance criteria:
+  1. Given the test, then the handoff names the timing it depended on (for example a fixed wait before the signal, or a check that runs before the migration has started) and how the new version removes it (proved by: manual, reviewer reads the explanation and the diff).
+  2. Given the fixed test, then it waits for an observable event (for example the migration's start, seen through a log line, a row, or `pg_stat_activity`) before sending the signal, instead of a fixed delay (proved by: manual, reviewer reads the test).
+  3. Given the fixed test, then it still proves what it proved before: the running migration finishes and is recorded in `schema_migrations`, later migrations do not run, the server never listens, and it exits 0. No assertion is removed or loosened (proved by: integration against real PostgreSQL; manual, reviewer compares assertions before and after).
+  4. Given real PostgreSQL 18.6 locally, then the test passes 20 runs in a row on its own and 3 full server suite runs in a row with no failure, with the commands and results in the handoff (proved by: integration, recorded runs).
+  5. Given server.yml on the ticket branch, then the dart (server) job passes (proved by: manual, run log). If GitHub Actions is still blocked by billing, this criterion is owed and the merge waits for a green run.
+
 ---
 
 ## M3 Collection (stubs)
@@ -1014,6 +1048,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Status: todo
 - Depends on: T-090
 - Goal: A client credentials token from the eBay token endpoint with the `https://api.ebay.com/oauth/api_scope` scope, kept in memory and reused until it expires after 2 hours, with secrets only in .env (EBAY-30 to EBAY-34).
+- Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
+  1. Carried from T-084 (open question 3, review R1). Given eBay credentials are set in config, when the server starts, then it fails with exit 78 unless both `EBAY_ACCOUNT_DELETION_VERIFICATION_TOKEN` and `EBAY_ACCOUNT_DELETION_ENDPOINT_URL` are also set and valid, naming the missing variables and printing no value. Without eBay credentials the pair stays optional as in T-084. So the server can never call eBay production without the deletion endpoint (EBAY-10) (proved by: unit, table-driven over credentials set or not and the pair set, partly set, or not).
 
 ### T-053 Server: eBay Browse API client
 - Milestone: M4
@@ -1033,6 +1069,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: backend-developer
 - Status: todo
 - Goal: Current price summary and listings, labeled as asking prices, with source and fetch time. Listings are cached at most 6 hours, then deleted, and never served older (EBAY-20, EBAY-21). The cache stores no seller or buyer identifiers [ASSUMPTION]. Stays inside the eBay budget.
+- Acceptance criteria (only this one so far; the full set comes when the ticket is scoped):
+  1. Carried from T-084 (review R1-G3, QA round 1). Given the listing cache migration, then server/test/ebay/no_ebay_user_data_test.dart is widened to also fail on column names holding account, feedback, email, eias, ebay id, address, or phone (in addition to seller, buyer, username, user id), and it passes against the real migrated schema. Any word that a legitimate column needs is handled by an exact allow-list entry with a reason, not by dropping the word. No column stores an eBay user id or username (EBAY-116, EBAY-18) (proved by: unit, the guard over the migration SQL; integration, information_schema after migrating on real PostgreSQL; manual, reviewer and PM read the schema).
 
 ### T-056 Server: looked-up games registry
 - Milestone: M4
@@ -1098,18 +1136,19 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-084 Server: eBay marketplace account deletion endpoint
 - Milestone: M4 (must be live before the first production eBay API call, so it may move earlier; PRD R13)
 - Owner: backend-developer
-- Status: todo
+- Status: done pending CI
 - Depends on: T-008, T-020; a public HTTPS deployment to go live (PRD Q8, T-071)
 - UX spec: n/a
 - Linked files: server/ (eBay notification route), server/.env.example
 - Acceptance criteria (written in full now because the facts are confirmed, EBAY-10 and EBAY-11):
-  1. Given a GET carrying eBay's challenge code, then the response is 200 with the JSON field `challengeResponse` holding the SHA-256 hash of the challenge code, the verification token, and the endpoint URL, joined in that order (EBAY-11). The exact query parameter name and the hash encoding come from the eBay page cited in EBAY-11; if docs/api-research.md does not record them, the developer raises it under "Research notes for PM" before coding (proved by: unit, with a fixed challenge code, token, and URL whose expected hash was computed independently and stored in the fixture).
-  2. Given a POST notification, then the endpoint acknowledges it immediately with 200, 201, 202, or 204 (EBAY-11), and no part of the notification body is stored or logged (proved by: endpoint with log capture).
+  1. Given a GET carrying eBay's challenge code, then the response is 200 with the JSON field `challengeResponse` holding the SHA-256 hash of the challenge code, the verification token, and the endpoint URL, joined in that order (EBAY-11). The exact query parameter name and the hash encoding come from the eBay page cited in EBAY-11; if docs/api-research.md does not record them, the developer raises it under "Research notes for PM" before coding (recorded at sign-off as EBAY-12 to EBAY-14: query parameter `challenge_code`, lowercase hex, `application/json` with no byte order mark). A GET whose challenge code is missing, empty, repeated, or over 1,024 characters [ASSUMPTION] gets 400 (proved by: unit, with a fixed challenge code, token, and URL whose expected hash was computed independently and stored in the fixture; endpoint for the 400 cases).
+  2. Given a POST notification whose body is fully read within 10 s [ASSUMPTION] of the start of reading and is at most 64 KiB [ASSUMPTION], then the endpoint acknowledges it immediately with 204 (one of the 200, 201, 202, or 204 that EBAY-11 allows), and no part of the notification body is stored or logged. Given a body that is not fully read (declared or received size over 64 KiB, or not complete 10 s after reading starts), then reading stops and the connection is closed with no response: 413 or 408 appears only in the request log line and in in-process tests, and behind Caddy the client sees 502 (orchestrator decision in T-084 round 3, proposed for docs/decisions.md). eBay resends any notification it gets no 2xx for (EBAY-16) (proved by: endpoint with log capture; real-socket tests through bindAndServe for the close times).
   3. Given the verification token in config, then startup fails unless it is 32 to 80 characters of letters, digits, underscore, or hyphen (EBAY-11) (proved by: unit, table-driven).
   4. Given the endpoint URL in config, then startup fails if it is not https or points to localhost or an internal IP address (EBAY-11) (proved by: unit).
-  5. Given this route, then app attestation does not apply, because eBay's servers call it, not our app. It has its own per-IP limit of 60 requests per minute [ASSUMPTION] (proved by: endpoint).
+  5. Given this route, then app attestation does not apply, because eBay's servers call it, not our app. It has its own per-IP limit of 300 requests per minute [ASSUMPTION] (orchestrator decision at T-084 round 2, raised from 60 because a refused notification is resent and repeated failures risk eBay marking the URL down, EBAY-11, EBAY-16), shared by GET and POST and separate from the /v1 limiter (proved by: endpoint).
   6. Given the listing cache from T-055, then it stores no seller or buyer identifiers [ASSUMPTION], so acknowledging a notification is all that is needed. The handoff confirms this against the cache schema (proved by: manual, reviewer and PM read the schema).
   7. Given production, then the endpoint is deployed, eBay's verification succeeds, and the subscription shows in the eBay developer portal before any production eBay credential goes on the server (proved by: manual, by the orchestrator with the user's approval).
+- Outcome: PM sign-off round 3 (docs/handoffs/T-084.md), 2026-10-15. AC1 to AC6 pass on local evidence (QA ran the full server suite against real PostgreSQL 18.6 twice: 1085 passed, 0 failed). CI is owed because GitHub Actions is blocked by billing. The branch merges only after server.yml is green on its final head, and then the status becomes done with no new PM round unless the run fails. AC7 is owed to T-071: it is done after deployment, by the orchestrator with the user's approval, pasting the identical canonical URL into the portal and the VM's deploy/.env (EBAY-17). Follow-ups: T-105 (unread bodies on every route, before T-071 goes public), T-106 (flaky T-019 shutdown test), T-071 AC5 (Caddy limits), T-052 note (the deletion pair becomes required), T-055 note (wider schema guard).
 
 ### T-085 Server: confirm board game category ids with the Taxonomy API
 - Milestone: M4 (early)
@@ -1183,6 +1222,8 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   2. Carried from T-020 (developer open question 5, review R1). Given the production deploy, then exactly one of these holds, and the runbook says which: (a) Docker IPv6 is enabled end to end, so Caddy sees each IPv6 client's own address: two requests to /v1 from two different IPv6 /64 prefixes are counted in separate rate limit buckets (the 61st request in one minute from the first prefix gets 429 while the second prefix still gets 200); or (b) no AAAA record is published for the API host name, checked with a DNS lookup of the AAAA type that returns no address. Otherwise every IPv6 client would share one bucket of 60 requests a minute [ASSUMPTION, the T-020 default] (proved by: manual, with the commands and output in the handoff).
   3. Carried from T-020 (developer open question 6, review R1). Given the VM, before the first `compose up`, then the output of `ip route` is recorded in the handoff and no route overlaps 10.213.7.0/24, the `web` network subnet from T-020. If one does, the subnet, Caddy's `ipv4_address`, `ip_range`, and `TRUSTED_PROXY_ADDRESSES` change together and compose_trusted_proxy_test.dart still passes (proved by: manual, `ip route` output in the handoff; unit, the Compose test after any change).
   4. Carried from T-020 (review R1-G3). Given any host, including the VM and any machine where the stack ran before the T-020 `web` network change, then the runbook runs `sh deploy/compose.sh down` (without `-v`, so volumes are kept) once before the first `up` after that change (harmless where no stack exists yet), and `up` then succeeds with Caddy at 10.213.7.10 (proved by: manual, the runbook step and `docker network inspect` output in the handoff).
+  5. Carried from T-084 (review R3-S2). Given the production Caddyfile, then Caddy is the outer layer against large and slow requests: `request_body` with `max_size 64KB` on the /ebay route, a small `max_size` on /v1 [ASSUMPTION, value chosen in this ticket, because no /v1 route takes a body today], and server `timeouts` with `read_header` and `read_body` set (10s each [ASSUMPTION]). Directive names, units, and Caddy's behavior when a limit is hit are checked against the official Caddy docs (https://caddyserver.com/docs/) when this ticket is written, with the pages and date in the handoff. Checks on the deployed stack: a POST to /ebay with a 70,000-byte body is refused by Caddy and does not reach the server (no server request log line); a request that sends headers slowly, and one that declares a body and then stalls, are closed within the configured timeout plus a margin; a normal eBay-shaped notification still gets 204 and GET /health still gets 200 (proved by: manual, curl or a raw socket against the deployed stack or a local Compose run of the production file, with commands and output in the handoff).
+- Before the server is public: T-105 (deadline and cap for unread request bodies on every route) must be merged, and T-084 AC7 (eBay's verification of the deletion endpoint) is done here after deployment, before any production eBay credential goes on the server.
 
 ### T-072 Deploy: daily backups and tested restore
 - Milestone: M5
