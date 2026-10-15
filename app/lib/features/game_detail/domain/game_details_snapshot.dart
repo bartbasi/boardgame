@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../core/domain/failure.dart';
 import 'game_details.dart';
 
 part 'game_details_snapshot.freezed.dart';
@@ -33,6 +34,12 @@ abstract class GameDetailsSnapshot with _$GameDetailsSnapshot {
     /// for a fresh load, the time it was cached for a stale copy. The
     /// backend's own fetch time from BGG is [GameDetails.fetchedAt].
     required DateTime fetchedAt,
+
+    /// Why the refresh failed when this is the stale cached copy, so the
+    /// screen can say the right thing (offline, the service is down, or
+    /// BoardGameGeek no longer lists the game for [NotFoundFailure]); null
+    /// for a fresh load (T-029 review R2-S1).
+    Failure? refreshFailure,
   }) = _GameDetailsSnapshot;
 
   /// True for the cached copy shown when loading failed.

@@ -1,4 +1,5 @@
 // T-029: what the games repository answers for a barcode.
+import 'package:board_game_collector/core/domain/failure.dart';
 import 'package:board_game_collector/features/game_detail/domain/barcode_lookup.dart';
 import 'package:board_game_collector/features/game_detail/domain/game_details.dart';
 import 'package:board_game_collector/features/game_detail/domain/game_details_snapshot.dart';
@@ -82,6 +83,29 @@ void main() {
       );
       expect(fresh.isStale, isFalse);
       expect(fresh.copyWith(freshness: DataFreshness.stale).isStale, isTrue);
+    });
+
+    test('refreshFailure defaults to null and takes part in equality', () {
+      final fresh = GameDetailsSnapshot(
+        details: details,
+        freshness: DataFreshness.fresh,
+        fetchedAt: DateTime.utc(2026, 10, 14),
+      );
+      expect(fresh.refreshFailure, isNull);
+      final stale = fresh.copyWith(
+        freshness: DataFreshness.stale,
+        refreshFailure: const NotFoundFailure(),
+      );
+      expect(stale.refreshFailure, const NotFoundFailure());
+      expect(
+        stale,
+        isNot(
+          fresh.copyWith(
+            freshness: DataFreshness.stale,
+            refreshFailure: const NoConnectionFailure(),
+          ),
+        ),
+      );
     });
   });
 }

@@ -312,6 +312,7 @@ void main() {
         ),
       );
       expect(result.valueOrNull?.isStale, isFalse);
+      expect(result.valueOrNull?.refreshFailure, isNull);
       expect(remote.fetches, [13]);
       final cached = (await store.readDetails(13)).valueOrNull!;
       expect(decodeCachedDetails(cached.detailsJson), catan);
@@ -422,6 +423,7 @@ void main() {
               details: catan,
               freshness: DataFreshness.stale,
               fetchedAt: _earlier,
+              refreshFailure: failure,
             ),
           ),
         );

@@ -20,7 +20,11 @@ mixin _$GameDetailsSnapshot {
  DataFreshness get freshness;/// When this device received the details from the backend (UTC): now
 /// for a fresh load, the time it was cached for a stale copy. The
 /// backend's own fetch time from BGG is [GameDetails.fetchedAt].
- DateTime get fetchedAt;
+ DateTime get fetchedAt;/// Why the refresh failed when this is the stale cached copy, so the
+/// screen can say the right thing (offline, the service is down, or
+/// BoardGameGeek no longer lists the game for [NotFoundFailure]); null
+/// for a fresh load (T-029 review R2-S1).
+ Failure? get refreshFailure;
 /// Create a copy of GameDetailsSnapshot
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -32,20 +36,20 @@ $GameDetailsSnapshotCopyWith<GameDetailsSnapshot> get copyWith => _$GameDetailsS
 @override
 bool operator ==(Object other) {
   final _this = this as GameDetailsSnapshot;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameDetailsSnapshot&&(identical(other.details, _this.details) || other.details == _this.details)&&(identical(other.freshness, _this.freshness) || other.freshness == _this.freshness)&&(identical(other.fetchedAt, _this.fetchedAt) || other.fetchedAt == _this.fetchedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is GameDetailsSnapshot&&(identical(other.details, _this.details) || other.details == _this.details)&&(identical(other.freshness, _this.freshness) || other.freshness == _this.freshness)&&(identical(other.fetchedAt, _this.fetchedAt) || other.fetchedAt == _this.fetchedAt)&&(identical(other.refreshFailure, _this.refreshFailure) || other.refreshFailure == _this.refreshFailure));
 }
 
 
 @override
 int get hashCode {
   final _this = this as GameDetailsSnapshot;
-  return Object.hash(runtimeType,_this.details,_this.freshness,_this.fetchedAt);
+  return Object.hash(runtimeType,_this.details,_this.freshness,_this.fetchedAt,_this.refreshFailure);
 }
 
 @override
 String toString() {
   final _this = this as GameDetailsSnapshot;
-  return 'GameDetailsSnapshot(details: ${_this.details}, freshness: ${_this.freshness}, fetchedAt: ${_this.fetchedAt})';
+  return 'GameDetailsSnapshot(details: ${_this.details}, freshness: ${_this.freshness}, fetchedAt: ${_this.fetchedAt}, refreshFailure: ${_this.refreshFailure})';
 }
 
 
@@ -56,7 +60,7 @@ abstract mixin class $GameDetailsSnapshotCopyWith<$Res>  {
   factory $GameDetailsSnapshotCopyWith(GameDetailsSnapshot value, $Res Function(GameDetailsSnapshot) _then) = _$GameDetailsSnapshotCopyWithImpl;
 @useResult
 $Res call({
- GameDetails details, DataFreshness freshness, DateTime fetchedAt
+ GameDetails details, DataFreshness freshness, DateTime fetchedAt, Failure? refreshFailure
 });
 
 
@@ -73,12 +77,13 @@ class _$GameDetailsSnapshotCopyWithImpl<$Res>
 
 /// Create a copy of GameDetailsSnapshot
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? details = null,Object? freshness = null,Object? fetchedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? details = null,Object? freshness = null,Object? fetchedAt = null,Object? refreshFailure = freezed,}) {
   return _then(GameDetailsSnapshot(
 details: null == details ? _self.details : details // ignore: cast_nullable_to_non_nullable
 as GameDetails,freshness: null == freshness ? _self.freshness : freshness // ignore: cast_nullable_to_non_nullable
 as DataFreshness,fetchedAt: null == fetchedAt ? _self.fetchedAt : fetchedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,refreshFailure: freezed == refreshFailure ? _self.refreshFailure : refreshFailure // ignore: cast_nullable_to_non_nullable
+as Failure?,
   ));
 }
 /// Create a copy of GameDetailsSnapshot
@@ -172,10 +177,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt,  Failure? refreshFailure)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _GameDetailsSnapshot() when $default != null:
-return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
+return $default(_that.details,_that.freshness,_that.fetchedAt,_that.refreshFailure);case _:
   return orElse();
 
 }
@@ -193,10 +198,10 @@ return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt,  Failure? refreshFailure)  $default,) {final _that = this;
 switch (_that) {
 case _GameDetailsSnapshot():
-return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
+return $default(_that.details,_that.freshness,_that.fetchedAt,_that.refreshFailure);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -213,10 +218,10 @@ return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( GameDetails details,  DataFreshness freshness,  DateTime fetchedAt,  Failure? refreshFailure)?  $default,) {final _that = this;
 switch (_that) {
 case _GameDetailsSnapshot() when $default != null:
-return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
+return $default(_that.details,_that.freshness,_that.fetchedAt,_that.refreshFailure);case _:
   return null;
 
 }
@@ -228,7 +233,7 @@ return $default(_that.details,_that.freshness,_that.fetchedAt);case _:
 
 
 class _GameDetailsSnapshot extends GameDetailsSnapshot {
-  const _GameDetailsSnapshot({required this.details, required this.freshness, required this.fetchedAt}): super._();
+  const _GameDetailsSnapshot({required this.details, required this.freshness, required this.fetchedAt, this.refreshFailure}): super._();
   
 
 /// The game's details.
@@ -239,6 +244,11 @@ class _GameDetailsSnapshot extends GameDetailsSnapshot {
 /// for a fresh load, the time it was cached for a stale copy. The
 /// backend's own fetch time from BGG is [GameDetails.fetchedAt].
 @override final  DateTime fetchedAt;
+/// Why the refresh failed when this is the stale cached copy, so the
+/// screen can say the right thing (offline, the service is down, or
+/// BoardGameGeek no longer lists the game for [NotFoundFailure]); null
+/// for a fresh load (T-029 review R2-S1).
+@override final  Failure? refreshFailure;
 
 /// Create a copy of GameDetailsSnapshot
 /// with the given fields replaced by the non-null parameter values.
@@ -250,18 +260,18 @@ _$GameDetailsSnapshotCopyWith<_GameDetailsSnapshot> get copyWith => __$GameDetai
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameDetailsSnapshot&&(identical(other.details, details) || other.details == details)&&(identical(other.freshness, freshness) || other.freshness == freshness)&&(identical(other.fetchedAt, fetchedAt) || other.fetchedAt == fetchedAt));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _GameDetailsSnapshot&&(identical(other.details, details) || other.details == details)&&(identical(other.freshness, freshness) || other.freshness == freshness)&&(identical(other.fetchedAt, fetchedAt) || other.fetchedAt == fetchedAt)&&(identical(other.refreshFailure, refreshFailure) || other.refreshFailure == refreshFailure));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,details,freshness,fetchedAt);
+    return Object.hash(runtimeType,details,freshness,fetchedAt,refreshFailure);
 }
 
 @override
 String toString() {
-    return 'GameDetailsSnapshot(details: $details, freshness: $freshness, fetchedAt: $fetchedAt)';
+    return 'GameDetailsSnapshot(details: $details, freshness: $freshness, fetchedAt: $fetchedAt, refreshFailure: $refreshFailure)';
 }
 
 
@@ -272,7 +282,7 @@ abstract mixin class _$GameDetailsSnapshotCopyWith<$Res> implements $GameDetails
   factory _$GameDetailsSnapshotCopyWith(_GameDetailsSnapshot value, $Res Function(_GameDetailsSnapshot) _then) = __$GameDetailsSnapshotCopyWithImpl;
 @override @useResult
 $Res call({
- GameDetails details, DataFreshness freshness, DateTime fetchedAt
+ GameDetails details, DataFreshness freshness, DateTime fetchedAt, Failure? refreshFailure
 });
 
 
@@ -289,12 +299,13 @@ class __$GameDetailsSnapshotCopyWithImpl<$Res>
 
 /// Create a copy of GameDetailsSnapshot
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? details = null,Object? freshness = null,Object? fetchedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? details = null,Object? freshness = null,Object? fetchedAt = null,Object? refreshFailure = freezed,}) {
   return _then(_GameDetailsSnapshot(
 details: null == details ? _self.details : details // ignore: cast_nullable_to_non_nullable
 as GameDetails,freshness: null == freshness ? _self.freshness : freshness // ignore: cast_nullable_to_non_nullable
 as DataFreshness,fetchedAt: null == fetchedAt ? _self.fetchedAt : fetchedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,refreshFailure: freezed == refreshFailure ? _self.refreshFailure : refreshFailure // ignore: cast_nullable_to_non_nullable
+as Failure?,
   ));
 }
 

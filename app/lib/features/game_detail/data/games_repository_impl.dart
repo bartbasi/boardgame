@@ -14,14 +14,19 @@ import 'game_details_codec.dart';
 import 'games_remote_data_source.dart';
 
 /// Whether [failure] of a details load should show the cached copy instead
-/// (T-029 AC5). Every failure does: a game the user viewed that cannot be
-/// refreshed shows its cached data with a "Last updated" label rather than
-/// an error screen (PRD 8.2; orchestrator decision in T-029 round 2, review
-/// R1-G2), whether the backend is unreachable, refused the call, answered
-/// 404, or broke the contract. With no usable copy the failure is returned.
+/// (T-029 AC5).
 ///
-/// An exhaustive switch with no catch-all on purpose: a new [Failure] type
-/// breaks the build here until someone decides.
+/// Today every failure serves the copy: a game the user viewed that cannot
+/// be refreshed shows its cached data with a "Last updated" label rather
+/// than an error screen (PRD 8.2; orchestrator decisions in T-029 rounds 2
+/// and 3), whether the backend is unreachable, refused the call, answered
+/// 404, or broke the contract. The snapshot carries the failure as
+/// `refreshFailure`, so the screen can say why. With no usable copy the
+/// failure is returned.
+///
+/// It is kept as an exhaustive switch with no catch-all, although every
+/// case is true, so that adding a new [Failure] type breaks the build here
+/// and forces a decision about it.
 bool servesCachedCopy(Failure failure) => switch (failure) {
   NoConnectionFailure() ||
   TimeoutFailure() ||
@@ -159,7 +164,7 @@ class GamesRepositoryImpl implements GamesRepository {
         );
       case Err(:final failure):
         final copy = servesCachedCopy(failure)
-            ? await _cachedSnapshot(bggId)
+            ? await _cachedSnapshot(bggId, failure)
             : null;
         return copy ?? Err(failure);
     }
@@ -184,7 +189,10 @@ class GamesRepositoryImpl implements GamesRepository {
 
   /// The cached copy of [bggId] as a stale snapshot, recording the view,
   /// or null when there is no usable copy.
-  Future<Ok<GameDetailsSnapshot>?> _cachedSnapshot(int bggId) async {
+  Future<Ok<GameDetailsSnapshot>?> _cachedSnapshot(
+    int bggId,
+    Failure refreshFailure,
+  ) async {
     final copy = await _readCached(bggId);
     if (copy == null) return null;
     final (details, fetchedAt) = copy;
@@ -195,6 +203,7 @@ class GamesRepositoryImpl implements GamesRepository {
         details: details,
         freshness: DataFreshness.stale,
         fetchedAt: fetchedAt,
+        refreshFailure: refreshFailure,
       ),
     );
   }
