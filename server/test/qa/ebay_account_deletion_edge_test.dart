@@ -546,10 +546,10 @@ void main() {
       expect(app.ebayLimiter.trackedCount, 1);
     });
 
-    test('60 requests a minute: GET and POST share it, the 61st is 429 '
+    test('300 requests a minute: GET and POST share it, the 301st is 429 '
         'with Retry-After, a minute later it resets', () async {
       final app = _App();
-      for (var i = 0; i < 30; i++) {
+      for (var i = 0; i < ebayRateLimitPerMinute ~/ 2; i++) {
         expect((await app.get('?challenge_code=c$i')).statusCode, 200);
         expect((await app.send('POST', _path, body: '{}')).statusCode, 204);
       }
@@ -569,7 +569,7 @@ void main() {
 
     test('the 429 and 400 responses carry no hash', () async {
       final app = _App();
-      for (var i = 0; i < 60; i++) {
+      for (var i = 0; i < ebayRateLimitPerMinute; i++) {
         await app.get('?challenge_code=c');
       }
       final r = await app.get('?challenge_code=c');
@@ -578,7 +578,7 @@ void main() {
 
     test('the table is capped at 10,000 addresses', () async {
       expect(ebayRateLimitMaxTrackedIps, 10000);
-      expect(ebayRateLimitPerMinute, 60);
+      expect(ebayRateLimitPerMinute, 300);
       final app = _App(ebayMaxTracked: 50);
       for (var i = 0; i < 500; i++) {
         await app.get('?challenge_code=a', peer: '10.0.${i ~/ 250}.${i % 250}');
@@ -595,8 +595,8 @@ void main() {
         peer: peer,
         headers: {'x-forwarded-for': xff},
       )).statusCode;
-      // 60 requests as client 203.0.113.5 behind the proxy, forged prefixes.
-      for (var i = 0; i < 60; i++) {
+      // The full allowance as client 203.0.113.5 behind the proxy, forged prefixes.
+      for (var i = 0; i < ebayRateLimitPerMinute; i++) {
         expect(
           await via(
             '10.213.7.10',
@@ -608,8 +608,8 @@ void main() {
       expect(await via('10.213.7.10', '1.1.1.1, 203.0.113.5'), 429);
       expect(await via('10.213.7.10', '1.1.1.1, 203.0.113.6'), 200);
       // An untrusted peer's header is ignored: it is limited by its socket.
-      for (var i = 0; i < 60; i++) {
-        expect(await via('198.51.100.1', '8.8.8.$i'), 200);
+      for (var i = 0; i < ebayRateLimitPerMinute; i++) {
+        expect(await via('198.51.100.1', '8.8.${i % 250}.1'), 200);
       }
       expect(await via('198.51.100.1', '8.8.8.99'), 429);
     });
@@ -862,8 +862,6 @@ void main() {
         'https://93.184.216.34$_path',
         'https://[2606:4700:4700::1111]$_path',
         'https://[::ffff:93.184.216.34]$_path',
-        _upperUrl,
-        'https://api.example.com$_path'.replaceFirst('example', 'EXAMPLE'),
       ]) {
         expect(problem(u), isNull, reason: u);
       }
@@ -883,8 +881,8 @@ void main() {
       ]) {
         expect(problem(u), isNotNull, reason: u);
       }
-      // Scheme case: Dart lower-cases the scheme, so this is https.
-      expect(problem('HTTPS://api.example.com$_path'), isNull);
+      // Round 2: an upper-case scheme is refused as non-canonical.
+      expect(problem('HTTPS://api.example.com$_path'), isNotNull);
     });
 
     test('user info, query, fragment, empty query and fragment markers', () {
@@ -1069,8 +1067,8 @@ void main() {
       }
     });
 
-    test('observed and accepted: equivalent spellings of the right URL pass '
-        '(Dart normalizes them) but the raw string is what gets hashed', () {
+    test('round 2: equivalent spellings of the right URL are refused as '
+        'non-canonical, so the hashed string is what eBay calls', () {
       for (final u in [
         'https://@api.example.com$_path',
         'https://api.example.com/ebay/./marketplace-account-deletion',
@@ -1078,9 +1076,84 @@ void main() {
         'https://api.example.com/ebay/marketplace%2Daccount-deletion',
         'https://api.example.com:$_path',
         'https://ex%61mple.com$_path',
+        // Upper-case and mixed-case spellings.
+        'https://API.Example.com$_path',
+        'https://API.EXAMPLE.COM$_path',
+        'https://api.EXAMPLE.com$_path',
+        'HTTPS://api.example.com$_path',
+        'Https://api.example.com$_path',
+        'hTTps://api.example.com$_path',
+        // More needless escapes and normalizable forms.
+        'https://api.example.com/ebay/marketplace%2daccount-deletion',
+        'https://api.example.com/%65bay/marketplace-account-deletion',
+        'https://api.example.com/ebay/marketplace-account-%64eletion',
+        'https://api.example.com/ebay/marketplace-account-deletion/.',
+        'https://api.example.com/ebay/marketplace-account-deletion/x/..',
+        'https://api.example.com/./ebay/marketplace-account-deletion',
+        'https://%61pi.example.com$_path',
+        'https://:@api.example.com$_path',
+        'https://api.example.com:/ebay/marketplace-account-deletion',
+        // The default port is dropped by normalization, so ":443" is refused.
+        'https://api.example.com:443$_path',
+        // Leading and trailing whitespace is trimmed by load(), but not by
+        // the problem check itself.
+        ' https://api.example.com$_path',
+        'https://api.example.com$_path ',
+        'https://api.example.com$_path\n',
+      ]) {
+        expect(problem(u), isNotNull, reason: u);
+      }
+    });
+
+    test('round 2: the canonical-form reason names the rule and holds no '
+        'part of the URL', () {
+      final p = problem('https://API.Example.com$_path')!;
+      expect(p, contains('canonical'));
+      expect(p, isNot(contains('API')));
+      expect(p, isNot(contains('example.com')));
+      expect(p, isNot(contains('ebay/marketplace')));
+    });
+
+    test('round 2: a specific problem is still reported before the '
+        'canonical rule', () {
+      expect(problem('HTTP://api.example.com$_path'), contains('https'));
+      expect(problem('https://LOCALHOST$_path'), contains('localhost'));
+      expect(problem('https://10.0.0.1$_path'), contains('internal'));
+      expect(problem('https://User@api.example.com$_path'), contains('user'));
+    });
+
+    test('round 2: canonical forms with a port, an IPv6 literal (lower-case '
+        'hex), an A-label, and a digit host still pass', () {
+      for (final u in [
+        'https://api.example.com:8443$_path',
+        'https://[2606:4700:4700::1111]$_path',
+        'https://xn--bcher-kva.example$_path',
+        'https://93.184.216.34$_path',
+        'https://a-b.c-d.example.org$_path',
       ]) {
         expect(problem(u), isNull, reason: u);
       }
+    });
+
+    test('round 2: an IPv6 literal with upper-case hex is refused (Dart '
+        'writes it lower-case)', () {
+      expect(problem('https://[2606:4700:4700::ABCD]$_path'), isNotNull);
+    });
+
+    test('round 2: load() trims whitespace first, then judges the trimmed '
+        'string', () {
+      final c = EbayAccountDeletionConfig.load({
+        ebayAccountDeletionTokenVariable: 'a' * 40,
+        ebayAccountDeletionUrlVariable: ' https://api.example.com$_path\n',
+      })!;
+      expect(c.endpointUrl, 'https://api.example.com$_path');
+      expect(
+        () => EbayAccountDeletionConfig.load({
+          ebayAccountDeletionTokenVariable: 'a' * 40,
+          ebayAccountDeletionUrlVariable: 'https://API.example.com$_path',
+        }),
+        throwsA(isA<ConfigException>()),
+      );
     });
 
     test('observed and accepted: internal-looking DNS names pass because '
