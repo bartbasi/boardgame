@@ -8,9 +8,12 @@
          declares both lines too; they are repeated here so the app's own
          manifest states them. The camera is not required, so the app
          installs on devices without one, where manual entry and title
-         search still work (GPLAY-01, T-030 AC15). -->
+         search still work (GPLAY-01, T-030 AC15). The CAMERA permission
+         implies both camera features below, so both are declared not
+         required (review R1-M2). -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <application
         android:label="Board Game Collector"
         android:name="${applicationName}"
