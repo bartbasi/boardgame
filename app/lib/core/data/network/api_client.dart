@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:dio/dio.dart';
@@ -16,6 +18,22 @@ import 'retry_policy.dart';
 /// Named to avoid a clash with `JsonDecoder` from dart:convert.
 typedef JsonObjectDecoder<T> = T Function(Map<String, dynamic> json);
 
+/// The body size a response declares in its Content-Length [values], or
+/// null when none can be read. dio keeps one entry per header line, and a
+/// repeated header is possible from a misconfigured proxy; the largest
+/// readable value is used, so a body is refused when any line declares too
+/// much. Unreadable values are ignored, and the bytes are counted instead.
+int? declaredContentLength(List<String>? values) {
+  int? largest;
+  for (final value in values ?? const <String>[]) {
+    final length = int.tryParse(value.trim());
+    if (length != null && (largest == null || length > largest)) {
+      largest = length;
+    }
+  }
+  return largest;
+}
+
 /// The app's only HTTP client. It talks to our backend and nothing else.
 ///
 /// Every method returns a [Result] and never throws: transport errors,
@@ -25,6 +43,11 @@ typedef JsonObjectDecoder<T> = T Function(Map<String, dynamic> json);
 ///
 /// Cancellation: pass one [CancelToken] per logical call (for example one
 /// per search query). The client listens to it only while that call runs.
+///
+/// Size limit: a response body may hold at most [maxResponseBytes] bytes.
+/// A larger Content-Length is refused before the body is read, and a body
+/// that grows past the limit while it streams is cut off at once. Either
+/// way the call returns [UnexpectedFailure] and is not retried (T-028 AC7).
 final class ApiClient {
   /// Creates a client for [config]. When [config] is an [Err], every call
   /// returns its failure and no request is sent.
@@ -40,6 +63,7 @@ final class ApiClient {
     required bool enableLogging,
     Dio? dio,
     this.policy = const RetryPolicy(),
+    this.maxResponseBytes = defaultMaxResponseBytes,
     Random? random,
     void Function(String message)? log,
     Stopwatch Function()? newStopwatch,
@@ -52,7 +76,8 @@ final class ApiClient {
       ..baseUrl = baseUri?.toString() ?? ''
       ..connectTimeout = policy.connectTimeout
       ..receiveTimeout = policy.receiveTimeout
-      ..responseType = ResponseType.plain
+      // The body is read here, not by dio, so its size can be capped.
+      ..responseType = ResponseType.stream
       ..followRedirects = false
       ..validateStatus = _acceptEveryStatus
       ..headers['Accept'] = 'application/json';
@@ -68,6 +93,16 @@ final class ApiClient {
 
   /// The retry and timeout settings.
   final RetryPolicy policy;
+
+  /// The default limit on a response body: 1 MiB (1,048,576 bytes)
+  /// [ASSUMPTION: 1 MB, T-028 AC7]. The largest expected body, a game
+  /// detail with a long description, is far smaller.
+  static const int defaultMaxResponseBytes = 1024 * 1024;
+
+  /// The largest response body, in bytes, that the client reads. Counted
+  /// after any transfer compression is undone, so a compressed body cannot
+  /// expand past it.
+  final int maxResponseBytes;
 
   /// The dio instance, for tests that check its settings and interceptors.
   Dio get dio => _dio;
@@ -131,12 +166,12 @@ final class ApiClient {
         final Failure failure;
         Duration? retryAfter;
         switch (outcome) {
-          case _Response(:final status, :final text, :final retryAfterHeader):
+          case _Response(:final status, :final text, :final retryAfterValues):
             if (status >= 200 && status < 300) {
               return _decode(text, decode);
             }
             // Retry-After may be an HTTP date, which needs the wall clock.
-            retryAfter = parseRetryAfter(retryAfterHeader, now: clock.now());
+            retryAfter = firstRetryAfter(retryAfterValues, now: clock.now());
             failure = failureForStatus(
               status,
               body: text,
@@ -190,13 +225,38 @@ final class ApiClient {
     }
     final result = Completer<_Outcome>();
     final attemptToken = CancelToken();
+    StreamSubscription<Uint8List>? reading;
+    void finish(_Outcome outcome) {
+      if (!result.isCompleted) result.complete(outcome);
+    }
+
+    // Ends the attempt with UnexpectedFailure and stops reading the body.
+    void abandon() {
+      unawaited(reading?.cancel());
+      attemptToken.cancel();
+      finish(const _Failed(UnexpectedFailure()));
+    }
+
+    // Runs a callback of the response or the body stream. Anything it
+    // throws ends the attempt at once instead of escaping as an uncaught
+    // error and leaving the attempt to hang until the deadline (T-028
+    // review R1-S1).
+    void guarded(void Function() callback) {
+      try {
+        callback();
+      } on Object {
+        abandon();
+      }
+    }
+
     scope.onEnd = (failure) {
-      if (!result.isCompleted) result.complete(_Failed(failure));
+      finish(_Failed(failure));
+      unawaited(reading?.cancel());
       attemptToken.cancel();
     };
     unawaited(
       _dio
-          .request<String>(
+          .request<ResponseBody>(
             path,
             data: body,
             queryParameters: queryParameters,
@@ -204,21 +264,65 @@ final class ApiClient {
             cancelToken: attemptToken,
           )
           .then(
-            (response) {
-              if (result.isCompleted) return;
-              result.complete(
-                _Response(
-                  status: response.statusCode ?? 0,
-                  text: response.data,
-                  retryAfterHeader: response.headers.value('retry-after'),
-                ),
-              );
-            },
-            onError: (Object error) {
-              if (!result.isCompleted) {
-                result.complete(_Failed(failureForError(error)));
+            (response) => guarded(() {
+              final responseBody = response.data;
+              if (result.isCompleted || responseBody == null) {
+                abandon();
+                return;
               }
-            },
+              final declared = declaredContentLength(
+                response.headers[Headers.contentLengthHeader],
+              );
+              if (declared != null && declared > maxResponseBytes) {
+                // Refused before reading; cancelling closes the stream.
+                abandon();
+                return;
+              }
+              final bytes = BytesBuilder(copy: false);
+              reading = responseBody.stream.listen(
+                (chunk) => guarded(() {
+                  if (bytes.length + chunk.length > maxResponseBytes) {
+                    // Stop reading at once: no more chunks are taken.
+                    abandon();
+                    return;
+                  }
+                  bytes.add(chunk);
+                }),
+                onError: (Object error) => guarded(() {
+                  // dio wraps errors raised before the body, not those
+                  // raised while it streams (a reset connection), so wrap
+                  // them the same way before mapping.
+                  finish(
+                    _Failed(
+                      failureForError(
+                        error is DioException
+                            ? error
+                            : DioException(
+                                requestOptions: response.requestOptions,
+                                error: error,
+                              ),
+                      ),
+                    ),
+                  );
+                }),
+                onDone: () => guarded(() {
+                  finish(
+                    _Response(
+                      status: response.statusCode ?? 0,
+                      text: utf8.decode(
+                        bytes.takeBytes(),
+                        allowMalformed: true,
+                      ),
+                      retryAfterValues: response.headers['retry-after'],
+                    ),
+                  );
+                }),
+                cancelOnError: true,
+              );
+            }),
+            onError: (Object error) => guarded(() {
+              finish(_Failed(failureForError(error)));
+            }),
           ),
     );
     return result.future.whenComplete(() => scope.onEnd = null);
@@ -306,12 +410,14 @@ final class _Response extends _Outcome {
   const _Response({
     required this.status,
     required this.text,
-    required this.retryAfterHeader,
+    required this.retryAfterValues,
   });
 
   final int status;
   final String? text;
-  final String? retryAfterHeader;
+
+  /// Every Retry-After value, or null when there is none.
+  final List<String>? retryAfterValues;
 }
 
 final class _Failed extends _Outcome {

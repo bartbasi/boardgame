@@ -638,7 +638,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 ### T-028 App: games remote data source
 - Milestone: M2
 - Owner: flutter-developer
-- Status: ready
+- Status: done
 - Depends on: T-013, T-018 (both done)
 - UX spec: n/a
 - Linked files: app/lib/features/*/data/ (the developer records in the handoff which feature folder holds the shared games data source)
@@ -649,7 +649,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   4. Given a 200 whose body does not match the contract, then the result is the unexpected failure and nothing throws (proved by: unit).
   5. Given the architecture test, then package:api_contract is imported only under lib/**/data/, never in domain or presentation (proved by: unit).
   6. Given this data source, then line coverage is at least 80% (proved by: unit, coverage report).
-  7. Given a response whose Content-Length or bytes read exceed 1 MB [ASSUMPTION], then ApiClient (app/lib/core/data/network/) stops reading, returns the unexpected failure, does not retry, and nothing throws; a 900 KB response still decodes (T-013 review R1-G4) (proved by: unit with a fake HTTP adapter).
+  7. Given a response whose Content-Length or bytes read exceed 1 MiB (1,048,576 bytes; unit settled by PM at sign-off on 2026-10-14, the size stays [ASSUMPTION]), then ApiClient (app/lib/core/data/network/) stops reading, returns the unexpected failure, does not retry, and nothing throws; a 900 KB response still decodes (T-013 review R1-G4) (proved by: unit with a fake HTTP adapter).
 
 ### T-029 App: games repository with on-device cache
 - Milestone: M2
@@ -668,6 +668,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   7. Given a title search, then its results are not cached on the device [ASSUMPTION] and failures pass through unchanged (proved by: unit).
   8. Given the repository, then its interface lives in a domain folder and its implementation in a data folder (proved by: unit, architecture test).
   9. Given the repository code, then line coverage is at least 80% (proved by: unit, coverage report).
+  10. Given a lookup for `036000291452`, then a confirmed match is stored only when the remote result has status `matched` and its 13-digit code equals `0036000291452`, the key of the code that was looked up. Given status `candidates` (3 games), `none`, `unavailable`, or `unknown` (with one game and with none), then no match is stored and any earlier stored match for the code is unchanged (T-028 proposed decisions 2 and 4; review round 1) (proved by: unit, table-driven, reading the store after each case).
 
 ### T-030 App: scanner screen
 - Milestone: M2
@@ -786,6 +787,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   13. Given both themes, then the accessibility guidelines pass (proved by: widget).
   14. Given the M2 golden list in game-detail.md, then every listed golden exists and passes (proved by: golden).
   15. Given no-image mode, or a game with no cover image (BGG-42, PRD Q5), then the header shows no cover and the screen is complete without it, as game-detail.md lays out (proved by: widget, and golden `game_detail_noimages_light_compact.png`).
+  16. Given the AC3 link to the game's BGG page, when the user activates it, then the app opens `Uri.parse(game.bggUrl)` with url_launcher in external application mode, never the raw string or a URL built by hand. Given a `bggUrl` that the T-028 mapper accepted but that ends in a newline (`https://boardgamegeek.com/boardgame/13` followed by `\n`), then the launched Uri's host is `boardgamegeek.com` and its scheme is `https` (T-028 review R2-G1, QA round 2) (proved by: widget with a fake launcher that records the Uri and the launch mode). url_launcher is a new dependency: the developer confirms its license is MIT, BSD, or Apache 2.0 before adding it (CLAUDE.md rule 6).
 
 ### T-035 App: M2 flow integration test
 - Milestone: M2

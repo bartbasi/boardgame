@@ -21,6 +21,13 @@ import 'package:board_game_collector/core/theme/app_theme.dart';
 import 'package:board_game_collector/core/theme/theme_mode_controller.dart';
 import 'package:board_game_collector/core/widgets/open_once.dart';
 import 'package:board_game_collector/core/widgets/placeholder_body.dart';
+import 'package:board_game_collector/features/game_detail/data/game_dto_mapper.dart';
+import 'package:board_game_collector/features/game_detail/data/games_remote_data_source.dart';
+import 'package:board_game_collector/features/game_detail/data/games_remote_data_source_provider.dart';
+import 'package:board_game_collector/features/game_detail/domain/barcode_lookup.dart';
+import 'package:board_game_collector/features/game_detail/domain/game_details.dart';
+import 'package:board_game_collector/features/game_detail/domain/game_search_results.dart';
+import 'package:board_game_collector/features/game_detail/domain/game_summary.dart';
 import 'package:board_game_collector/features/scanner/domain/barcode.dart';
 
 import 'package:flutter_test/flutter_test.dart';
