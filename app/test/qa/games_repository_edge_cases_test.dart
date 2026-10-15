@@ -291,6 +291,7 @@ void main() {
         final r = await _atNow(() => repository.getGame(13));
         final snap = r.valueOrNull!;
         expect(snap.freshness, DataFreshness.fresh);
+        expect(snap.refreshFailure, isNull);
         expect(snap.fetchedAt, _now);
         expect(snap.details, catan);
         final row = (await store.readDetails(13)).valueOrNull!;
@@ -380,6 +381,7 @@ void main() {
           if (serves) {
             final snap = r.valueOrNull!;
             expect(snap.isStale, isTrue);
+            expect(snap.refreshFailure, failure);
             expect(snap.freshness, DataFreshness.stale);
             expect(snap.fetchedAt, _earlier);
             expect(snap.details, catan);
