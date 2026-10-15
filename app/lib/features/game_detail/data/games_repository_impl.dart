@@ -14,10 +14,11 @@ import 'game_details_codec.dart';
 import 'games_remote_data_source.dart';
 
 /// Whether [failure] of a details load should show the cached copy instead
-/// (T-029 AC5): only when the backend could not be reached or could not
-/// answer right now. Any other failure (the game does not exist, the input
-/// was refused, the answer was broken, the call was cancelled) is the
-/// answer, so it is returned even when a copy is cached.
+/// (T-029 AC5). Every failure does: a game the user viewed that cannot be
+/// refreshed shows its cached data with a "Last updated" label rather than
+/// an error screen (PRD 8.2; orchestrator decision in T-029 round 2, review
+/// R1-G2), whether the backend is unreachable, refused the call, answered
+/// 404, or broke the contract. With no usable copy the failure is returned.
 ///
 /// An exhaustive switch with no catch-all on purpose: a new [Failure] type
 /// breaks the build here until someone decides.
@@ -25,7 +26,7 @@ bool servesCachedCopy(Failure failure) => switch (failure) {
   NoConnectionFailure() ||
   TimeoutFailure() ||
   ServiceUnavailableFailure() ||
-  RateLimitedFailure() => true,
+  RateLimitedFailure() ||
   NotFoundFailure() ||
   InvalidInputFailure() ||
   InvalidBarcodeFailure() ||
@@ -33,7 +34,7 @@ bool servesCachedCopy(Failure failure) => switch (failure) {
   CancelledFailure() ||
   ConfigurationFailure() ||
   StorageFailure() ||
-  UnexpectedFailure() => false,
+  UnexpectedFailure() => true,
 };
 
 /// Whether [lookup] may be stored as the confirmed match for [barcode]
@@ -88,6 +89,10 @@ class GamesRepositoryImpl implements GamesRepository {
         // The backend can still answer; the stored match is only a shortcut.
         _report('readConfirmedMatch', failure);
     }
+    // When the read failed, a match may be stored that the user chose
+    // (confirmMatch), so a backend match must not overwrite it (T-029
+    // review R1-S1): the answer is shown but not saved.
+    final mayStore = stored.isOk;
 
     final remote = await _remote.lookupBarcode(barcode);
     // The data source already refuses an answer for another code (T-028
@@ -100,6 +105,12 @@ class GamesRepositoryImpl implements GamesRepository {
     }
     if (remote case Ok(value: final lookup)
         when isStorableMatch(lookup, barcode)) {
+      if (!mayStore) {
+        log?.call(
+          'GamesRepository.saveConfirmedMatch skipped: stored match unknown',
+        );
+        return remote.map(GameLookupResult.fromBackend);
+      }
       final saved = await _matchStore.saveConfirmedMatch(
         gtin13: barcode.gtin13,
         bggId: lookup.games.single.bggId,
@@ -127,13 +138,15 @@ class GamesRepositoryImpl implements GamesRepository {
 
   @override
   Future<Result<GameDetailsSnapshot>> getGame(int bggId) async {
-    final remote = await _remote.fetchGame(bggId);
+    var remote = await _remote.fetchGame(bggId);
+    // Checked again, as in lookupBarcode: details of another game must
+    // never be cached under this id (T-028 D2). Like any failed refresh, it
+    // then falls back to the cached copy.
+    if (remote case Ok(value: final details) when details.bggId != bggId) {
+      _report('getGame', const UnexpectedFailure());
+      remote = const Err<GameDetails>(UnexpectedFailure());
+    }
     switch (remote) {
-      // Checked again, as in lookupBarcode: details of another game must
-      // never be cached under this id (T-028 D2).
-      case Ok(value: final details) when details.bggId != bggId:
-        _report('getGame', const UnexpectedFailure());
-        return const Err(UnexpectedFailure());
       case Ok(value: final details):
         final now = clock.now().toUtc();
         await _save(details, now);
@@ -144,10 +157,11 @@ class GamesRepositoryImpl implements GamesRepository {
             fetchedAt: now,
           ),
         );
-      case Err(:final failure) when servesCachedCopy(failure):
-        return await _cachedSnapshot(bggId) ?? Err(failure);
       case Err(:final failure):
-        return Err(failure);
+        final copy = servesCachedCopy(failure)
+            ? await _cachedSnapshot(bggId)
+            : null;
+        return copy ?? Err(failure);
     }
   }
 

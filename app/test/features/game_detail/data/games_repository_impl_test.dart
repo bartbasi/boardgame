@@ -330,9 +330,28 @@ void main() {
       final result = await repository.getGame(13);
 
       expect(result, const Err<GameDetailsSnapshot>(UnexpectedFailure()));
-      expect(spy.calls, isEmpty);
+      expect(spy.calls, ['readDetails'], reason: 'no copy, nothing saved');
       expect(await db.select(db.games).get(), isEmpty);
       expect(logs, ['GamesRepository.getGame failed: UnexpectedFailure']);
+    });
+
+    test('details of another game fall back to the cached copy', () async {
+      await cacheDetails(catan, fetchedAt: _earlier);
+      remote.fetchResult = Ok(
+        catan.copyWith(
+          name: 'Carcassonne',
+          bggId: 822,
+          bggUrl: 'https://boardgamegeek.com/boardgame/822',
+        ),
+      );
+
+      final result = await _atNow(() => repository.getGame(13));
+
+      expect(result.valueOrNull?.isStale, isTrue);
+      expect(result.valueOrNull?.details, catan);
+      expect(spy.calls, isNot(contains('saveDetails')));
+      final cached = (await store.readDetails(13)).valueOrNull!;
+      expect(decodeCachedDetails(cached.detailsJson), catan);
     });
 
     test('a fresh load replaces an older cached copy', () async {
@@ -369,16 +388,27 @@ void main() {
   });
 
   group('AC5: when loading fails, the cached copy is returned stale', () {
-    final transient = <String, Failure>{
+    // Every failure serves the cached copy (PRD 8.2; orchestrator decision
+    // in round 2, review R1-G2), not only the network ones.
+    final failures = <String, Failure>{
       'no connection': const NoConnectionFailure(),
       'timeout': const TimeoutFailure(),
       'service unavailable': const ServiceUnavailableFailure(),
-      'rate limited (proposed in the handoff)': const RateLimitedFailure(
+      'rate limited': const RateLimitedFailure(
         retryAfter: Duration(seconds: 30),
       ),
+      'not found': const NotFoundFailure(),
+      'invalid input': const InvalidInputFailure(InvalidInputCode.invalidBggId),
+      'access denied': const AccessDeniedFailure(),
+      'cancelled': const CancelledFailure(),
+      'configuration': const ConfigurationFailure(
+        ConfigurationProblem.missingBaseUrl,
+      ),
+      'storage': const StorageFailure(),
+      'unexpected': const UnexpectedFailure(),
     };
 
-    for (final MapEntry(key: name, value: failure) in transient.entries) {
+    for (final MapEntry(key: name, value: failure) in failures.entries) {
       test('$name with a cached copy', () async {
         await cacheDetails(catan, fetchedAt: _earlier);
         remote.fetchResult = Err(failure);
@@ -400,29 +430,14 @@ void main() {
         expect(cached.lastViewedAt, _now, reason: 'the view is recorded');
         expect(cached.fetchedAt, _earlier, reason: 'the copy is not renewed');
       });
-    }
 
-    final answers = <String, Failure>{
-      'not found': const NotFoundFailure(),
-      'invalid input': const InvalidInputFailure(InvalidInputCode.invalidBggId),
-      'access denied': const AccessDeniedFailure(),
-      'cancelled': const CancelledFailure(),
-      'configuration': const ConfigurationFailure(
-        ConfigurationProblem.missingBaseUrl,
-      ),
-      'unexpected': const UnexpectedFailure(),
-    };
-
-    for (final MapEntry(key: name, value: failure) in answers.entries) {
-      test('$name is returned even with a cached copy', () async {
-        await cacheDetails(catan);
-        spy.calls.clear();
+      test('$name without a cached copy is returned unchanged', () async {
         remote.fetchResult = Err(failure);
 
         final result = await repository.getGame(13);
 
         expect(result, Err<GameDetailsSnapshot>(failure));
-        expect(spy.calls, isEmpty);
+        expect(spy.calls, ['readDetails']);
       });
     }
 
@@ -598,9 +613,10 @@ void main() {
 
       test('$name: an earlier match is unchanged', () async {
         await storeMatch(822, at: _earlier);
-        // The stored match normally answers first; a failed read sends the
-        // lookup to the backend, so its answer is what is being tested.
-        spy.failNextMatchRead = true;
+        // The stored match normally answers first; hiding it once sends the
+        // lookup to the backend, so its answer is what is being tested, and
+        // the repository is free to save (review R1-S1).
+        spy.hideNextMatch = true;
         remote.lookupResult = Ok(lookup);
 
         await _atNow(() => repository.lookupBarcode(barcodeOf(_upc)));
@@ -612,9 +628,10 @@ void main() {
       });
     }
 
-    test('matched for $_key replaces an earlier match (control)', () async {
+    test('matched for $_key replaces a hidden earlier match (control: the '
+        'runs above could see a write)', () async {
       await storeMatch(822, at: _earlier);
-      spy.failNextMatchRead = true;
+      spy.hideNextMatch = true;
       remote.lookupResult = Ok(lookupFixture('lookup/matched.json'));
 
       await _atNow(() => repository.lookupBarcode(barcodeOf(_upc)));
@@ -622,6 +639,32 @@ void main() {
       final match = await storedMatch();
       expect(match?.bggId, 13);
       expect(match?.confirmedAt, _now);
+    });
+
+    test('a matched answer is not saved when the stored match could not '
+        'be read, so an earlier choice of 822 survives (R1-S1)', () async {
+      await storeMatch(822, at: _earlier);
+      spy.failNextMatchRead = true;
+      final lookup = lookupFixture('lookup/matched.json');
+      remote.lookupResult = Ok(lookup);
+
+      final result = await _atNow(
+        () => repository.lookupBarcode(barcodeOf(_upc)),
+      );
+
+      expect(
+        result,
+        Ok<GameLookupResult>(GameLookupResult.fromBackend(lookup)),
+      );
+      expect(result.valueOrNull?.matchedBggId, 13);
+      final match = await storedMatch();
+      expect(match?.bggId, 822);
+      expect(match?.confirmedAt, _earlier);
+      expect(spy.calls, ['readConfirmedMatch']);
+      expect(logs, [
+        'GamesRepository.readConfirmedMatch failed: StorageFailure',
+        'GamesRepository.saveConfirmedMatch skipped: stored match unknown',
+      ]);
     });
 
     test('isStorableMatch accepts only matched, same code, one game', () {
@@ -637,26 +680,23 @@ void main() {
   });
 
   group('servesCachedCopy', () {
-    test('is true only for failures where the backend could not answer', () {
-      final all = <Failure, bool>{
-        const NoConnectionFailure(): true,
-        const TimeoutFailure(): true,
-        const ServiceUnavailableFailure(): true,
-        const RateLimitedFailure(): true,
-        const NotFoundFailure(): false,
-        const InvalidInputFailure(InvalidInputCode.unknown): false,
-        const InvalidBarcodeFailure(
-          InvalidBarcodeReason.badCheckDigit,
-          length: 12,
-        ): false,
-        const AccessDeniedFailure(): false,
-        const CancelledFailure(): false,
-        const ConfigurationFailure(ConfigurationProblem.insecureBaseUrl): false,
-        const StorageFailure(): false,
-        const UnexpectedFailure(): false,
-      };
-      for (final MapEntry(key: failure, value: expected) in all.entries) {
-        expect(servesCachedCopy(failure), expected, reason: '$failure');
+    test('is true for every failure type (round 2, R1-G2)', () {
+      const all = <Failure>[
+        NoConnectionFailure(),
+        TimeoutFailure(),
+        ServiceUnavailableFailure(),
+        RateLimitedFailure(),
+        NotFoundFailure(),
+        InvalidInputFailure(InvalidInputCode.unknown),
+        InvalidBarcodeFailure(InvalidBarcodeReason.badCheckDigit, length: 12),
+        AccessDeniedFailure(),
+        CancelledFailure(),
+        ConfigurationFailure(ConfigurationProblem.insecureBaseUrl),
+        StorageFailure(),
+        UnexpectedFailure(),
+      ];
+      for (final failure in all) {
+        expect(servesCachedCopy(failure), isTrue, reason: '$failure');
       }
     });
   });

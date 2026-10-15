@@ -14,7 +14,9 @@ abstract interface class GamesRepository {
   /// A confirmed match stored on the device answers at once, with no
   /// request. Otherwise the backend is asked; a `matched` answer for this
   /// barcode is stored as the confirmed match, and no other status changes
-  /// what is stored. A failure of the backend lookup is returned as is.
+  /// what is stored. When the stored match could not be read, a `matched`
+  /// answer is returned but not stored, so a match the user chose is never
+  /// overwritten. A failure of the backend lookup is returned as is.
   Future<Result<GameLookupResult>> lookupBarcode(Barcode barcode);
 
   /// Stores that [barcode] belongs to [bggId], replacing any earlier match
@@ -24,10 +26,9 @@ abstract interface class GamesRepository {
   /// Loads the details of [bggId] and records that the user viewed it.
   ///
   /// A successful load is cached and returned as [DataFreshness.fresh].
-  /// When the load fails because the device is offline, the backend timed
-  /// out, is unavailable, or rate limited the app, the cached copy is
-  /// returned as [DataFreshness.stale] instead; with no cached copy, or for
-  /// any other failure, the failure is returned.
+  /// When the load fails for any reason and a usable copy is cached, that
+  /// copy is returned as [DataFreshness.stale] instead (PRD 8.2); with no
+  /// usable copy, the failure is returned.
   Future<Result<GameDetailsSnapshot>> getGame(int bggId);
 
   /// Searches game titles. Results are never cached on the device, and a

@@ -104,6 +104,12 @@ class StoreSpy implements GameDetailsCache, BarcodeMatchStore {
   /// (and resets this flag) without touching the store.
   bool failNextMatchRead = false;
 
+  /// When true, the next [readConfirmedMatch] answers "no match" (and
+  /// resets this flag) without touching the store, so a lookup reaches the
+  /// backend while an earlier match stays stored. Unlike
+  /// [failNextMatchRead], the repository may then save a backend match.
+  bool hideNextMatch = false;
+
   /// When true, every [saveConfirmedMatch] fails with [StorageFailure]
   /// without touching the store.
   bool failMatchSaves = false;
@@ -157,6 +163,10 @@ class StoreSpy implements GameDetailsCache, BarcodeMatchStore {
     if (failNextMatchRead) {
       failNextMatchRead = false;
       return Future.value(const Err(StorageFailure()));
+    }
+    if (hideNextMatch) {
+      hideNextMatch = false;
+      return Future.value(const Ok(null));
     }
     return _store.readConfirmedMatch(gtin13);
   }
