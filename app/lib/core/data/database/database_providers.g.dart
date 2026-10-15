@@ -105,3 +105,115 @@ final class LocalGameStoreProvider
 }
 
 String _$localGameStoreHash() => r'3429661f3532ae9532b7fa0f0a2604985ee7655f';
+
+/// The details cache the games repository uses. Today it is the same
+/// [LocalGameStore]; T-102 re-points this provider to the separate cache
+/// database file (PRD Q39).
+
+@ProviderFor(gameDetailsCache)
+final gameDetailsCacheProvider = GameDetailsCacheProvider._();
+
+/// The details cache the games repository uses. Today it is the same
+/// [LocalGameStore]; T-102 re-points this provider to the separate cache
+/// database file (PRD Q39).
+
+final class GameDetailsCacheProvider
+    extends
+        $FunctionalProvider<
+          GameDetailsCache,
+          GameDetailsCache,
+          GameDetailsCache
+        >
+    with $Provider<GameDetailsCache> {
+  /// The details cache the games repository uses. Today it is the same
+  /// [LocalGameStore]; T-102 re-points this provider to the separate cache
+  /// database file (PRD Q39).
+  GameDetailsCacheProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'gameDetailsCacheProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$gameDetailsCacheHash();
+
+  @$internal
+  @override
+  $ProviderElement<GameDetailsCache> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  GameDetailsCache create(Ref ref) {
+    return gameDetailsCache(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(GameDetailsCache value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<GameDetailsCache>(value),
+    );
+  }
+}
+
+String _$gameDetailsCacheHash() => r'27fe0a182d165d50cc67bd23d6d9bbf2487fec16';
+
+/// The store of confirmed barcode matches the games repository uses. It
+/// stays on the main database file (user data).
+
+@ProviderFor(barcodeMatchStore)
+final barcodeMatchStoreProvider = BarcodeMatchStoreProvider._();
+
+/// The store of confirmed barcode matches the games repository uses. It
+/// stays on the main database file (user data).
+
+final class BarcodeMatchStoreProvider
+    extends
+        $FunctionalProvider<
+          BarcodeMatchStore,
+          BarcodeMatchStore,
+          BarcodeMatchStore
+        >
+    with $Provider<BarcodeMatchStore> {
+  /// The store of confirmed barcode matches the games repository uses. It
+  /// stays on the main database file (user data).
+  BarcodeMatchStoreProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'barcodeMatchStoreProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$barcodeMatchStoreHash();
+
+  @$internal
+  @override
+  $ProviderElement<BarcodeMatchStore> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  BarcodeMatchStore create(Ref ref) {
+    return barcodeMatchStore(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(BarcodeMatchStore value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<BarcodeMatchStore>(value),
+    );
+  }
+}
+
+String _$barcodeMatchStoreHash() => r'241e3643b14f589c3a7900695dd5c92719945ad5';

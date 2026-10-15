@@ -136,4 +136,18 @@ void main() {
     // Debug test runs log failures through debugPrint.
     expect(store.log, isNotNull);
   });
+
+  test('the details cache and the match store are the local store until '
+      'T-102 moves the cache (T-029)', () {
+    final db = inMemoryDatabase();
+    addTearDown(db.close);
+    final container = ProviderContainer(
+      overrides: [appDatabaseProvider.overrideWithValue(db)],
+    );
+    addTearDown(container.dispose);
+
+    final store = container.read(localGameStoreProvider);
+    expect(container.read(gameDetailsCacheProvider), same(store));
+    expect(container.read(barcodeMatchStoreProvider), same(store));
+  });
 }

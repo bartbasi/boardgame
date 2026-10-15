@@ -3,6 +3,7 @@ import 'package:drift/isolate.dart' show DriftRemoteException;
 
 import '../../domain/result.dart';
 import 'app_database.dart';
+import 'game_stores.dart';
 
 /// The type of a database error, safe to log: only the type, because
 /// messages can quote stored data or paths. Errors from the background
@@ -56,19 +57,20 @@ final class ConfirmedMatch {
 /// id never leaves this class. Every method returns a [Result] and never
 /// throws: database errors become [StorageFailure] (AC6).
 ///
-/// At most [maxCachedDetails] games keep their details [ASSUMPTION: 500].
+/// At most [maxCachedDetails] games keep their details (500, confirmed in
+/// docs/decisions.md 2026-10-14).
 /// Saving more evicts the details of the least recently viewed games (a game
 /// never viewed counts from its fetch time). A game that a confirmed match
 /// points to keeps its row and BGG id, so the barcode still resolves; other
 /// evicted games are deleted. M3 will exempt games in the collection.
-class LocalGameStore {
+class LocalGameStore implements GameDetailsCache, BarcodeMatchStore {
   LocalGameStore(
     this._db, {
     this.maxCachedDetails = defaultMaxCachedDetails,
     this.log,
   }) : assert(maxCachedDetails >= 1, 'keep at least the game just saved');
 
-  /// The default cap on games with cached details [ASSUMPTION].
+  /// The default cap on games with cached details (confirmed 2026-10-14).
   static const int defaultMaxCachedDetails = 500;
 
   final AppDatabase _db;
@@ -84,6 +86,7 @@ class LocalGameStore {
   /// game again updates its row in place, so its internal id and any
   /// barcode match pointing to it stay valid (AC8). [viewedAt], when given,
   /// also records a view.
+  @override
   Future<Result<void>> saveDetails({
     required int bggId,
     required String detailsJson,
@@ -115,6 +118,7 @@ class LocalGameStore {
   });
 
   /// The cached details of [bggId], or null when none are stored.
+  @override
   Future<Result<CachedGameDetails?>> readDetails(int bggId) =>
       _guard('readDetails', () async {
         final row = await (_db.select(
@@ -133,6 +137,7 @@ class LocalGameStore {
 
   /// Records that the user opened [bggId] at [viewedAt]. Does nothing when
   /// the game is not stored.
+  @override
   Future<Result<void>> markViewed(int bggId, DateTime viewedAt) =>
       _guard('markViewed', () async {
         await (_db.update(_db.games)..where((g) => g.bggId.equals(bggId)))
@@ -142,6 +147,7 @@ class LocalGameStore {
   /// Stores that [gtin13] belongs to [bggId], replacing any earlier match
   /// for that code (AC2). The game gets a row without details if it has
   /// none yet.
+  @override
   Future<Result<void>> saveConfirmedMatch({
     required String gtin13,
     required int bggId,
@@ -171,6 +177,7 @@ class LocalGameStore {
   });
 
   /// The confirmed match for [gtin13], or null when there is none.
+  @override
   Future<Result<ConfirmedMatch?>> readConfirmedMatch(String gtin13) =>
       _guard('readConfirmedMatch', () async {
         final matches = _db.barcodeMatches;

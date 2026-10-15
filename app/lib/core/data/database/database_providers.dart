@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import 'app_database.dart';
+import 'game_stores.dart';
 import 'local_game_store.dart';
 import 'open_app_database.dart';
 
@@ -42,3 +43,15 @@ LocalGameStore localGameStore(Ref ref) => LocalGameStore(
   ref.watch(appDatabaseProvider),
   log: kDebugMode ? debugPrint : null,
 );
+
+/// The details cache the games repository uses. Today it is the same
+/// [LocalGameStore]; T-102 re-points this provider to the separate cache
+/// database file (PRD Q39).
+@Riverpod(keepAlive: true)
+GameDetailsCache gameDetailsCache(Ref ref) => ref.watch(localGameStoreProvider);
+
+/// The store of confirmed barcode matches the games repository uses. It
+/// stays on the main database file (user data).
+@Riverpod(keepAlive: true)
+BarcodeMatchStore barcodeMatchStore(Ref ref) =>
+    ref.watch(localGameStoreProvider);
