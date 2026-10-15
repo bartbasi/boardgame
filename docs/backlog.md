@@ -628,7 +628,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Acceptance criteria:
   1. Given a fresh install, then the database is created at schema version 1 with a games table (internal surrogate id as primary key, `bgg_id` unique and nullable, cached details data, fetchedAt, lastViewedAt) and a table of confirmed barcode matches (GTIN-13 key, the game's internal id as a foreign key, confirmed time). No table uses `bgg_id` as its key (docs/decisions.md 2026-10-11, "Storage keys") (proved by: unit with an in-memory database).
   2. Given a confirmed match from `0036000291452` to bggId 13, when a new match from the same code to bggId 822 is saved, then reading the code returns 822 (proved by: unit).
-  3. Given 501 games with cached details, then the details of the least recently viewed game are evicted so 500 remain [ASSUMPTION]. If a confirmed match points to that game, its row (internal id and `bgg_id`) stays, so reading that barcode still returns the game's bggId. M3 will exempt games in the collection (proved by: unit).
+  3. Given 501 games with cached details, then the details of the least recently viewed game are evicted so 500 remain (cap confirmed by the user, docs/decisions.md 2026-10-14). If a confirmed match points to that game, its row (internal id and `bgg_id`) stays, so reading that barcode still returns the game's bggId. M3 will exempt games in the collection (proved by: unit).
   4. Given the schema, then it is exported for Drift's migration tooling, and a migration test exists that later schema versions extend (proved by: unit).
   5. Given database work, then it runs off the UI isolate [ASSUMPTION] (proved by: manual review).
   6. Given a database error, then the caller receives a Failure, not an exception (proved by: unit with a failing fake).
@@ -859,7 +859,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M2 (low priority)
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-031 (done). The on-device criteria (AC8 to AC11) also need a TestFlight build, so they wait for T-036; AC1 to AC7 can run now, in parallel with any backend ticket. If T-030 lands first, rerun AC1 and AC2 against the real scanner screen.
+- Depends on: T-031 (done). The on-device criteria (AC9 to AC12) also need a TestFlight build or an Android phone, so they wait for T-036; AC1 to AC8 can run now, in parallel with any backend ticket. If T-030 lands first, rerun AC1 and AC2 against the real scanner screen.
 - UX spec: docs/ux/screens/manual-entry.md, docs/ux/screens/app-shell.md (section 2)
 - Linked files: app/lib/features/scanner/presentation/manual_entry_screen.dart, app/lib/features/scanner/presentation/barcode_field.dart, app/lib/core/widgets/open_once.dart, app/test/qa/manual_entry_round3_test.dart
 - Background: QA bug T-031-B3 (minor, deferred by the user on 2026-10-14) and review round 3 follow-ups R3-S1, R3-S2, R3-S3, R3-G1, all in docs/handoffs/T-031.md. B3 cause found by QA: `ManualEntryScreen.build` returns a `FractionallySizedBox` in the phone landscape branch and a `ConstrainedBox` in the other branch at the same spot, so the column and the TextField state are recreated on rotation. Fix idea: keep one widget tree shape and change only the constraints or alignment, or key the column with a GlobalKey. The developer picks one and says why in the handoff.
@@ -886,7 +886,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M3 (before T-037; can run any time after T-029, in parallel with M2 UI tickets because it touches only app/lib/core/data/database/ and the games repository's wiring)
 - Owner: flutter-developer
 - Status: todo
-- Depends on: T-027 (done), T-029; PRD Q39 answered yes. If the user answers no, PM closes this ticket and T-037 drops the dependency.
+- Depends on: T-027 (done), T-029. PRD Q39 was answered yes on 2026-10-14 (docs/decisions.md).
 - UX spec: n/a
 - Linked files: app/lib/core/data/database/, app/drift_schemas/, app/test/drift/, app/README.md ("On-device database")
 - Source: T-027 review R1-S5 and blocking risk B13. v1 has not shipped, so both files can start at schema version 1 with no data migration.
@@ -904,9 +904,9 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Milestone: M3
 - Owner: flutter-developer
 - Status: todo
-- Depends on: PRD Q38 (Android Auto Backup and iOS iCloud backup of app data; must be answered before this ticket starts); T-102 if PRD Q39 is answered yes
+- Depends on: T-102. PRD Q38 (backups stay on) and Q39 (separate cache file) were answered on 2026-10-14 (docs/decisions.md).
 - Goal: Drift tables and a tested migration from schema v1 for Owned, Wanted, and Evaluating items with their fields, one list per game at a time. Items point to games by internal id, not `bgg_id` (docs/decisions.md 2026-10-11, "Storage keys").
-- Carry-over from T-012 review R1-G4 (becomes criteria when scoped): apply the Q38 answer. Android sets `android:allowBackup` explicitly in the main manifest (GPLAY-14); if backups are off, add `dataExtractionRules` for Android 12+, including the `device-transfer` section (GPLAY-16, GPLAY-17), and rules for Android 11 and lower; on iOS, mark the database and photo files excluded on every save (APPLE-17). If backups stay on, check the 25 MB limit against a 2,000-game collection (GPLAY-15). Over 25 MB Android backs up nothing at all (GPLAY-28, B13), so the check counts every file Auto Backup would copy, and the manifest must not set `android:restoreAnyVersion="true"`, so a backup from a newer app version is not restored (GPLAY-29).
+- Carry-over from T-012 review R1-G4, updated for the Q38 answer (becomes criteria when scoped): operating system backups stay on. Android sets `android:allowBackup="true"` explicitly in the main manifest (GPLAY-14) and does not set `android:restoreAnyVersion="true"`, so a backup from a newer app version is not restored (GPLAY-29). Backup rules exclude the photos folder from cloud backup: `dataExtractionRules` for Android 12+ (GPLAY-16) and the older rules for Android 11 and lower; the device-transfer section may keep everything (GPLAY-17) [ASSUMPTION]. The details cache is already outside the backup (T-102, GPLAY-27). On iOS, the photos folder is marked excluded from backup on every save (APPLE-17). Check that the main database with a 2,000-game collection (PRD Q14) stays well under 25 MB, because over 25 MB Android backs up nothing at all (GPLAY-15, GPLAY-28, B13).
 - Carried forward from T-027 review R1-G3 (becomes a criterion when scoped): `LocalGameStore` deletes games in two places, the cache eviction step and the delete of games that nothing references (today: no details and no confirmed match). Both must also skip games that a collection item references. Draft criterion: given bggId 13 in Owned with no confirmed match, when its details are evicted (501 cached games, 13 the least recently viewed) and when a confirmed match that pointed to it is replaced by one to bggId 822, then both operations return success (not `StorageFailure` from a foreign key violation), the games row for 13 keeps its internal id and `bgg_id`, and the Owned item still resolves to bggId 13 (proved by: unit).
 - Carried forward from T-027 QA: a database file with a newer schema version than the app gives `StorageFailure` on every call and is left untouched (drift's default). Keep that behavior: no automatic delete-and-recreate of the user data file once it holds the collection (T-027 review R1-G4).
 
@@ -934,6 +934,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
 - Owner: flutter-developer
 - Status: todo
 - Goal: Add, view, and delete photos of owned copies, stored only on the device, with permission handling and a photo library purpose string that clearly describes the use (APPLE-03). UX drafts it; T-003 round 2 left it open.
+- Carried forward from PRD Q38 (answered 2026-10-14, docs/decisions.md): photos stay out of operating system backups. Photos go only in the folder T-037's Android backup rules exclude, and on iOS each saved photo, or its folder, is marked excluded from backup on every save, because some file operations reset the mark (APPLE-17) (becomes a criterion when scoped).
 
 ### T-042 Wanted and Evaluating details and edit
 - Milestone: M3
@@ -976,7 +977,7 @@ Backend tickets here depend on T-002 for upstream facts. Do not start one until 
   3. Given a backup whose schema version is higher than the app's `schemaVersion`, then the restore is refused with `backup.restoreFailedNewer` and the live file is unchanged; no downgrade is attempted (proved by: unit).
   4. Given a backup from an older schema version (v1 and every later exported version), then it is migrated on a copy, passes checks 1 to 3, and only then replaces the live data (proved by: unit, using the exported schemas in app/drift_schemas/).
   5. Given the restore fails or the app is killed at any step before the swap completes, then at the next open the previous collection is intact and opens without `StorageFailure` (proved by: unit with a failing fake at each step).
-  6. Given PRD Q39 is answered yes (T-102), then the backup file contains only the user data file's content, not the re-downloadable details cache [ASSUMPTION], and after a restore the details cache is emptied so it cannot point at games the restored data lacks (proved by: unit).
+  6. Given the separate details cache file (PRD Q39, answered yes 2026-10-14; T-102), then the backup file contains only the user data file's content, not the re-downloadable details cache [ASSUMPTION], and after a restore the details cache is emptied so it cannot point at games the restored data lacks (proved by: unit).
 
 ### T-048 Settings screen with backup, export, and import
 - Milestone: M3
